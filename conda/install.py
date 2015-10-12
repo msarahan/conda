@@ -306,21 +306,31 @@ def create_meta(prefix, dist, info_dir, extra_info):
 
 
 def mk_menus(prefix, files, remove=False):
-    if abspath(prefix) != abspath(sys.prefix):
-        # we currently only want to create menu items for packages
-        # in default environment
-        return
     menu_files = [f for f in files
                   if f.startswith('Menu/') and f.endswith('.json')]
     if not menu_files:
         return
     try:
         import menuinst
-    except ImportError:
+    except ImportError as e:
+        logging.warn("Menuinst could not be imported:")
+        logging.warn(e.message)
         return
     for f in menu_files:
         try:
-            menuinst.install(join(prefix, f), remove, prefix)
+            env_name = os.getenv("CONDA_DEFAULT_ENV")
+            if env_name:
+                # Windows uses full paths; only the last folder is the env name.
+                # Other platforms still use just name.
+                end_name = os.path.split(env_name)
+                env_name = end_name[1] if end_name[1] else env_name
+            if sys.platform == "win32":
+                env_setup_cmd = "activate {}"
+            else:
+                env_setup_cmd = "source activate {}"
+            env_setup_cmd = env_setup_cmd.format(env_name) if env_name else None
+            menuinst.install(join(prefix, f), remove, prefix,
+                             env_name=env_name, env_setup_cmd=env_setup_cmd)
         except:
             stdoutlog.error("menuinst Exception:")
             stdoutlog.error(traceback.format_exc())
