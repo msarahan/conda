@@ -329,7 +329,7 @@ def mk_menus(prefix, files, remove=False):
         logging.warn(e.message)
         return
 
-    env_name = (None if abspath(prefix) == abspath(sys.prefix) else
+    env_name = ("root" if abspath(prefix) == abspath(sys.prefix) else
                 basename(prefix))
     env_setup_cmd = ("activate %s" % env_name) if env_name else None
     for f in menu_files:
