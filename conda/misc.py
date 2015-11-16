@@ -4,8 +4,8 @@
 from __future__ import print_function, division, absolute_import
 
 import os
+import re
 import sys
-import json
 import shlex
 import shutil
 import subprocess
@@ -35,6 +35,60 @@ def conda_installed_files(prefix, exclude_self_build=False):
             continue
         res.update(set(meta['files']))
     return res
+
+
+def force_extract_and_link(dists, prefix, verbose=False):
+    actions = defaultdict(list)
+    actions['PREFIX'] = prefix
+    actions['op_order'] = RM_EXTRACTED, EXTRACT, UNLINK, LINK
+    # maps names of installed packages to dists
+    linked = {install.name_dist(dist): dist for dist in install.linked(prefix)}
+    for dist in dists:
+        actions[RM_EXTRACTED].append(dist)
+        actions[EXTRACT].append(dist)
+        # unlink any installed package with that name
+        name = install.name_dist(dist)
+        if name in linked:
+            actions[UNLINK].append(linked[name])
+        actions[LINK].append(dist)
+    execute_actions(actions, verbose=verbose)
+
+
+url_pat = re.compile(r'(?P<url>.+)/(?P<fn>[^/#]+\.tar\.bz2)'
+                     r'(:?#(?P<md5>[0-9a-f]{32}))?$')
+def explicit(urls, prefix, verbose=True):
+    import conda.fetch as fetch
+    from conda.utils import md5_file
+
+    dists = []
+    for url in urls:
+        if url == '@EXPLICIT':
+            continue
+        print("Fetching: %s" % url)
+        m = url_pat.match(url)
+        if m is None:
+            sys.exit("Error: Could not parse: %s" % url)
+        fn = m.group('fn')
+        dists.append(fn[:-8])
+        index = fetch.fetch_index((m.group('url') + '/',))
+        try:
+            info = index[fn]
+        except KeyError:
+            sys.exit("Error: no package '%s' in index" % fn)
+        if m.group('md5') and m.group('md5') != info['md5']:
+            sys.exit("Error: MD5 in explicit files does not match index")
+        pkg_path = join(config.pkgs_dirs[0], fn)
+        if isfile(pkg_path):
+            try:
+                if md5_file(pkg_path) != info['md5']:
+                    install.rm_rf(pkg_path)
+                    fetch.fetch_pkg(info)
+            except KeyError:
+                sys.stderr.write('Warning: cannot lookup MD5 of: %s' % fn)
+        else:
+            fetch.fetch_pkg(info)
+
+    force_extract_and_link(dists, prefix, verbose=verbose)
 
 
 def rel_path(prefix, path, windows_forward_slashes=True):
@@ -203,26 +257,7 @@ def install_local_packages(prefix, paths, verbose=False):
             continue
         shutil.copyfile(src_path, dst_path)
 
-    actions = defaultdict(list)
-    actions['PREFIX'] = prefix
-    actions['op_order'] = RM_EXTRACTED, EXTRACT, UNLINK, LINK
-    for dist in dists:
-        actions[RM_EXTRACTED].append(dist)
-        actions[EXTRACT].append(dist)
-        if install.is_linked(prefix, dist):
-            actions[UNLINK].append(dist)
-        actions[LINK].append(dist)
-    execute_actions(actions, verbose=verbose)
-
-    depends = []
-    for dist in dists:
-        try:
-            with open(join(pkgs_dir, dist, 'info', 'index.json')) as fi:
-                meta = json.load(fi)
-            depends.extend(meta['depends'])
-        except (IOError, KeyError):
-            continue
-    return depends
+    force_extract_and_link(dists, prefix, verbose=verbose)
 
 
 def environment_for_conda_environment(prefix=config.root_dir):

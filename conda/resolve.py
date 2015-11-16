@@ -419,15 +419,106 @@ class Resolve(object):
         for fn, info in iteritems(index):
             self.groups[info['name']].append(fn)
         self.msd_cache = {}
+        self.clear_filter()
 
-    def find_matches(self, ms):
-        for fn in sorted(self.groups[ms.name]):
-            if ms.match(fn):
+    def clear_filter(self):
+        self.filter_ = defaultdict(lambda:True)
+        self.get_pkgs_ = {}
+
+    def prune_packages(self, specs):
+        log.debug('Beginning the pruning process')
+        touched = defaultdict(bool)
+        valid = {}
+
+        def filter_group(matches):
+            match1 = next(x for x in matches)
+            name = match1.name
+
+            first = False
+            nold = nnew = 0
+            group = self.groups[name]
+            for fn in group:
+                sat = valid.get(fn, None)
+                if sat is None:
+                    first = sat = True
+                nold += sat
+                # Prune packages that don't match any of the patterns
+                if sat:
+                    sat = any(m.match(fn) for m in matches)
+                # Prune packages with missing dependencies
+                if sat:
+                    sat = all(any(valid.get(f2, True) and ms.match(f2)
+                                  for f2 in self.find_matches(ms, True))
+                              for ms in self.ms_depends(fn) if ms.name in self.groups)
+                nnew += sat
+                valid[fn] = sat
+
+            reduced = nnew < nold
+            if reduced:
+                dotlog.debug('%s: pruned from %d -> %d' % (name, nold, nnew))
+                if nnew == 0:
+                    return True
+            elif not first or nold == 0:
+                return False
+
+            # Perform the same filtering steps on any dependencies shared across
+            # *all* packages in the group. Even if just one of the packages does
+            # not have a particular dependency, it must be ignored in this pass.
+            cdeps = {}
+            for fn in group:
+                if valid[fn]:
+                    for m2 in self.ms_depends(fn):
+                        if m2.name in self.groups:
+                            cdeps.setdefault(m2.name,[]).append(m2)
+            for mname, deps in iteritems(cdeps):
+                if len(deps) == nnew:
+                    filter_group(deps)
+            return reduced
+
+        def is_valid(fn):
+            val = valid.get(fn, None)
+            if val is None:
+                val = valid[fn] = True
+                for ms in self.ms_depends(fn):
+                    if not any(is_valid(f2) for f2 in self.find_matches(ms, True)):
+                        val = False
+                        break
+                valid[fn] = val
+            return val
+
+        def touch(fn, force=False):
+            val = touched.get(fn, None)
+            if val is None or (force and not val):
+                val = touched[fn] = force or is_valid(fn)
+                if val:
+                    for ms in self.ms_depends(fn):
+                        for f2 in self.find_matches(ms, True):
+                            touch(f2, force)
+            return val
+
+        # Iterate in the filtering process until no more progress is made
+        mspecs = [MatchSpec(s) for s in specs]
+        while sum(filter_group([ms]) for ms in mspecs):
+            pass
+
+        # Now touch all of the packages to bring in the weak dependencies
+        for ms in mspecs:
+            if sum(touch(fn) for fn in self.find_matches(ms, True)) == 0:
+                dotlog.debug('Spec %s cannot be satisfied' % ms.spec)
+                return False
+
+        self.filter_ = touched
+        self.get_pkgs_ = {}
+        return True
+
+    def find_matches(self, ms, all=True):
+        for fn in self.groups[ms.name]:
+            if self.filter_[fn] and ms.match(fn):
                 yield fn
 
     def ms_depends(self, fn):
-        # the reason we don't use @memoize here is to allow resetting the
-        # cache using self.msd_cache = {}, which is used during testing
+        # We can't use @memoize here because this cache is modified
+        # in update_with_features as well
         try:
             res = self.msd_cache[fn]
         except KeyError:
@@ -445,8 +536,11 @@ class Resolve(object):
     def track_features(self, fn):
         return set(self.index[fn].get('track_features', '').split())
 
-    @memoize
+    # Changed to manual memoization so that we can reset if we add/change the filter.
     def get_pkgs(self, ms, max_only=False):
+        key = (ms,max_only)
+        if key in self.get_pkgs_:
+            return self.get_pkgs_[key]
         pkgs = [Package(fn, self.index[fn]) for fn in self.find_matches(ms)]
         if not pkgs:
             raise NoPackagesFound("No packages found in current %s channels matching: %s" % (config.subdir, ms), [ms.spec])
@@ -461,8 +555,8 @@ class Resolve(object):
                 except TypeError:
                     # They are not equal
                     pass
-            return ret
-
+            pkgs = ret
+        self.get_pkgs_[key] = pkgs
         return pkgs
 
     def get_max_dists(self, ms):
@@ -485,8 +579,7 @@ class Resolve(object):
                         continue
                     res[pkg2.fn] = pkg2
                     try:
-                        if ms.strictness < 3:
-                            add_dependents(pkg2.fn, max_only=max_only)
+                        add_dependents(pkg2.fn, max_only=max_only)
                     except NoPackagesFound as e:
                         for pkg in e.pkgs:
                             if pkg not in notfound:
@@ -610,8 +703,10 @@ class Resolve(object):
 
         return eq, max_rhs
 
-    def get_dists(self, specs, max_only=False):
+    def get_dists(self, specs, max_only=False, filtered=False):
         dists = {}
+        if filtered:
+            filtered = self.prune_packages(specs)
         for spec in specs:
             found = False
             notfound = []
@@ -630,8 +725,11 @@ class Resolve(object):
                     dists[pkg.fn] = pkg
                     found = True
             if not found:
+                if filtered:
+                    self.clear_filter()
                 raise NoPackagesFound("Could not find some dependencies for %s: %s" % (spec, ', '.join(notfound)), [spec] + notfound)
-
+        if filtered:
+            self.clear_filter()
         return dists
 
     def graph_sort(self, must_have):
@@ -676,9 +774,10 @@ class Resolve(object):
             else:
                 try_max_only = True
 
+        # XXX: Should try_max_only use the filtered list?
         if try_max_only:
             try:
-                dists = self.get_dists(specs, max_only=True)
+                dists = self.get_dists(specs, max_only=True, filtered=False)
             except NoPackagesFound:
                 # Handle packages that are not included because some dependencies
                 # couldn't be found.
@@ -706,7 +805,7 @@ class Resolve(object):
                             return [ret]
                         return ret
 
-        dists = self.get_dists(specs)
+        dists = self.get_dists(specs, filtered=True)
 
         v = {}  # map fn to variable number
         w = {}  # map variable number to fn
@@ -939,6 +1038,10 @@ Note that the following features are enabled:
         if features is None:
             features = self.installed_features(installed)
         for spec in specs:
+            if sys.platform == 'win32' and spec == 'python':
+                continue
+            # XXX: This does not work when a spec only contains the name,
+            # and different versions of the package have different features.
             ms = MatchSpec(spec)
             for pkg in self.get_pkgs(ms, max_only=max_only):
                 fn = pkg.fn

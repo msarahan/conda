@@ -204,8 +204,7 @@ def plan_from_actions(actions):
         op_order = inst.action_codes
 
     assert inst.PREFIX in actions and actions[inst.PREFIX]
-    res = [
-           ('PREFIX', '%s' % actions[inst.PREFIX])]
+    res = [('PREFIX', '%s' % actions[inst.PREFIX])]
 
     if sys.platform == 'win32':
         # Always link/unlink menuinst first on windows in case a subsequent
@@ -426,7 +425,7 @@ def install_actions(prefix, index, specs, force=False, only_names=None,
         pass
     else:
         # disallow conda from being installed into all other environments
-        if 'conda' in must_have:
+        if 'conda' in must_have or 'conda-env' in must_have:
             sys.exit("Error: 'conda' can only be installed into the "
                      "root environment")
 

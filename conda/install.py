@@ -138,6 +138,13 @@ def _remove_readonly(func, path, excinfo):
     os.chmod(path, stat.S_IWRITE)
     func(path)
 
+def warn_failed_remove(function, path, exc_info):
+    if exc_info[1].errno == errno.EACCES:
+        log.warn("Cannot remove, permission denied: {0}".format(path))
+    elif exc_info[1].errno == errno.ENOTEMPTY:
+        log.warn("Cannot remove, not empty: {0}".format(path))
+    else:
+        log.warn("Cannot remove, unknown reason: {0}".format(path))
 
 def rm_rf(path, max_retries=5, trash=True):
     """
@@ -152,12 +159,15 @@ def rm_rf(path, max_retries=5, trash=True):
         # Note that we have to check if the destination is a link because
         # exists('/path/to/dead-link') will return False, although
         # islink('/path/to/dead-link') is True.
-        os.unlink(path)
+        if os.access(path, os.W_OK):
+            os.unlink(path)
+        else:
+            log.warn("Cannot remove, permission denied: {0}".format(path))
 
     elif isdir(path):
         for i in range(max_retries):
             try:
-                shutil.rmtree(path)
+                shutil.rmtree(path, ignore_errors=False, onerror=warn_failed_remove)
                 return
             except OSError as e:
                 msg = "Unable to delete %s\n%s\n" % (path, e)
@@ -189,7 +199,7 @@ def rm_rf(path, max_retries=5, trash=True):
                 log.debug(msg + "Retrying after %s seconds..." % i)
                 time.sleep(i)
         # Final time. pass exceptions to caller.
-        shutil.rmtree(path)
+        shutil.rmtree(path, ignore_errors=False, onerror=warn_failed_remove)
 
 def rm_empty_dir(path):
     """
@@ -306,16 +316,32 @@ def create_meta(prefix, dist, info_dir, extra_info):
 
 
 def mk_menus(prefix, files, remove=False):
+    """
+    Create cross-platform menu items (e.g. Windows Start Menu)
+
+    Passes all menu config files %PREFIX%/Menu/*.json to ``menuinst.install``.
+    ``remove=True`` will remove the menu items.
+    """
     menu_files = [f for f in files
-                  if f.startswith('Menu/') and f.endswith('.json')]
+                  if f.lower().startswith('menu/')
+                  and f.lower().endswith('.json')]
     if not menu_files:
         return
+    elif basename(abspath(prefix)).startswith('_'):
+        logging.warn("Environment name starts with underscore '_'.  "
+                     "Skipping menu installation.")
+        return
+
     try:
         import menuinst
-    except ImportError as e:
+    except:
         logging.warn("Menuinst could not be imported:")
-        logging.warn(e.message)
+        logging.warn(traceback.format_exc())
         return
+
+    env_name = (None if abspath(prefix) == abspath(sys.prefix) else
+                basename(prefix))
+    env_setup_cmd = ("activate %s" % env_name) if env_name else None
     for f in menu_files:
         try:
             env_name = os.getenv("CONDA_DEFAULT_ENV")
@@ -329,7 +355,10 @@ def mk_menus(prefix, files, remove=False):
             else:
                 env_setup_cmd = "source activate {}"
             env_setup_cmd = env_setup_cmd.format(env_name) if env_name else None
-            menuinst.install(join(prefix, f), remove, prefix,
+            if menuinst.__version__.startswith('1.0'):
+                menuinst.install(join(prefix, f), remove, prefix)
+            else:
+                menuinst.install(join(prefix, f), remove, prefix,
                              env_name=env_name, env_setup_cmd=env_setup_cmd)
         except:
             stdoutlog.error("menuinst Exception:")

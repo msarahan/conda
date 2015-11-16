@@ -180,6 +180,16 @@ def add_parser_use_index_cache(p):
         help="Use cache of channel index files.",
     )
 
+
+def add_parser_no_use_index_cache(p):
+    p.add_argument(
+        "--no-use-index-cache",
+        action="store_false",
+        default=True,
+        dest="use_index_cache",
+        help="Use cache of channel index files.",
+    )
+
 def add_parser_copy(p):
     p.add_argument(
         '--copy',
@@ -485,12 +495,18 @@ def spec_from_line(line):
 def specs_from_url(url, json=False):
     from conda.fetch import TmpDownload
 
+    explicit = False
     with TmpDownload(url, verbose=False) as path:
         specs = []
         try:
             for line in open(path):
                 line = line.strip()
                 if not line or line.startswith('#'):
+                    continue
+                if line == '@EXPLICIT':
+                    explicit = True
+                if explicit:
+                    specs.append(line)
                     continue
                 spec = spec_from_line(line)
                 if spec is None:

@@ -1,3 +1,46 @@
+2015-XX-XX   3.18.6:
+--------------------
+  * improve conda clean when user lacks permissions, #1807
+  * make show_channel_urls default to True, #1771
+  * cleaner write tests, #1735
+  * fix documentation, #1709
+  * improve conda clean when directories don't exist, #1808
+
+2015-11-11   3.18.5:
+--------------------
+  * fix bad menuinst exception handling, #1798
+  * add workaround for unresolved dependencies on Windows
+
+
+2015-11-09   3.18.4:
+--------------------
+  * allow explicit file to contain MD5 hashsums
+  * add --md5 option to "conda list --explicit"
+  * stop infinite recursion during certain resolve operations, #1749
+  * add dependencies even if strictness == 3, #1766
+
+
+2015-10-15   3.18.3:
+--------------------
+  * added a pruning step for more efficient solves, #1702
+  * disallow conda-env to be installed into non-root environment
+  * improve error output for bad command input, #1706
+  * pass env name and setup cmd to menuinst, #1699
+
+
+2015-10-12   3.18.2:
+--------------------
+  * add "conda list --explicit" which contains the URLs of all conda packages
+    to be installed, and can used with the install/create --file option, #1688
+  * fix a potential issue in conda clean
+  * avoid issues with LookupErrors when updating Python in the root
+    environment on Windows
+  * don't fetch the index from the network with conda remove
+  * when installing conda packages directly, "conda install <pkg>.tar.bz2",
+    unlink any installed package with that name (not just the installed one)
+  * allow menu items to be installed in non-root env, #1692
+
+
 2015-09-28   3.18.1:
 --------------------
   * fix: removed reference to win_ignore_root in plan module
