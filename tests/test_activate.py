@@ -88,9 +88,9 @@ def _format_vars(shell):
     raw_ps, _ = run_in(shelldict["printps1"], shell)
 
     command_setup = """\
-{set} PYTHONPATH="{PYTHONPATH}"
-{set} CONDARC=
-{set} CONDA_PATH_BACKUP=
+{set}PYTHONPATH="{PYTHONPATH}"
+{set}CONDARC=
+{set}CONDA_PATH_BACKUP=
 """.format(here=dirname(__file__), PYTHONPATH=shelldict['path_to'](PYTHONPATH),
            set=shelldict["set_var"])
     if shelldict["shell_suffix"] == '.bat':
@@ -138,6 +138,7 @@ def test_activate_test1(shell):
         {source} "{syspath}{binpath}activate{shell_suffix}" "{env_dirs[0]}"
         {printpath}
         """).format(envs=envs, env_dirs=gen_test_env_paths(envs, shell), **shell_vars)
+        print(commands)
 
         stdout, stderr = run_in(commands, shell)
         assert_equals(stderr, u'prepending {envpaths} to PATH'\

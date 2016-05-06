@@ -20,27 +20,10 @@ if (-not $PSScriptRoot)
 # Get location of Anaconda installation
 $anacondaInstallPath = (get-item $PSScriptRoot).parent.FullName
 
-# Build ENVS path
-$env:ANACONDA_ENVS = $anacondaInstallPath + '\envs'
-
-if (-not $condaEnvName)
+if ($args.Count > 1)
 {
-    Write-Host
-    Write-Host "Usage: activate envname [-UpdateRegistry]"
-    Write-Host
-    Write-Host "Deactivates previously activated Conda environment, then activates the chosen one."
-    Write-Host
-    Write-Host
-    exit
-}
-
-if (-not (Test-Path $env:ANACONDA_ENVS\$condaEnvName\Python.exe))
-{
-    Write-Host
-    Write-Warning "No environment named `"$condaEnvName`" exists in $env:ANACONDA_ENVS."
-    Write-Host
-    Write-Host
-    exit
+    (@echo Error: did not expect more than one argument.) 1>&2
+    (@echo     ^(Got %*^)) 1>&2
 }
 
 # Deactivate a previous activation if it is live

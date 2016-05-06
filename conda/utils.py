@@ -151,6 +151,7 @@ def url_path(path):
 
 
 def run_in(command, shell, cwd=None, env=None):
+    # shell can be passed in as name of shell (string) or shelldict (dict)
     if hasattr(shell, "keys"):
         shell = shell["exe"]
     if shell == 'cmd.exe':
@@ -164,8 +165,6 @@ def run_in(command, shell, cwd=None, env=None):
             stdout, stderr = p.communicate()
         finally:
             os.unlink(cmd_script.name)
-    elif shell == 'powershell':
-        raise NotImplementedError
     else:
         cmd_bits = ([shells[shell]["exe"]] + shells[shell]["shell_args"] +
                     [translate_stream(command, shells[shell]["path_to"])])
@@ -321,47 +320,50 @@ unix_shell_base = dict(
 
 if sys.platform == "win32":
     shells = {
-        # "powershell.exe": dict(
-        #    echo="echo",
-        #    test_echo_extra=" .",
-        #    var_format="${var}",
-        #    binpath="/bin/",  # mind the trailing slash.
-        #    source_setup="source",
-        #    nul='2>/dev/null',
-        #    set_var='export ',
-        #    shell_suffix=".ps",
-        #    env_script_suffix=".ps",
-        #    printps1='echo $PS1',
-        #    printdefaultenv='echo $CONDA_DEFAULT_ENV',
-        #    printpath="echo %PATH%",
-        #    exe="powershell.exe",
-        #    path_from=path_identity,
-        #    path_to=path_identity,
-        #    slash_convert = ("/", "\\"),
-        # ),
-        "cmd.exe": dict(
-            echo="@echo",
-            var_format="%{}%",
+        "powershell.exe": dict(
             binpath="\\Scripts\\",  # mind the trailing slash.
-            source_setup="call",
-            test_echo_extra="",
-            nul='1>NUL 2>&1',
-            set_var='set ',
-            shell_suffix=".bat",
+            echo="echo",
+            env_script_suffix=".ps1",
+            exe="powershell.exe",
+            nul='2> $null',
+            path_from=path_identity,
+            path_to=path_identity,
+            pathsep=";",
+            printdefaultenv='echo $env:CONDA_DEFAULT_ENV',
+            printpath="echo $env:Path",
+            printps1='prompt',
+            sep="\\",
+            set_var='$env:',
+            shell_args=["-ExecutionPolicy", "Bypass", "-Command", ],
+            shell_suffix=".ps1",
+            slash_convert = ("/", "\\"),
+            source_setup="",
+            test_echo_extra=" .",
+            var_format="$env:{var}",
+        ),
+        "cmd.exe": dict(
+            binpath="\\Scripts\\",  # mind the trailing slash.
+            echo="@echo",
             env_script_suffix=".bat",
+            exe="cmd.exe",
+            nul='1>NUL 2>&1',
+            path_from=path_identity,
+            path_to=path_identity,
+            pathsep=";",
             printps1="@echo %PROMPT%",
             # parens mismatched intentionally.  See http://stackoverflow.com/questions/20691060/how-do-i-echo-a-blank-empty-line-to-the-console-from-a-windows-batch-file # NOQA
             printdefaultenv='IF NOT "%CONDA_DEFAULT_ENV%" == "" (\n'
                             'echo %CONDA_DEFAULT_ENV% ) ELSE (\n'
                             'echo()',
             printpath="@echo %PATH%",
-            exe="cmd.exe",
-            shell_args=["/d", "/c"],
-            path_from=path_identity,
-            path_to=path_identity,
-            slash_convert=("/", "\\"),
             sep="\\",
-            pathsep=";",
+            set_var='set ',
+            shell_args=["/d", "/c"],
+            shell_suffix=".bat",
+            slash_convert=("/", "\\"),
+            source_setup="call",
+            test_echo_extra="",
+            var_format="%{}%",
         ),
         "cygwin": dict(
             unix_shell_base,
