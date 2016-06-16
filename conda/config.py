@@ -77,6 +77,7 @@ rc_bool_keys = [
     'always_yes',
     'always_copy',
     'allow_softlinks',
+    'auto_update_conda',
     'changeps1',
     'use_pip',
     'offline',
@@ -321,85 +322,38 @@ def get_proxy_servers():
         return res
     sys.exit("Error: proxy_servers setting not a mapping")
 
-def load_condarc(path):
-    rc = load_condarc_(path)
+# ----- foreign -----
 
-    root_dir = abspath(expanduser(os.getenv('CONDA_ROOT',
-                                            rc.get('root_dir', sys.prefix))))
-    root_writable = try_write(root_dir)
+try:
+    with open(join(root_dir, 'conda-meta', 'foreign')) as fi:
+        foreign = fi.read().split()
+except IOError:
+    foreign = [] if isdir(join(root_dir, 'conda-meta')) else ['python']
 
-    globals().update(locals())
+# ----- misc -----
 
-    envs_dirs = [abspath(expanduser(p)) for p in (
-            _pathsep_env('CONDA_ENVS_PATH') or
-            rc.get('envs_dirs') or
-            _default_envs_dirs()
-            )]
+add_pip_as_python_dependency = bool(rc.get('add_pip_as_python_dependency', True))
+always_yes = bool(rc.get('always_yes', False))
+always_copy = bool(rc.get('always_copy', False))
+changeps1 = bool(rc.get('changeps1', True))
+use_pip = bool(rc.get('use_pip', True))
+binstar_upload = rc.get('anaconda_upload',
+                        rc.get('binstar_upload', None)) # None means ask
+allow_softlinks = bool(rc.get('allow_softlinks', True))
+auto_update_conda = bool(rc.get('auto_update_conda', rc.get('self_update', True)))
+# show channel URLs when displaying what is going to be downloaded
+show_channel_urls = rc.get(
+        'show_channel_urls', None) # None means letting conda decide
+# set packages disallowed to be installed
+disallow = set(rc.get('disallow', []))
+# packages which are added to a newly created environment by default
+create_default_packages = list(rc.get('create_default_packages', []))
+update_dependencies = bool(rc.get('update_dependencies', True))
 
-    pkgs_dirs = [pkgs_dir_from_envs_dir(envs_dir) for envs_dir in envs_dirs]
+# ssl_verify can be a boolean value or a filename string
+ssl_verify = rc.get('ssl_verify', True)
 
-    _default_env = os.getenv('CONDA_DEFAULT_ENV')
-    if _default_env in (None, root_env_name):
-        default_prefix = root_dir
-    elif os.sep in _default_env:
-        default_prefix = abspath(_default_env)
-    else:
-        for envs_dir in envs_dirs:
-            default_prefix = join(envs_dir, _default_env)
-            if isdir(default_prefix):
-                break
-        else:
-            default_prefix = join(envs_dirs[0], _default_env)
-
-    # ----- foreign -----
-
-    try:
-        with open(join(root_dir, 'conda-meta', 'foreign')) as fi:
-            foreign = fi.read().split()
-    except IOError:
-        foreign = [] if isdir(join(root_dir, 'conda-meta')) else ['python']
-
-    channel_alias = rc.get('channel_alias', DEFAULT_CHANNEL_ALIAS)
-    if not sys_rc.get('allow_other_channels', True) and 'channel_alias' in sys_rc:
-        channel_alias = sys_rc['channel_alias']
-
-    channel_alias = channel_alias.rstrip('/')
-    _binstar = r'((:?%s|binstar\.org|anaconda\.org)/?)(t/[0-9a-zA-Z\-<>]{4,})/'
-    BINSTAR_TOKEN_PAT = re.compile(_binstar % re.escape(channel_alias))
-    channel_alias = BINSTAR_TOKEN_PAT.sub(r'\1', channel_alias + '/')
-
-    offline = bool(rc.get('offline', False))
-
-    add_pip_as_python_dependency = bool(rc.get('add_pip_as_python_dependency', True))
-    always_yes = bool(rc.get('always_yes', False))
-    always_copy = bool(rc.get('always_copy', False))
-    changeps1 = bool(rc.get('changeps1', True))
-    use_pip = bool(rc.get('use_pip', True))
-    binstar_upload = rc.get('anaconda_upload',
-                            rc.get('binstar_upload', None))  # None means ask
-    allow_softlinks = bool(rc.get('allow_softlinks', True))
-    self_update = bool(rc.get('self_update', True))
-    # show channel URLs when displaying what is going to be downloaded
-    show_channel_urls = rc.get('show_channel_urls', None)  # None means letting conda decide
-    # set packages disallowed to be installed
-    disallow = set(rc.get('disallow', []))
-    # packages which are added to a newly created environment by default
-    create_default_packages = list(rc.get('create_default_packages', []))
-    update_dependencies = bool(rc.get('update_dependencies', True))
-    channel_priority = bool(rc.get('channel_priority', True))
-
-    # ssl_verify can be a boolean value or a filename string
-    ssl_verify = rc.get('ssl_verify', True)
-
-    try:
-        track_features = rc.get('track_features', [])
-        if isinstance(track_features, string_types):
-            track_features = track_features.split()
-        track_features = set(track_features)
-    except KeyError:
-        track_features = None
-
-    globals().update(locals())
-    return rc
-
-load_condarc(rc_path)
+try:
+    track_features = set(rc['track_features'])
+except KeyError:
+    track_features = None
