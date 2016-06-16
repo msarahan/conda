@@ -1217,6 +1217,7 @@ def duplicates_to_remove(dist_metas, keep_dists):
 
 
 def main():
+    # This CLI is only invoked from the self-extracting shell installers
     from optparse import OptionParser
 
     p = OptionParser(description="conda link tool used by installer")
@@ -1268,7 +1269,7 @@ def main():
     for dist in idists:
         if opts.verbose:
             print("linking: %s" % dist)
-        link(prefix, dist, linktype, opts.shortcuts)
+        link(prefix, dist, linktype)
 
     messages(prefix)
 
