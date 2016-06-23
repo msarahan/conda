@@ -400,6 +400,9 @@ if sys.platform == "win32":
         "bash.exe": dict(
             msys2_shell_base, exe="bash.exe",
         ),
+        "bash": dict(
+            msys2_shell_base, exe="bash",
+        ),
         "sh.exe": dict(
             msys2_shell_base, exe="sh.exe",
         ),
