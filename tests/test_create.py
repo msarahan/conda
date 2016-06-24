@@ -393,7 +393,7 @@ class IntegrationTests(TestCase):
 
     @pytest.mark.skipif(not on_win, reason="shortcuts only relevant on Windows")
     def test_shortcut_in_underscore_env_shows_message(self):
-        prefix = make_temp_prefix("_conda")
+        prefix = make_temp_prefix("_" + str(uuid4())[:7])
         try:
             config.load_condarc("")
             stdout, stderr = run_command(Commands.CREATE, prefix, "console_shortcut", "--shortcuts")
@@ -403,7 +403,7 @@ class IntegrationTests(TestCase):
 
     @pytest.mark.skipif(not on_win, reason="shortcuts only relevant on Windows")
     def test_shortcut_not_attempted_without_shortcuts_arg(self):
-        prefix = make_temp_prefix("_conda")
+        prefix = make_temp_prefix("_" + str(uuid4())[:7])
         try:
             config.load_condarc("")
             stdout, stderr = run_command(Commands.CREATE, prefix, "console_shortcut")
