@@ -41,11 +41,7 @@ import sys
 import tarfile
 import time
 import traceback
-from os.path import (abspath, basename, dirname, isdir, isfile, islink,
-                     join, normpath)
-
-
-on_win = bool(sys.platform == "win32")
+from os.path import (abspath, basename, dirname, isdir, isfile, islink, join)
 
 try:
     from conda.lock import Locked
@@ -962,11 +958,16 @@ def is_linked(prefix, dist):
     Return the install metadata for a linked package in a prefix, or None
     if the package is not linked in the prefix.
     """
-    # FIXME Functions that begin with `is_` should return True/False
-    return load_meta(prefix, dist)
+    meta_path = join(prefix, 'conda-meta', dist + '.json')
+    try:
+        with open(meta_path) as fi:
+            return json.load(fi)
+    except IOError:
+        return None
 
 
 def delete_trash(prefix=None):
+    from conda.config import pkgs_dirs
     for pkg_dir in pkgs_dirs:
         trash_dir = join(pkg_dir, '.trash')
         try:
@@ -995,6 +996,7 @@ def move_path_to_trash(path):
     delete_trash()
     import tempfile
 
+    from conda.config import pkgs_dirs
     for pkg_dir in pkgs_dirs:
         trash_dir = join(pkg_dir, '.trash')
 
