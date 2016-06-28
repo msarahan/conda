@@ -4,9 +4,11 @@ import shutil
 import stat
 import tempfile
 import unittest
-from sys import platform
+from contextlib import contextmanager
 from os import makedirs
 from os.path import join, basename, relpath, exists, dirname
+
+import pytest
 
 from conda import install, config
 from conda.install import (PaddingError, binary_replace, update_prefix,

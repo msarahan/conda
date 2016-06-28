@@ -271,28 +271,39 @@ def rm_rf(path, max_retries=5, trash=True):
         if trash and on_win and move_path_to_trash(path, preclean=False):
             return
 
-        for i in range(max_retries):
-            try:
-                shutil.rmtree(path, ignore_errors=False, onerror=warn_failed_remove)
-                return
-            except OSError as e:
-                if trash and move_path_to_trash(path):
+        try:
+            for i in range(max_retries):
+                try:
+                    shutil.rmtree(path, ignore_errors=False, onerror=warn_failed_remove)
                     return
-                msg = "Unable to delete %s\n%s\n" % (path, e)
-                if on_win:
-                    try:
-                        shutil.rmtree(path, onerror=_remove_readonly)
+                except OSError as e:
+                    if trash and move_path_to_trash(path):
                         return
-                    except OSError as e2:
-                        raise
-                        msg += "Retry with onerror failed (%s)\n" % e2
+                    msg = "Unable to delete %s\n%s\n" % (path, e)
+                    if on_win:
+                        try:
+                            shutil.rmtree(path, onerror=_remove_readonly)
+                            return
+                        except OSError as e1:
+                            msg += "Retry with onerror failed (%s)\n" % e1
 
-            log.debug(msg + "Retrying after %s seconds..." % i)
-            time.sleep(i)
-
-        # Final time. pass exceptions to caller.
-        shutil.rmtree(path, ignore_errors=False, onerror=warn_failed_remove)
-
+                        p = subprocess.Popen(['cmd', '/c', 'rd', '/s', '/q', path],
+                                             stdout=subprocess.PIPE,
+                                             stderr=subprocess.PIPE)
+                        (stdout, stderr) = p.communicate()
+                        if p.returncode != 0:
+                            msg += '%s\n%s\n' % (stdout, stderr)
+                        else:
+                            if not isdir(path):
+                                return
+                    log.debug(msg + "Retrying after %s seconds..." % i)
+                    time.sleep(i)
+            # Final time. pass exceptions to caller.
+            shutil.rmtree(path, ignore_errors=False, onerror=warn_failed_remove)
+        finally:
+            # If path was removed, ensure it's not in linked_data_
+            if not isdir(path):
+                delete_linked_data_any(path)
 
 def rm_empty_dir(path):
     """
@@ -1007,6 +1018,7 @@ def move_path_to_trash(path, preclean=True):
             log.debug("Could not move %s to %s (%s)" % (path, trash_file, e))
         else:
             log.debug("Moved to trash: %s" % (path,))
+            delete_linked_data_any(path)
             if not preclean:
                 rm_rf(trash_file, max_retries=1, trash=False)
             return True
