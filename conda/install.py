@@ -42,7 +42,11 @@ import tarfile
 import tempfile
 import time
 import traceback
-from os.path import (abspath, basename, dirname, isdir, isfile, islink, join)
+from os.path import (abspath, basename, dirname, isdir, isfile, islink,
+                     join, normpath, normcase)
+
+
+on_win = bool(sys.platform == "win32")
 
 try:
     from conda.lock import Locked
@@ -573,7 +577,7 @@ def read_no_link(info_dir):
 def symlink_conda(prefix, root_dir, shell=None):
     # do not symlink root env - this clobbers activate incorrectly.
     # prefix should always be longer than, or outside the root dir.
-    if normpath(prefix) in normpath(root_dir):
+    if normcase(normpath(prefix)) in normcase(normpath(root_dir)):
         return
     if on_win:
         where = 'Scripts'
