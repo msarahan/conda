@@ -1,27 +1,18 @@
-2016-07-XX   4.2.0 (unreleased):
---------------------------------
-  * remove conda init, #2759
-  * remove conda package and conda bundle, #2760
-  * remove support for ftp:// repos, #2776
-  * force use of ruamel_yaml, #2762
-  * remove dead code, #2761
-  * exit on link error instead of logging it, #2639
-  * clean up requests usage for fetching packages, #2755
-  * remove excess output from conda --help, #2872
-  * remove auxlib from project root, #2931
-  * vendor requests v2.10.0, #2930
-  * vendor auxlib 0.0.40, #2932
-  * expose full regex power for version specifications, #2933
-  * convert to using vendored auxlib, #2943
+2016-0X-XX  4.1.6 (unreleased):
+-------------------------------
+  * slow down exp backoff from 1 ms to 100 ms factor, #2944
+  * fix #2914 add/subtract from PATH; kill folder output text, #2917
+  * normalize use of get_index behavior across clone/explicit, #2937
+  * wrap root prefix check with normcase, #2938
 
 
-2016-0X-XX  4.1.5 (unreleased):
---------------------------------
-* more conservative auto updates of conda #2900
-* fix some permissions errors with more aggressive use of move_path_to_trash, #2882
-* fix #2891 error if allow_other_channels setting is used, #2896
-* fix #2886, #2907 installing a tarball directly from the package cache, #2908
-* fix #2681, #2778 reverting #2320 lock behavior changes, #2915
+2016-06-29  4.1.5:
+------------------
+  * more conservative auto updates of conda #2900
+  * fix some permissions errors with more aggressive use of move_path_to_trash, #2882
+  * fix #2891 error if allow_other_channels setting is used, #2896
+  * fix #2886, #2907 installing a tarball directly from the package cache, #2908
+  * fix #2681, #2778 reverting #2320 lock behavior changes, #2915
 
 
 2016-06-29  4.0.10:
