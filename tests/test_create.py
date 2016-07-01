@@ -379,7 +379,8 @@ class IntegrationTests(TestCase):
                 assert_package_is_installed(clone_prefix, 'python-3.5')
                 assert_package_is_installed(clone_prefix, 'decorator')
 
-    @pytest.mark.benchmark
+
+    @pytest.mark.timeout(600)
     def test_python2_pandas(self):
         with make_temp_env("python=2 pandas") as prefix:
             assert exists(join(prefix, PYTHON_BINARY))
