@@ -28,7 +28,6 @@ LOCK_EXTENSION = 'conda_lock'
 
 # Keep the string "LOCKERROR" in this string so that external
 # programs can look for it.
-
 LOCKSTR = """
 LOCKERROR: It looks like conda is already doing something.
 The lock {0} was found. Wait for it to finish before continuing.
@@ -63,7 +62,6 @@ class Locked(object):
         file_path = preprocess_name(file_path)
         self.file_path = abspath(file_path)
         self.retries = retries
-
 
     def __enter__(self):
         assert isdir(dirname(self.file_path)), "{0} doesn't exist".format(self.file_path)
