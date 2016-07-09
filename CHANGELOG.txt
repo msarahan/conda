@@ -1,3 +1,33 @@
+2016-07-09  4.1.8:
+------------------
+  * fix #3004 UNAUTHORIZED for url (null binstar token), #3008
+
+
+2016-07-07  4.1.7:
+------------------
+  * add msys2 channel to defaults on Windows, #2999
+  * fix #2939 channel_alias issues; improve offline enforcement, #2964
+  * fix #2970, #2974 improve handling of file:// URLs inside channel, #2976
+
+
+2016-07-01  4.1.6:
+------------------
+  * slow down exp backoff from 1 ms to 100 ms factor, #2944
+  * set max time on exp_backoff to ~6.5 sec,#2955
+  * fix #2914 add/subtract from PATH; kill folder output text, #2917
+  * normalize use of get_index behavior across clone/explicit, #2937
+  * wrap root prefix check with normcase, #2938
+
+
+2016-06-29  4.1.5:
+------------------
+  * more conservative auto updates of conda #2900
+  * fix some permissions errors with more aggressive use of move_path_to_trash, #2882
+  * fix #2891 error if allow_other_channels setting is used, #2896
+  * fix #2886, #2907 installing a tarball directly from the package cache, #2908
+  * fix #2681, #2778 reverting #2320 lock behavior changes, #2915
+
+
 2016-06-29  4.0.10:
 -------------------
   * fix #2846 revert the use of UNC paths; shorten trash filenames, #2859 via #2878
