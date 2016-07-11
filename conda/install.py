@@ -50,7 +50,9 @@ on_win = bool(sys.platform == "win32")
 
 try:
     from conda.lock import Locked
-    from conda.config import pkgs_dirs
+    from conda.utils import win_path_to_unix, url_path
+    from conda.config import remove_binstar_tokens, pkgs_dirs, url_channel
+    import conda.config as config
 except ImportError:
     # Make sure this still works as a standalone script for the Anaconda
     # installer.
@@ -1035,7 +1037,7 @@ def move_path_to_trash(path, preclean=True):
     return False
 
 
-def link(prefix, dist, linktype=LINK_HARD, index=None, shortcuts=False):
+def link(prefix, dist, linktype=LINK_HARD, index=None):
     """
     Set up a package in a specified (environment) prefix.  We assume that
     the package has been extracted (using extract() above).
@@ -1090,7 +1092,7 @@ def link(prefix, dist, linktype=LINK_HARD, index=None, shortcuts=False):
             if isfile(nonadmin):
                 open(join(prefix, ".nonadmin"), 'w').close()
 
-        if shortcuts:
+        if config.shortcuts:
             mk_menus(prefix, files, remove=False)
 
         if not run_script(prefix, dist, 'post-link'):
