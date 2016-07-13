@@ -44,8 +44,8 @@ from .exceptions import CondaError, PaddingError, LinkError, ArgumentError, Cond
 from .utils import on_win
 
 try:
-    from conda.lock import Locked
-    from conda.utils import win_path_to_unix, url_path
+    from conda.lock import Locked as Locked
+    from conda.utils import win_path_to_unix, path_to_url
     from conda.config import remove_binstar_tokens, pkgs_dirs, url_channel
     import conda.config as config
 except ImportError:
@@ -683,7 +683,7 @@ def add_cached_package(pdir, url, overwrite=False, urlstxt=False):
     _, schannel = url_channel(url)
     prefix = '' if schannel == 'defaults' else schannel + '::'
     xkey = xpkg or (xdir + '.tar.bz2')
-    fname_table_[xkey] = fname_table_[url_path(xkey)] = prefix
+    fname_table_[xkey] = fname_table_[path_to_url(xkey)] = prefix
     fkey = prefix + dist
     rec = package_cache_.get(fkey)
     if rec is None:
@@ -787,7 +787,7 @@ def rm_fetched(dist):
         return
     for fname in rec['files']:
         del fname_table_[fname]
-        del fname_table_[url_path(fname)]
+        del fname_table_[path_to_url(fname)]
         with Locked(fname):
             rm_rf(fname)
     for fname in rec['dirs']:
