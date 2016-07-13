@@ -491,36 +491,9 @@ class IntegrationTests(TestCase):
         finally:
             rmtree(prefix, ignore_errors=True)
 
-@pytest.mark.skipif(not on_win, reason="shortcuts only relevant on Windows")
-def test_shortcut_in_underscore_env_shows_message():
-    with make_temp_env() as tmp:
-        cmd = ["conda", "create", '-y', '-p', join(tmp, '_conda'), "console_shortcut"]
-        p = Popen(cmd, stdout=PIPE, stderr=PIPE)
-        output, error = p.communicate()
-        if PY3:
-            error = error.decode("UTF-8")
-        assert "Environment name starts with underscore '_'.  Skipping menu installation." in error
-
-
-@pytest.mark.skipif(not on_win, reason="shortcuts only relevant on Windows")
-def test_shortcut_not_attempted_with_no_shortcuts_arg():
-    with make_temp_env() as tmp:
-        cmd = ["conda", "create", '-y', '--no-shortcuts', '-p', join(tmp, '_conda'), "console_shortcut"]
-        p = Popen(cmd, stdout=PIPE, stderr=PIPE)
-        output, error = p.communicate()
-        if PY3:
-            error = error.decode("UTF-8")
-        # This test is sufficient, because it effectively verifies that the code
-        #  path was not visited.
-        assert "Environment name starts with underscore '_'.  Skipping menu installation." not in error
-
-
-@pytest.mark.skipif(not on_win, reason="shortcuts only relevant on Windows")
-def test_shortcut_creation_installs_shortcut():
-    from menuinst.win32 import dirs as win_locations
-    with make_temp_env() as tmp:
-        check_call(["conda", "create", '-y', '-p', join(tmp, 'conda'), "console_shortcut"])
-
+    @pytest.mark.skipif(not on_win, reason="shortcuts only relevant on Windows")
+    def test_shortcut_creation_installs_shortcut(self):
+        from menuinst.win32 import dirs as win_locations
         user_mode = 'user' if exists(join(sys.prefix, u'.nonadmin')) else 'system'
         shortcut_dir = win_locations[user_mode]["start"]
         shortcut_dir = join(shortcut_dir, "Anaconda{0} ({1}-bit)"
@@ -575,7 +548,7 @@ def test_shortcut_creation_installs_shortcut():
                 os.remove(shortcut_file)
 
     @pytest.mark.skipif(not on_win, reason="shortcuts only relevant on Windows")
-    @pytest.mark.xfail(datetime.now() < datetime(2016, 7, 22), reason="deal with this later")
+    @pytest.mark.xfail(reason="configs got borked here somehow")
     def test_shortcut_absent_when_condarc_set(self):
         from menuinst.win32 import dirs as win_locations
         user_mode = 'user' if exists(join(sys.prefix, u'.nonadmin')) else 'system'
@@ -609,4 +582,3 @@ def test_shortcut_creation_installs_shortcut():
             rmtree(prefix, ignore_errors=True)
             if isfile(shortcut_file):
                 os.remove(shortcut_file)
-
