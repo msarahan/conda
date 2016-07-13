@@ -49,7 +49,7 @@ def touch(file_name, times=None):
         os.utime(file_name, times)
 
 
-class FileLock(object):
+class Locked(object):
     """
     Context manager to handle locks.
     """
@@ -59,13 +59,13 @@ class FileLock(object):
         :param retries: max number of retries
         :return:
         """
+        file_path = preprocess_name(file_path)
         self.file_path = abspath(file_path)
         self.retries = retries
 
     def __enter__(self):
         assert isdir(dirname(self.file_path)), "{0} doesn't exist".format(self.file_path)
         assert "::" not in self.file_path, self.file_path
-
         sleep_time = 1
         self.lock_path = "{0}.pid{1}.{2}".format(self.file_path, os.getpid(), LOCK_EXTENSION)
         lock_glob_str = "{0}.pid*.{1}".format(self.file_path, LOCK_EXTENSION)
@@ -92,9 +92,3 @@ class FileLock(object):
     def __exit__(self, exc_type, exc_value, traceback):
         from .install import rm_rf
         rm_rf(self.lock_path)
-
-
-def Locked(*args, **kwargs):
-    from warnings import warn
-    warn("Locked class has been deprecated as FileLock!")
-    return FileLock(*args, **kwargs)

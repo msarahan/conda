@@ -610,12 +610,3 @@ def test_shortcut_creation_installs_shortcut():
             if isfile(shortcut_file):
                 os.remove(shortcut_file)
 
-    with make_temp_env() as tmp:
-        check_call(["conda", "create", '-y', '-p', join(tmp, 'conda'), "python=2.7"])
-        assert isfile(join(tmp, 'conda', bindir, 'activate'))
-        assert isfile(join(tmp, 'conda', bindir, 'deactivate'))
-        assert isfile(join(tmp, 'conda', bindir, 'conda'))
-        if on_win:
-            assert isfile(join(tmp, 'conda', bindir, 'activate.bat'))
-            assert isfile(join(tmp, 'conda', bindir, 'deactivate.bat'))
-            assert isfile(join(tmp, 'conda', bindir, 'conda.bat'))
