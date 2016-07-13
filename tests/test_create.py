@@ -545,85 +545,36 @@ def test_shortcut_creation_installs_shortcut():
             if isfile(shortcut_file):
                 os.remove(shortcut_file)
 
-    @pytest.mark.skipif(not on_win, reason="shortcuts only relevant on Windows")
-    def test_shortcut_absent_does_not_barf_on_uninstall(self):
-        pytest.mark.xfail(datetime.now() < datetime(2016, 7, 21),
-                          reason="deal with this later")
-        from menuinst.win32 import dirs as win_locations
-
-@pytest.mark.skipif(not on_win, reason="shortcuts only relevant on Windows")
-def test_shortcut_absent_does_not_barf_on_uninstall():
-    from menuinst.win32 import dirs as win_locations
-
-    user_mode = 'user' if exists(join(sys.prefix, u'.nonadmin')) else 'system'
-    shortcut_dir = win_locations[user_mode]["start"]
-    shortcut_dir = join(shortcut_dir, "Anaconda{} ({}-bit)".format(sys.version_info.major, config.bits))
-    shortcut_file = join(shortcut_dir, "Anaconda Prompt (conda).lnk")
-
-    # kill shortcut from any other misbehaving test
-    if isfile(shortcut_file):
-        os.remove(shortcut_file)
-
-    assert not isfile(shortcut_file)
-
-    with make_temp_env() as tmp:
-        # including --no-shortcuts should not get shortcuts installed
-        check_call(["conda", "create", '-y', '--no-shortcuts', '-p', join(tmp, 'conda'), "console_shortcut"])
-
-        # make sure it didn't get created
-        assert not isfile(shortcut_file)
-
-        # make sure that cleanup does not barf trying to remove non-existent shortcuts
-        check_call(["conda", "remove", '-y', '-p', join(tmp, 'conda'), "console_shortcut"])
-
-
-@pytest.mark.skipif()
-@pytest.mark.skipif(not on_win, reason="shortcuts only relevant on Windows")
-def test_shortcut_absent_when_condarc_set():
-    from menuinst.win32 import dirs as win_locations
-
-    user_mode = 'user' if exists(join(sys.prefix, u'.nonadmin')) else 'system'
-    shortcut_dir = win_locations[user_mode]["start"]
-    shortcut_dir = join(shortcut_dir, "Anaconda{} ({}-bit)".format(sys.version_info.major, config.bits))
-    shortcut_file = join(shortcut_dir, "Anaconda Prompt (conda).lnk")
-
-    # kill shortcut from any other misbehaving test
-    if isfile(shortcut_file):
-        os.remove(shortcut_file)
-
-    assert not isfile(shortcut_file)
-
-    with make_temp_env() as tmp:
-        if not os.path.isdir(tmp):
-            os.makedirs(tmp)
-        rc_path = os.path.join(tmp, "condarc")
-        with open(rc_path, 'w') as f:
-            f.write("shortcuts: False")
-        env = os.environ.copy()
-        env["CONDARC"] = rc_path
-
-        # including shortcuts: False should not get shortcuts installed
-        check_call(["conda", "create", '-y', '-p', join(tmp, 'conda'), "console_shortcut"], env=env)
-
-        prefix = make_temp_prefix(str(uuid4())[:7])
-        shortcut_file = join(shortcut_dir, "Anaconda Prompt ({0}).lnk".format(basename(prefix)))
-        assert not isfile(shortcut_file)
-
-        try:
-            # including --no-shortcuts should not get shortcuts installed
-            config.load_condarc("")
-            run_command(Commands.CREATE, prefix, "--no-shortcuts", "console_shortcut")
-            assert package_is_installed(prefix, 'console_shortcut')
-            assert not isfile(shortcut_file)
-
-            # make sure that cleanup without specifying --shortcuts still removes shortcuts
-            run_command(Commands.REMOVE, prefix, 'console_shortcut')
-            assert not package_is_installed(prefix, 'console_shortcut')
-            assert not isfile(shortcut_file)
-        finally:
-            rmtree(prefix, ignore_errors=True)
-            if isfile(shortcut_file):
-                os.remove(shortcut_file)
+    # @pytest.mark.skipif(not on_win, reason="shortcuts only relevant on Windows")
+    # def test_shortcut_absent_does_not_barf_on_uninstall(self):
+    #     pytest.mark.xfail(datetime.now() < datetime(2016, 7, 21),
+    #                       reason="deal with this later")
+    #     from menuinst.win32 import dirs as win_locations
+    #
+    #     user_mode = 'user' if exists(join(sys.prefix, u'.nonadmin')) else 'system'
+    #     shortcut_dir = win_locations[user_mode]["start"]
+    #     shortcut_dir = join(shortcut_dir, "Anaconda{0} ({1}-bit)"
+    #                                       "".format(sys.version_info.major, config.bits))
+    #
+    #     prefix = make_temp_prefix(str(uuid4())[:7])
+    #     shortcut_file = join(shortcut_dir, "Anaconda Prompt ({0}).lnk".format(basename(prefix)))
+    #     assert not isfile(shortcut_file)
+    #
+    #     try:
+    #         # including --no-shortcuts should not get shortcuts installed
+    #         config.load_condarc("")
+    #         run_command(Commands.CREATE, prefix, "--no-shortcuts", "console_shortcut")
+    #         assert package_is_installed(prefix, 'console_shortcut')
+    #         assert not isfile(shortcut_file)
+    #
+    #         # make sure that cleanup without specifying --shortcuts still removes shortcuts
+    #         run_command(Commands.REMOVE, prefix, 'console_shortcut')
+    #         assert not package_is_installed(prefix, 'console_shortcut')
+    #         assert not isfile(shortcut_file)
+    #     finally:
+    #         rmtree(prefix, ignore_errors=True)
+    #         if isfile(shortcut_file):
+    #             os.remove(shortcut_file)
 
     @pytest.mark.skipif(not on_win, reason="shortcuts only relevant on Windows")
     def test_shortcut_absent_does_not_barf_on_uninstall(self):
