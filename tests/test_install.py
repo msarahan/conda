@@ -8,9 +8,8 @@ from contextlib import contextmanager
 from os import makedirs
 from os.path import join, basename, relpath, exists, dirname
 
-import pytest
-
-from conda import install, config
+from conda import install
+from conda.base.context import context
 from conda.install import (PaddingError, binary_replace, update_prefix,
                            warn_failed_remove, dist2quad,
                            dist2name, dist2dirname, dist2filename, dist2pair, name_dist,
@@ -112,9 +111,8 @@ class FileTests(unittest.TestCase):
             )
 
     def test_trash_outside_prefix(self):
-        from conda.config import root_dir
         tmp_dir = tempfile.mkdtemp()
-        rel = relpath(tmp_dir, root_dir)
+        rel = relpath(tmp_dir, context.root_dir)
         self.assertTrue(rel.startswith(u'..'))
         move_path_to_trash(tmp_dir)
         self.assertFalse(exists(tmp_dir))
@@ -273,6 +271,7 @@ class rm_rf_file_and_link_TestCase(unittest.TestCase):
         assert mocks['rename'].call_count == 1
         rename_args = mocks['rename'].call_args[0]
         assert rename_args[0] == mocks['unlink'].call_args_list[0][0][0]
+        import pdb; pdb.set_trace()
         assert dirname(rename_args[1]) == mocks['unlink'].call_args_list[1][0][0]
 
     @skip_if_no_mock
