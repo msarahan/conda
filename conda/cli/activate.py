@@ -2,10 +2,11 @@ from __future__ import print_function, division, absolute_import
 
 import errno
 import os
-from os.path import isdir, abspath
 import re
 import sys
+from os.path import isdir, abspath
 
+from ..base.constants import ROOT_ENV_NAME
 from ..exceptions import CondaSystemExit, ArgumentError, CondaValueError, CondaEnvironmentError
 from ..utils import on_win
 
@@ -96,8 +97,7 @@ def pathlist_to_str(paths, escape_backslashes=True):
 
 
 def main():
-    from conda.base.context import context
-    from conda.base.constants import ROOT_ENV_NAME
+    from conda.config import root_dir
     from conda.utils import shells
     if '-h' in sys.argv or '--help' in sys.argv:
         # all execution paths sys.exit at end.

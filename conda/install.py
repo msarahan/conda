@@ -47,6 +47,54 @@ from conda.utils import path_to_url, exp_backoff_fn
 from .exceptions import CondaError, PaddingError, LinkError, ArgumentError, CondaOSError
 from .utils import on_win
 
+try:
+    from conda.lock import FileLock, DirectoryLock
+    from conda.utils import win_path_to_unix, path_to_url
+    from conda.config import remove_binstar_tokens, pkgs_dirs
+    from conda.entities.channel import Channel
+    import conda.config as config
+except ImportError:
+    # Make sure this still works as a standalone script for the Anaconda
+    # installer.
+    pkgs_dirs = [sys.prefix]
+
+    class Locked(object):
+        def __init__(self, *args, **kwargs):
+            pass
+
+        def __enter__(self):
+            pass
+
+        def __exit__(self, exc_type, exc_value, traceback):
+            pass
+
+    def win_path_to_unix(path, root_prefix=""):
+        """Convert a path or ;-separated string of paths into a unix representation
+
+        Does not add cygdrive.  If you need that, set root_prefix to "/cygdrive"
+        """
+        path_re = '(?<![:/^a-zA-Z])([a-zA-Z]:[\/\\\\]+(?:[^:*?"<>|]+[\/\\\\]+)*[^:*?"<>|;\/\\\\]+?(?![a-zA-Z]:))'  # noqa
+
+        def translation(found_path):
+            found = found_path.group(1).replace("\\", "/").replace(":", "")
+            return root_prefix + "/" + found
+        return re.sub(path_re, translation, path).replace(";/", ":/")
+
+    def url_path(path):
+        path = abspath(path)
+        if on_win:
+            path = '/' + path.replace(':', '|').replace('\\', '/')
+        return 'file://%s' % path
+
+    # There won't be any binstar tokens in the installer anyway
+    def remove_binstar_tokens(url):
+        return url
+
+    # A simpler version of url_channel will do
+    def url_channel(url):
+        return url.rsplit('/', 2)[0] + '/' if url and '/' in url else None, 'defaults'
+
+    pkgs_dirs = [join(sys.prefix, 'pkgs')]
 
 if on_win:
     import ctypes
@@ -612,7 +660,7 @@ def add_cached_package(pdir, url, overwrite=False, urlstxt=False):
     if not (xpkg or xdir):
         return
     if url:
-        url = binstar.remove_binstar_tokens(url)
+        url = remove_binstar_tokens(url)
     _, schannel = Channel(url).url_channel_wtf
     prefix = '' if schannel == 'defaults' else schannel + '::'
     xkey = xpkg or (xdir + '.tar.bz2')

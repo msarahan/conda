@@ -117,6 +117,7 @@ def get_user_site():
 
 def pretty_package(pkg):
     from conda.utils import human_bytes
+    from conda.entities.channel import Channel
 
     d = OrderedDict([
         ('file name', pkg.fn),
@@ -149,8 +150,12 @@ def execute(args, parser):
     from os.path import dirname
 
     import conda
-    from conda.base.context import context, binstar
-    from conda import config
+    import conda.config as config
+    from conda.config import (root_dir, get_channel_urls, subdir, pkgs_dirs,
+                              root_writable, envs_dirs, default_prefix, rc_path,
+                              user_rc_path, sys_rc_path, foreign, hide_binstar_tokens,
+                              platform, is_offline, init_binstar)
+    from conda.entities.channel import offline_keep
     from conda.resolve import Resolve
     from conda.api import get_index
 

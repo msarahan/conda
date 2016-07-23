@@ -14,10 +14,12 @@ from .common import (Completer, Packages, add_parser_prefix, add_parser_known,
                      add_parser_json, add_parser_use_local,
                      ensure_use_local, ensure_override_channels_requires_channel,
                      get_prefix, stdout_json, disp_features)
+from ..config import subdir
 from ..exceptions import CondaValueError, PackageNotFoundError
 from ..install import dist2quad
 from ..misc import make_icon_url
 from ..resolve import NoPackagesFoundError, Package
+from ..entities.channel import Channel
 
 descr = """Search for packages and display their information. The input is a
 Python regular expression.  To perform a search with a search string that starts

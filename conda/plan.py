@@ -16,10 +16,12 @@ from collections import defaultdict
 from logging import getLogger
 from os.path import abspath, basename, dirname, join, exists
 
-from conda.base.context import context, default_python
 from conda.entities.channel import Channel
 from . import instructions as inst
-from .config import conda_in_root
+from .config import (always_copy as config_always_copy, channel_priority, conda_in_root,
+                     show_channel_urls as config_show_channel_urls, is_offline,
+                     root_dir, allow_softlinks, default_python, auto_update_conda,
+                     track_features, foreign)
 from .exceptions import (TooFewArgumentsError, InstallError, RemoveError, CondaIndexError,
                          CondaRuntimeError)
 from .history import History
@@ -53,7 +55,7 @@ def display_actions(actions, index, show_channel_urls=None):
         if rec.get('schannel'):
             return rec['schannel']
         if rec.get('url'):
-            return Channel(rec['url']).url_channel_wtf[1]  # <-- same thing as canonical_name
+            return Channel(rec['url']).url_channel_wtf[1]
         if rec.get('channel'):
             return Channel(rec['channel']).canonical_name
         return '<unknown>'
@@ -127,6 +129,7 @@ def display_actions(actions, index, show_channel_urls=None):
         for var in (packages, features, channels, records):
             var[pkg] = var[pkg][::-1]
 
+    empty = False
     if packages:
         maxpkg = max(len(p) for p in packages) + 1
         maxoldver = max(len(p[0]) for p in packages.values())
@@ -135,6 +138,8 @@ def display_actions(actions, index, show_channel_urls=None):
         maxnewfeatures = max(len(p[1]) for p in features.values())
         maxoldchannels = max(len(channel_filt(p[0])) for p in channels.values())
         maxnewchannels = max(len(channel_filt(p[1])) for p in channels.values())
+    else:
+        empty = True
     updated = set()
     downgraded = set()
     channeled = set()
@@ -204,9 +209,9 @@ def display_actions(actions, index, show_channel_urls=None):
 
     if new:
         print("\nThe following NEW packages will be INSTALLED:\n")
-    for pkg in sorted(new):
-        # New packages have been moved to the "old" column for display
-        print(format(oldfmt[pkg], pkg))
+        for pkg in sorted(new):
+            # New packages have been moved to the "old" column for display
+            print(format(oldfmt[pkg], pkg))
 
     if removed:
         print("\nThe following packages will be REMOVED:\n")
@@ -227,6 +232,10 @@ def display_actions(actions, index, show_channel_urls=None):
         print("\nThe following packages will be DOWNGRADED due to dependency conflicts:\n")
         for pkg in sorted(downgraded):
             print(format(oldfmt[pkg] + arrow + newfmt[pkg], pkg))
+
+    if empty and actions.get(inst.SYMLINK_CONDA):
+        print("\nThe following empty environments will be CREATED:\n")
+        print(actions['PREFIX'])
 
     print()
 
@@ -515,8 +524,8 @@ These packages need to be removed before conda can proceed.""" % (' '.join(linke
         index=index if force else None,
         force=force, always_copy=always_copy)
 
-    if actions[inst.LINK]:
-        actions[inst.SYMLINK_CONDA] = [context.root_dir]
+    # always symlink to create empty dirs
+    actions[inst.SYMLINK_CONDA] = [root_dir]
 
     for fkey in sorted(linked):
         dist = fkey[:-8]

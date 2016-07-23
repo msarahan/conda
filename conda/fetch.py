@@ -10,7 +10,6 @@ import getpass
 import hashlib
 import json
 import os
-import requests
 import shutil
 import tempfile
 import warnings
@@ -18,12 +17,16 @@ from functools import wraps
 from logging import getLogger
 from os.path import basename, dirname, join
 
-from conda.base.constants import DEFAULT_CHANNEL_ALIAS
-from conda.entities.channel import Channel, offline_keep
-from .base.context import context, binstar
-from .compat import itervalues, input, urllib_quote, iteritems
+import requests
+
+from .base.constants import DEFAULT_CHANNEL_ALIAS
+from .compat import itervalues, input, urllib_quote, iterkeys, iteritems
+from .config import (pkgs_dirs, remove_binstar_tokens,
+                     hide_binstar_tokens, allowed_channels, add_pip_as_python_dependency,
+                     ssl_verify, rc)
 from .connection import CondaSession, unparse_url, RETRIES, url_to_path
-from .exceptions import (ProxyError, CondaRuntimeError, CondaSignatureError,
+from .entities.channel import Channel, offline_keep, prioritize_channels
+from .exceptions import (ProxyError, ChannelNotAllowed, CondaRuntimeError, CondaSignatureError,
                          CondaHTTPError)
 from .install import (add_cached_package, find_new_location, package_cache, dist2pair,
                       rm_rf)
@@ -323,6 +326,12 @@ def fetch_index(channel_urls, use_cache=False, unknown=False, index=None):
             futures = tuple(executor.submit(fetch_repodata, url, use_cache=use_cache,
                                             session=CondaSession()) for url in urls)
             repodatas = [(u, f.result()) for u, f in zip(urls, futures)]
+        except RuntimeError as e:
+            # Cannot start new thread, then give up parallel execution
+            log.debug(e)
+            session = CondaSession()
+            repodatas = [(url, fetch_repodata(url, use_cache=use_cache, session=session))
+                         for url in urls]
         finally:
             executor.shutdown(wait=True)
 

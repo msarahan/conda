@@ -6,12 +6,18 @@ from itertools import chain
 from logging import getLogger
 from os.path import exists, join
 
-from ..base.constants import PLATFORM_DIRECTORIES, RECOGNIZED_URL_SCHEMES
-from ..base.context import subdir, context
 from ..compat import urlparse
+from ..config import get_default_urls, channel_prefix, subdir, offline
 from ..utils import path_to_url
 
 log = getLogger(__name__)
+
+
+PLATFORM_DIRECTORIES = ("linux-64",  "linux-32",
+                        "win-64",  "win-32",
+                        "osx-64", "noarch")
+
+RECOGNIZED_URL_SCHEMES = ('http', 'https', 'ftp', 's3', 'file')
 
 
 def get_local_urls():
@@ -62,11 +68,11 @@ class Channel(object):
 
     @property
     def canonical_name(self):
-        if any(self == Channel(c) for c in context.default_channels):
+        if any(self == Channel(c) for c in get_default_urls()):
             return 'defaults'
         elif any(self == Channel(c) for c in get_local_urls()):
             return 'local'
-        elif self._netloc == Channel(context.channel_alias)._netloc:
+        elif self._netloc == Channel(channel_prefix())._netloc:
             # TODO: strip token
             return self._path.lstrip('/')
         else:
@@ -86,9 +92,6 @@ class Channel(object):
         # url_channel in >> https://repo.continuum.io/pkgs/free/osx-64/requests-2.0-py27_0.tar.bz2
         # url_channel out >> https://repo.continuum.io/pkgs/free defaults
         return self.base_url, self.canonical_name
-
-    def is_binstar_channel(self):
-        pass
 
 
 def split_platform(value):
@@ -115,7 +118,7 @@ class NamedChannel(Channel):
 
     def __init__(self, name):
         self._raw_value = name
-        parsed = urlparse.urlparse(context.channel_alias)
+        parsed = urlparse.urlparse(channel_prefix())
         self._scheme = parsed.scheme
         self._netloc = parsed.netloc
         self._path = join(parsed.path, name)
@@ -130,7 +133,7 @@ class DefaultChannel(NamedChannel):
 
     @property
     def urls(self):
-        return list(chain.from_iterable(Channel(c).urls for c in context.default_channels))
+        return list(chain.from_iterable(Channel(c).urls for c in get_default_urls()))
 
 
 class LocalChannel(UrlChannel):
@@ -169,7 +172,7 @@ def prioritize_channels(channels):
 
 
 def offline_keep(url):
-    return not context.offline or not is_url(url) or url.startswith('file:/')
+    return not offline or not is_url(url) or url.startswith('file:/')
 
 
 def is_url(url):
@@ -183,12 +186,3 @@ _SPECIAL_CHANNELS = {
     'local': LocalChannel,
     None: NoneChannel,
 }
-
-
-if __name__ == "__main__":
-    print(Channel('kalefranz').base_url)
-    print(Channel('kalefranz').canonical_name)
-    print(Channel('http://repo.continuum.io/pkgs/pro').base_url)
-    print(Channel('http://repo.continuum.io/pkgs/pro').canonical_name)
-    print(Channel('https://repo.continuum.io/pkgs/free/osx-64/'
-                  '_license-1.1-py27_1.tar.bz2').canonical_name)

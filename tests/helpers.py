@@ -52,8 +52,7 @@ def run_conda_command(*args):
     print(stdout)
     print(stderr, file=sys.stderr)
     # assert p.returncode == 0, p.returncode
-    if args[0] == 'config':
-        reset_context([args[2]])
+
     return stdout, strip_expected(stderr)
 
 

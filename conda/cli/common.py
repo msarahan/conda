@@ -7,14 +7,16 @@ import contextlib
 import os
 import re
 import sys
-import textwrap
 from os.path import abspath, basename, expanduser, isdir, join
 
 from conda.base.constants import ROOT_ENV_NAME
 from .. import console
-from ..base.context import context, platform
+from ..base.constants import ROOT_ENV_NAME
+from ..config import (envs_dirs, default_prefix, platform, update_dependencies,
+                      channel_priority, show_channel_urls, always_yes,
+                      root_dir, root_writable, disallow, set_offline, is_offline)
 from ..exceptions import (DryRunExit, CondaSystemExit, CondaRuntimeError,
-                          CondaValueError, CondaFileIOError, TooFewArgumentsError)
+                          CondaValueError, CondaFileIOError)
 from ..install import dist2quad
 from ..resolve import MatchSpec
 from ..utils import memoize
@@ -422,7 +424,7 @@ def ensure_name_or_prefix(args, command):
 
 def find_prefix_name(name):
     if name == ROOT_ENV_NAME:
-        return context.root_dir
+        return root_dir
     # always search cwd in addition to envs dirs (for relative path access)
     for envs_dir in chain(context.envs_dirs + (os.getcwd(),)):
         prefix = join(envs_dir, name)
@@ -436,7 +438,7 @@ def get_prefix(args, search=True):
             raise CondaValueError("'/' not allowed in environment name: %s" %
                                   args.name, getattr(args, 'json', False))
         if args.name == ROOT_ENV_NAME:
-            return context.root_dir
+            return root_dir
         if search:
             prefix = find_prefix_name(args.name)
             if prefix:
@@ -456,7 +458,7 @@ def inroot_notwritable(prefix):
             not context.root_writable)
 
 def name_prefix(prefix):
-    if abspath(prefix) == context.root_dir:
+    if abspath(prefix) == root_dir:
         return ROOT_ENV_NAME
     return basename(prefix)
 
@@ -547,24 +549,6 @@ def names_in_specs(names, specs):
     return any(spec.split()[0] in names for spec in specs)
 
 
-def check_specs(prefix, specs, json=False, create=False):
-    if len(specs) == 0:
-        msg = ('too few arguments, must supply command line '
-               'package specs or --file')
-        if create:
-            msg += textwrap.dedent("""
-
-                You can specify one or more default packages to install when creating
-                an environment.  Doing so allows you to call conda create without
-                explicitly providing any package names.
-
-                To set the provided packages, call conda config like this:
-
-                    conda config --add create_default_packages PACKAGE_NAME
-            """)
-        raise TooFewArgumentsError(msg, json)
-
-
 def disp_features(features):
     if features:
         return '[%s]' % ' '.join(features)
@@ -615,8 +599,8 @@ def handle_envs_list(acc, output=True):
 
     def disp_env(prefix):
         fmt = '%-20s  %s  %s'
-        default = '*' if prefix == context.default_prefix else ' '
-        name = (ROOT_ENV_NAME if prefix == context.root_dir else
+        default = '*' if prefix == default_prefix else ' '
+        name = (ROOT_ENV_NAME if prefix == root_dir else
                 basename(prefix))
         if output:
             print(fmt % (name, default, prefix))
