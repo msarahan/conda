@@ -112,7 +112,7 @@ def make_temp_env(*packages):
         with disable_logger('fetch'), disable_logger('dotupdate'):
             try:
                 # try to clear any config that's been set by other tests
-                config.load_condarc(join(prefix, 'condarc'))
+                reset_context([join(prefix, 'condarc')])
                 run_command(Commands.CREATE, prefix, *packages)
                 yield prefix
             finally:
