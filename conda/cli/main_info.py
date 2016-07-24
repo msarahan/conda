@@ -150,11 +150,8 @@ def execute(args, parser):
     from os.path import dirname
 
     import conda
-    import conda.config as config
-    from conda.config import (root_dir, get_channel_urls, subdir, pkgs_dirs,
-                              root_writable, envs_dirs, default_prefix, rc_path,
-                              user_rc_path, sys_rc_path, foreign, hide_binstar_tokens,
-                              platform, is_offline, init_binstar)
+    from conda.base.context import context
+    from conda import config
     from conda.entities.channel import offline_keep
     from conda.resolve import Resolve
     from conda.api import get_index
@@ -222,7 +219,7 @@ def execute(args, parser):
             print(json.dumps({"channels": channels}))
         return 0
 
-    channels = list(map(binstar.hide_binstar_tokens, channels))
+    channels = list(channels)
     if not args.json:
         channels = [c + ('' if offline_keep(c) else '  (offline)')
                     for c in channels]
