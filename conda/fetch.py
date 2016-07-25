@@ -16,6 +16,7 @@ import warnings
 from functools import wraps
 from logging import getLogger, DEBUG
 from os.path import basename, dirname, join
+from requests.packages.urllib3.connectionpool import InsecureRequestWarning
 
 import requests
 from conda._vendor.auxlib.logz import stringify
@@ -83,7 +84,7 @@ def fetch_repodata(url, cache_dir=None, use_cache=False, session=None):
         return {'packages': {}}
     cache_path = join(cache_dir or create_cache_dir(), cache_fn_url(url))
     try:
-        log.debug("Opening repodata cache for {0} at {1}".format(url, cache_path))
+        log.debug("Opening repodata cache for %s at %s", url, cache_path)
         with open(cache_path) as f:
             cache = json.load(f)
     except (IOError, ValueError):
@@ -93,12 +94,7 @@ def fetch_repodata(url, cache_dir=None, use_cache=False, session=None):
         return cache
 
     if not context.ssl_verify:
-        try:
-            from requests.packages.urllib3.connectionpool import InsecureRequestWarning
-        except ImportError:
-            pass
-        else:
-            warnings.simplefilter('ignore', InsecureRequestWarning)
+        warnings.simplefilter('ignore', InsecureRequestWarning)
 
     session = session or CondaSession()
 
@@ -295,7 +291,7 @@ def fetch_index(channel_urls, use_cache=False, unknown=False, index=None):
             repodatas = [(u, f.result()) for u, f in zip(urls, futures)]
         except RuntimeError as e:
             # Cannot start new thread, then give up parallel execution
-            log.debug(e)
+            log.debug(repr(e))
             session = CondaSession()
             repodatas = [(url, fetch_repodata(url, use_cache=use_cache, session=session))
                          for url in urls]
