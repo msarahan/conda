@@ -18,10 +18,6 @@ from os.path import abspath, basename, dirname, join, exists
 
 from conda.entities.channel import Channel
 from . import instructions as inst
-from .config import (always_copy as config_always_copy, channel_priority, conda_in_root,
-                     show_channel_urls as config_show_channel_urls, is_offline,
-                     root_dir, allow_softlinks, default_python, auto_update_conda,
-                     track_features, foreign)
 from .exceptions import (TooFewArgumentsError, InstallError, RemoveError, CondaIndexError,
                          CondaRuntimeError)
 from .history import History
@@ -525,7 +521,7 @@ These packages need to be removed before conda can proceed.""" % (' '.join(linke
         force=force, always_copy=always_copy)
 
     # always symlink to create empty dirs
-    actions[inst.SYMLINK_CONDA] = [root_dir]
+    actions[inst.SYMLINK_CONDA] = [context.root_dir]
 
     for fkey in sorted(linked):
         dist = fkey[:-8]
@@ -566,7 +562,7 @@ def remove_actions(prefix, specs, index, force=False, pinned=True):
         if pinned and any(r.match(ms, dist) for ms in pinned_specs):
             msg = "Cannot remove %s becaue it is pinned. Use --no-pin to override."
             raise CondaRuntimeError(msg % dist)
-        if conda_in_root and name == 'conda' and name not in nlinked:
+        if context.conda_in_root and name == 'conda' and name not in nlinked:
             if any(s.split(' ', 1)[0] == 'conda' for s in specs):
                 raise RemoveError("'conda' cannot be removed from the root environment")
             else:
