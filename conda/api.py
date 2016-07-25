@@ -1,6 +1,8 @@
 from __future__ import print_function, division, absolute_import
 
+from conda.entities.channel import prioritize_channels
 from . import install
+from .base.context import context
 from .compat import iteritems, itervalues
 from .config import get_channel_urls
 from .entities.channel import prioritize_channels

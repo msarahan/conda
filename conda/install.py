@@ -40,8 +40,12 @@ import traceback
 from os.path import (abspath, basename, dirname, isdir, isfile, islink,
                      join, normpath, normcase)
 
+from .base.context import context
+from .common.url import path_to_url
+from .entities.channel import Channel
 from .exceptions import CondaError, PaddingError, LinkError, ArgumentError, CondaOSError
-from .utils import on_win
+from .lock import DirectoryLock, FileLock
+from .utils import exp_backoff_fn, on_win
 
 try:
     from conda.lock import FileLock, DirectoryLock
@@ -226,30 +230,6 @@ def warn_failed_remove(function, path, exc_info):
         log.warn("Cannot remove, not empty: {0}".format(path))
     else:
         log.warn("Cannot remove, unknown reason: {0}".format(path))
-
-
-def exp_backoff_fn(fn, *args):
-    """Mostly for retrying file operations that fail on Windows due to virus scanners"""
-    if not on_win:
-        return fn(*args)
-
-    import random
-    # with max_tries = 5, max total time ~= 3.2 sec
-    # with max_tries = 6, max total time ~= 6.5 sec
-    max_tries = 6
-    for n in range(max_tries):
-        try:
-            result = fn(*args)
-        except (OSError, IOError) as e:
-            log.debug(repr(e))
-            if e.errno in (errno.EPERM, errno.EACCES):
-                if n == max_tries-1:
-                    raise
-                time.sleep(((2 ** n) + random.random()) * 0.1)
-            else:
-                raise
-        else:
-            return result
 
 
 def rm_rf(path, max_retries=5, trash=True):
@@ -681,7 +661,7 @@ def add_cached_package(pdir, url, overwrite=False, urlstxt=False):
     if not (xpkg or xdir):
         return
     if url:
-        url = remove_binstar_tokens(url)
+        url = url
     _, schannel = Channel(url).url_channel_wtf
     prefix = '' if schannel == 'defaults' else schannel + '::'
     xkey = xpkg or (xdir + '.tar.bz2')
@@ -718,7 +698,8 @@ def package_cache():
         return package_cache_
     # Stops recursion
     package_cache_['@'] = None
-    for pdir in pkgs_dirs:
+    # import pdb; pdb.set_trace()
+    for pdir in context.pkgs_dirs:
         try:
             data = open(join(pdir, 'urls.txt')).read()
             for url in data.split()[::-1]:
@@ -755,7 +736,7 @@ def find_new_location(dist):
     # Look for a location with no conflicts
     # On the second pass, just pick the first location
     for p in range(2):
-        for pkg_dir in pkgs_dirs:
+        for pkg_dir in context.pkgs_dirs:
             pkg_path = join(pkg_dir, fname)
             prefix = fname_table_.get(pkg_path)
             if p or prefix is None:
@@ -974,7 +955,7 @@ def is_linked(prefix, dist):
 
 
 def delete_trash(prefix=None):
-    for pkg_dir in pkgs_dirs:
+    for pkg_dir in context.pkgs_dirs:
         trash_dir = join(pkg_dir, '.trash')
         if not isdir(trash_dir):
             continue
@@ -1004,7 +985,7 @@ def move_path_to_trash(path, preclean=True):
     if preclean:
         delete_trash()
 
-    for pkg_dir in pkgs_dirs:
+    for pkg_dir in context.pkgs_dirs:
         trash_dir = join(pkg_dir, '.trash')
 
         try:
@@ -1090,7 +1071,7 @@ def link(prefix, dist, linktype=LINK_HARD, index=None):
             if isfile(nonadmin):
                 open(join(prefix, ".nonadmin"), 'w').close()
 
-        if config.shortcuts:
+        if context.shortcuts:
             mk_menus(prefix, files, remove=False)
 
         if not run_script(prefix, dist, 'post-link'):

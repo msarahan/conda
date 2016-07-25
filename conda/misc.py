@@ -11,6 +11,7 @@ from collections import defaultdict
 from os.path import (abspath, dirname, expanduser, exists,
                      isdir, isfile, islink, join, relpath, curdir)
 
+from conda.entities.channel import is_url, Channel
 from .api import get_index
 from .common.url import path_to_url, is_url
 from .compat import iteritems, itervalues
@@ -218,7 +219,7 @@ def touch_nonadmin(prefix):
     """
     Creates $PREFIX/.nonadmin if sys.prefix/.nonadmin exists (on Windows)
     """
-    if on_win and exists(join(root_dir, '.nonadmin')):
+    if on_win and exists(join(context.root_dir, '.nonadmin')):
         if not isdir(prefix):
             os.makedirs(prefix)
         with open(join(prefix, '.nonadmin'), 'w') as fo:
@@ -289,7 +290,7 @@ def clone_env(prefix1, prefix2, verbose=True, quiet=False, index_args=None):
     if notfound:
         what = "Package%s " % ('' if len(notfound) == 1 else 's')
         notfound = '\n'.join(' - ' + fn for fn in notfound)
-        msg = '%s missing in current %s channels:%s' % (what, subdir, notfound)
+        msg = '%s missing in current %s channels:%s' % (what, context.subdir, notfound)
         raise CondaRuntimeError(msg)
 
     # Assemble the URL and channel list
@@ -358,7 +359,7 @@ def make_icon_url(info):
 
 def list_prefixes():
     # Lists all the prefixes that conda knows about.
-    for envs_dir in envs_dirs:
+    for envs_dir in context.envs_dirs:
         if not isdir(envs_dir):
             continue
         for dn in sorted(os.listdir(envs_dir)):
@@ -369,4 +370,4 @@ def list_prefixes():
                 prefix = join(envs_dir, dn)
                 yield prefix
 
-    yield root_dir
+    yield context.root_dir
