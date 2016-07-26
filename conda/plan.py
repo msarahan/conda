@@ -16,7 +16,8 @@ from collections import defaultdict
 from logging import getLogger
 from os.path import abspath, basename, dirname, join, exists
 
-from conda.entities.channel import Channel
+from .base.context import context, default_python
+from .models.channel import Channel
 from . import instructions as inst
 from .exceptions import (TooFewArgumentsError, InstallError, RemoveError, CondaIndexError,
                          CondaRuntimeError)
