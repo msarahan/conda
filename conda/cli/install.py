@@ -24,8 +24,9 @@ from ..config import create_default_packages, force_32bit
 from ..exceptions import (CondaFileNotFoundError, CondaValueError, DirectoryNotFoundError,
                           CondaEnvironmentError, PackageNotFoundError, TooManyArgumentsError,
                           CondaAssertionError, CondaOSError, CondaImportError,
-                          CondaError, DryRunExit, LockError, CondaRuntimeError,
+                          DryRunExit, LockError, CondaRuntimeError,
                           CondaSystemExit, NoPackagesFoundError, UnsatisfiableError, CondaIOError)
+from conda import CondaError
 from ..install import linked as install_linked
 from ..install import name_dist, is_linked
 from ..misc import explicit, clone_env, append_env, touch_nonadmin
