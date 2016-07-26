@@ -10,18 +10,21 @@ from .base.context import context
 from .compat import iterkeys, itervalues, iteritems, string_types
 from .config import channel_priority, track_features
 from .console import setup_handlers
-from .exceptions import UnsatisfiableError, NoPackagesFoundError, CondaValueError
+from .exceptions import CondaValueError, UnsatisfiableError, NoPackagesFoundError
 from .install import dist2quad
 from .logic import minimal_unsatisfiable_subset, Clauses
 from .toposort import toposort
 from .version import VersionSpec, normalized_version
-
 log = logging.getLogger(__name__)
 dotlog = logging.getLogger('dotupdate')
 stdoutlog = logging.getLogger('stdoutlog')
 stderrlog = logging.getLogger('stderrlog')
 setup_handlers()
 
+
+# used in conda build
+Unsatisfiable = UnsatisfiableError
+NoPackagesFound = NoPackagesFoundError
 
 def dashlist(iter):
     return ''.join('\n  - ' + str(x) for x in iter)
