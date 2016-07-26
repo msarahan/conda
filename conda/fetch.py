@@ -28,12 +28,9 @@ from .config import (pkgs_dirs, remove_binstar_tokens,
                      hide_binstar_tokens, allowed_channels, add_pip_as_python_dependency,
                      ssl_verify, rc)
 from .connection import CondaSession, RETRIES
-from .entities.channel import Channel, offline_keep, prioritize_channels
-from .exceptions import (ProxyError, ChannelNotAllowed, CondaRuntimeError, CondaSignatureError,
-                         CondaHTTPError)
-from .install import (add_cached_package, find_new_location, package_cache, dist2pair,
-                      rm_rf)
-from conda.utils import exp_backoff_fn
+from .models.channel import Channel, offline_keep
+from .exceptions import (ProxyError, CondaRuntimeError, CondaSignatureError, CondaHTTPError)
+from .install import add_cached_package, find_new_location, package_cache, dist2pair, rm_rf
 from .lock import FileLock
 from .utils import memoized
 

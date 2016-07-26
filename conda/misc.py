@@ -15,8 +15,7 @@ from conda.entities.channel import is_url, Channel
 from .api import get_index
 from .common.url import path_to_url, is_url
 from .compat import iteritems, itervalues
-from .config import root_dir, envs_dirs, subdir
-from .entities.channel import Channel
+from .models.channel import Channel
 from .exceptions import (CondaFileNotFoundError, ParseError, MD5MismatchError,
                          PackageNotFoundError, CondaRuntimeError)
 from .install import (name_dist, linked as install_linked, is_fetched, is_extracted, is_linked,
