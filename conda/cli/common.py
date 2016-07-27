@@ -570,4 +570,3 @@ def handle_envs_list(acc, output=True):
 
     if output:
         print()
-
