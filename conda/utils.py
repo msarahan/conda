@@ -387,4 +387,4 @@ def exp_backoff_fn(fn, *args):
             return result
 
 # put back because of conda build
-urlpath = path_to_url
+urlpath = url_path = path_to_url
