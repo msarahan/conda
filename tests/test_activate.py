@@ -199,30 +199,15 @@ def test_activate_bad_directory(shell):
     shell_vars = _format_vars(shell)
     with TemporaryDirectory(prefix='envs', dir=dirname(__file__)) as envs:
         # Strange semicolons are here to defeat MSYS' automatic path conversion.
-        # See http://www.mingw.org/wiki/Posix_path_conversion
-        env_dirs,env_vars=gen_test_env_paths(envs, shell)
-
-        # all unix shells support environment variables instead of parameter passing
-        scripts=[dedent("""\
-            {env_vars[2]} ; {source} "{syspath}{binpath}activate{shell_suffix}"
-            {printpath}
-            """)]
-        # most unix shells support parameter passing, dash is the exception
-        if shell not in ["dash","sh","csh"]:
-            scripts+=[dedent("""\
-                {source} "{syspath}{binpath}activate{shell_suffix}" "{env_dirs[2]}"
-                {printpath}
-                """)]
-
-        for script in scripts:
-            commands = shell_vars['command_setup'] + script.format(
-                env_vars=env_vars,
-                env_dirs=env_dirs,
-                **shell_vars)
-            stdout, stderr = run_in(commands, shell)
-            # another semicolon here for comparison reasons with one above.
-            assert 'could not find environment' in stderr
-            assert_not_in(env_dirs[2], stdout, shell)
+        #   See http://www.mingw.org/wiki/Posix_path_conversion
+        commands = (shell_vars['command_setup'] + """
+        {source} "{syspath}{binpath}activate" "{env_dirs[2]}"
+        {printpath}
+        """).format(envs=envs, env_dirs=env_dirs, **shell_vars)
+        stdout, stderr = run_in(commands, shell)
+        # another semicolon here for comparison reasons with one above.
+        assert 'Could not find environment' in stderr
+        assert_not_in(env_dirs[2], stdout)
 
 
 @pytest.mark.installed

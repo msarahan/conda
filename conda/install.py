@@ -46,57 +46,7 @@ from .common.url import path_to_url
 from .exceptions import PaddingError, LinkError, ArgumentError, CondaOSError
 from .lock import DirectoryLock, FileLock
 from .models.channel import Channel
-from .utils import exp_backoff_fn, on_win
-
-try:
-    from conda.lock import FileLock, DirectoryLock
-    from conda.utils import win_path_to_unix
-    from conda.common.url import path_to_url
-    from conda.config import remove_binstar_tokens, pkgs_dirs
-    from conda.entities.channel import Channel
-    import conda.config as config
-except ImportError:
-    # Make sure this still works as a standalone script for the Anaconda
-    # installer.
-    pkgs_dirs = [sys.prefix]
-
-    class Locked(object):
-        def __init__(self, *args, **kwargs):
-            pass
-
-        def __enter__(self):
-            pass
-
-        def __exit__(self, exc_type, exc_value, traceback):
-            pass
-
-    def win_path_to_unix(path, root_prefix=""):
-        """Convert a path or ;-separated string of paths into a unix representation
-
-        Does not add cygdrive.  If you need that, set root_prefix to "/cygdrive"
-        """
-        path_re = '(?<![:/^a-zA-Z])([a-zA-Z]:[\/\\\\]+(?:[^:*?"<>|]+[\/\\\\]+)*[^:*?"<>|;\/\\\\]+?(?![a-zA-Z]:))'  # noqa
-
-        def translation(found_path):
-            found = found_path.group(1).replace("\\", "/").replace(":", "")
-            return root_prefix + "/" + found
-        return re.sub(path_re, translation, path).replace(";/", ":/")
-
-    def url_path(path):
-        path = abspath(path)
-        if on_win:
-            path = '/' + path.replace(':', '|').replace('\\', '/')
-        return 'file://%s' % path
-
-    # There won't be any binstar tokens in the installer anyway
-    def remove_binstar_tokens(url):
-        return url
-
-    # A simpler version of url_channel will do
-    def url_channel(url):
-        return url.rsplit('/', 2)[0] + '/' if url and '/' in url else None, 'defaults'
-
-    pkgs_dirs = [join(sys.prefix, 'pkgs')]
+from .utils import exp_backoff_fn, on_win, backoff_unlink
 
 if on_win:
     import ctypes
@@ -247,7 +197,7 @@ def rm_rf(path, max_retries=5, trash=True):
         # exists('/path/to/dead-link') will return False, although
         # islink('/path/to/dead-link') is True.
         try:
-            os.unlink(path)
+            backoff_unlink(path)
             return
         except (OSError, IOError):
             log.warn("Cannot remove, permission denied: {0}".format(path))
@@ -581,7 +531,7 @@ def symlink_conda_hlp(prefix, root_dir, where, symlink_fn):
         try:
             # try to kill stale links if they exist
             if os.path.lexists(prefix_file):
-                os.remove(prefix_file)
+                backoff_unlink(prefix_file)
             # if they're in use, they won't be killed.  Skip making new symlink.
             if not os.path.lexists(prefix_file):
                 symlink_fn(root_file, prefix_file)
@@ -896,7 +846,7 @@ def delete_linked_data(prefix, dist, delete=True):
     if delete:
         meta_path = join(prefix, 'conda-meta', dist2filename(dist, '.json'))
         if isfile(meta_path):
-            os.unlink(meta_path)
+            backoff_unlink(meta_path)
 
 
 def delete_linked_data_any(path):
@@ -1087,7 +1037,7 @@ def link(prefix, dist, linktype=LINK_HARD, index=None):
         try:
             alt_files_path = join(prefix, 'conda-meta', dist2filename(dist, '.files'))
             meta_dict['files'] = list(yield_lines(alt_files_path))
-            os.unlink(alt_files_path)
+            backoff_unlink(alt_files_path)
         except IOError:
             meta_dict['files'] = files
         meta_dict['link'] = {'source': source_dir,
