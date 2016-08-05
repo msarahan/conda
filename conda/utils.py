@@ -259,12 +259,14 @@ unix_shell_base = dict(
                        printps1='echo "${PS1}"',
                        promptvar='PS1',
                        sep="/",
-                       set_var='export {variable}="{value}"',
-                       unset_var='unset {variable}',
+                       setenvvar='export {variable}="{value}"',
+                       unsetenvvar='unset {variable}',
+                       setvar='{variable}="{value}"',
+                       unsetvar='unset {variable}',
                        shell_args=["-l", "-c"],
                        shell_suffix="",
                        slash_convert=("\\", "/"),
-                       source="source",
+                       source=".",
                        test_echo_extra="",
                        var_format="${}",
 )
@@ -285,7 +287,7 @@ if on_win:
         #    binpath="/bin/",  # mind the trailing slash.
         #    source="source",
         #    nul='2>/dev/null',
-        #    set_var='export {variable}="{value}"',
+        #    setenvvar='export {variable}="{value}"',
         #    shell_suffix=".ps",
         #    env_script_suffix=".ps",
         #    printps1='echo "${PS1}"',
@@ -303,7 +305,7 @@ if on_win:
             source="call",
             test_echo_extra="",
             nul='1>NUL 2>&1',
-            set_var='set {variable}="{value}"',
+            setenvvar='set {variable}="{value}"',
             shell_suffix=".bat",
             env_script_suffix=".bat",
             printps1="@echo %PROMPT%",
@@ -349,9 +351,12 @@ else:
                         nul='>&/dev/null',
                         printps1='echo "${prompt}"',
                         promptvar='prompt',
-                        set_var='setenv {variable} "{value}"',
+                        setenvvar='setenv {variable} "{value}"',
+                        unsetenvvar='unsetenv {variable}',
+                        setvar='set {variable}="{value}"',
+                        unsetvar='unset {variable}',
                         shell_args=["-c"],
-                        unset_var='unsetenv {variable}',
+                        source="source",
 
     )
     shells = {
@@ -360,6 +365,9 @@ else:
                     ),
         "zsh": dict(
             unix_shell_base, exe="zsh",
+                   ),
+        "dash": dict(
+            unix_shell_base, exe="dash",
                    ),
         "fish": dict(
             unix_shell_base, exe="fish",
