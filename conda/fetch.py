@@ -29,7 +29,8 @@ from .config import (pkgs_dirs, remove_binstar_tokens,
                      ssl_verify, rc)
 from .connection import CondaSession, RETRIES
 from .models.channel import Channel, offline_keep
-from .exceptions import (ProxyError, CondaRuntimeError, CondaSignatureError, CondaHTTPError)
+from .exceptions import (ProxyError, CondaRuntimeError, CondaSignatureError, CondaHTTPError,
+                         MD5MismatchError)
 from .install import add_cached_package, find_new_location, package_cache, dist2pair, rm_rf
 from .lock import FileLock
 from .utils import memoized
@@ -350,8 +351,7 @@ def fetch_pkg(info, dst_dir=None, session=None):
         except CondaSignatureError:
             raise
 
-        raise CondaSignatureError("Error: Signature for '%s' is invalid." %
-                                  (basename(path)))
+        raise CondaSignatureError("Error: Signature for '%s' is invalid." % (basename(path)))
 
 
 def download(url, dst_path, session=None, md5=None, urlstxt=False, retries=None):
@@ -449,8 +449,8 @@ def download(url, dst_path, session=None, md5=None, urlstxt=False, retries=None)
                           "trying again" % (url, h.hexdigest(), md5))
                 return download(url, dst_path, session=session, md5=md5,
                                 urlstxt=urlstxt, retries=retries - 1)
-            raise CondaRuntimeError("MD5 sums mismatch for download: %s (%s != %s)"
-                                    % (url, h.hexdigest(), md5))
+            raise MD5MismatchError("MD5 sums mismatch for download: %s (%s != %s)"
+                                   % (url, h.hexdigest(), md5))
 
         try:
             exp_backoff_fn(os.rename, pp, dst_path)
