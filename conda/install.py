@@ -19,7 +19,6 @@ These API functions have argument names referring to:
                  but is otherwise something like '/opt/anaconda/envs/foo',
                  or even any prefix, e.g. '/home/joe/myenv'
 """
-
 from __future__ import absolute_import, division, print_function, unicode_literals
 
 from itertools import chain
@@ -561,6 +560,7 @@ def symlink_conda_hlp(prefix, root_dir, where, symlink_fn):
             else:
                 raise
 
+
 # ========================== begin API functions =========================
 
 def try_hard_link(pkgs_dir, prefix, dist):
@@ -783,7 +783,6 @@ def rm_extracted(dist):
 
 
 def extract(dist):
-
     """
     Extract a package, i.e. make a package available for linkage. We assume
     that the compressed package is located in the packages directory.
@@ -817,7 +816,6 @@ def extract(dist):
 # circumstances to load the full set of files from this directory.
 # Therefore, we have implemented a full internal cache of this
 # data to eliminate redundant file reads.
-
 linked_data_ = {}
 
 
