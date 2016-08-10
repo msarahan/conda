@@ -345,6 +345,12 @@ if on_win:
         "sh.exe": dict(
             msys2_shell_base, exe="sh.exe",
         ),
+        "zsh.exe": dict(
+            msys2_shell_base, exe="zsh.exe",
+        ),
+        "zsh": dict(
+            msys2_shell_base, exe="zsh",
+        ),
     }
 
 else:
