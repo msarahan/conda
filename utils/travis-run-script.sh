@@ -5,8 +5,17 @@ main_test() {
     export PYTHONHASHSEED=$(python -c "import random as r; print(r.randint(0,4294967296))")
     echo $PYTHONHASHSEED
 
-    # basic unit tests
-    python -m pytest --cov-report xml --shell=bash --shell=zsh -m "not installed" tests
+    case "$(uname -s)" in
+        'Darwin') shells="";;
+        'Linux') shells="";; # "--shell=posh";;
+        *) ;;
+    esac
+    shells="$shells --shell=bash --shell=zsh --shell=dash --shell=sh --shell=csh --shell=tcsh"
+
+    echo "PRE-INSTALL CONDA TESTS"
+    python -m pytest --cov-report xml $shells -m "not installed" tests
+
+    echo "INSTALL CONDA"
     python setup.py --version
 
     # activate tests
