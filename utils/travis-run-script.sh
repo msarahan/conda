@@ -13,7 +13,9 @@ main_test() {
     python setup.py install
     hash -r
     python -m conda info
-    python -m pytest --cov-report xml --cov-append --shell=bash --shell=zsh -m "installed" tests
+
+    echo "POST-INSTALL CONDA TESTS"
+    python -m pytest --cov-report xml --cov-append $shells -m "installed" tests
 }
 
 flake8_test() {
