@@ -34,6 +34,7 @@ from .exceptions import (ProxyError, CondaRuntimeError, CondaSignatureError, Con
 from .install import add_cached_package, find_new_location, package_cache, dist2pair, rm_rf
 from .lock import FileLock
 from .utils import memoized
+from conda.common.disk import exp_backoff_fn, rm_rf
 
 log = getLogger(__name__)
 dotlog = getLogger('dotupdate')
