@@ -1,12 +1,30 @@
-## 4.2.3 (2016-08-11)
-
-### Improvements
-* added zsh and zsh.exe to Windows shells (#3257)
+2016-0X-XX  4.1.12 (unreleased):
+--------------------------------
+  * fix #2837 "File exists" in symlinked path with parallel activations, #3210
 
 ### Bug Fixes
-* allow conda to downgrade itself (#3273)
-* fix breaking changes to conda-build from 4.2.2 (#3265)
-* fix empty environment issues with conda and conda-env (#3269)
+* fix #2837 "File exists" in symlinked path with parallel activations (#3210)
+
+
+## 4.2.4 (2016-08-18)
+
+### Bug Fixes
+* fix #3277 conda list package order (#3278)
+* fix channel priority issue with duplicated channels (#3283)
+* fix local channel channels; add full conda-build unit tests (#3281)
+* fix conda install with no package specified (#3284)
+* fix #3253 exporting and importing conda environments (#3286)
+* fix priority messaging on conda config --get (#3304)
+* fix conda list --export; additional itegration tests (#3291)
+* fix conda update --all idempotency; add integration tests for channel priority (#3306)
+
+### Non-User-Facing Changes
+* additional conda-env integration tests (#3288)
+
+2016-07-26  4.1.11:
+-------------------
+  * fix PS1 backup in activate script, #3135 via #3155
+  * correct resolution for 'handle failures in binstar_client more generaly', #3156
 
 ### Non-User-Facing Changes
 * add integration tests for conda-env (#3270)
