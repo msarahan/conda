@@ -38,6 +38,7 @@ scripts = ['shell/activate',
            'shell/deactivate',
            'shell/deactivate.sh',
            'shell/deactivate.csh',
+           'shell/whichshell_args.bash',
            'shell/whichshell.awk',
            'shell/envvar_cleanup.sh',
            ]
