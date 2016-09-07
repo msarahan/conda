@@ -4,28 +4,12 @@ from __future__ import absolute_import, division, print_function
 import bz2
 import json
 import os
-import sys
-import bz2
-from contextlib import contextmanager
-from glob import glob
-from logging import getLogger, Handler
-from os.path import exists, isdir, isfile, join, relpath, basename, islink
-from shlex import split
-from shutil import rmtree, copyfile
-from subprocess import check_call, Popen, PIPE
-from tempfile import gettempdir
-from unittest import TestCase
-from uuid import uuid4
-from json import loads as json_loads
-
 import pytest
-from requests import Session
-from requests.adapters import BaseAdapter
-
-from conda import config
-from conda import plan
-from conda.cli import conda_argparse
+import sys
+from conda import CondaError, plan
+from conda.base.context import bits, context, reset_context
 from conda.cli.common import get_index_trap
+from conda.cli.main import generate_parser
 from conda.cli.main_config import configure_parser as config_configure_parser
 from conda.cli.main_create import configure_parser as create_configure_parser
 from conda.cli.main_install import configure_parser as install_configure_parser
@@ -33,7 +17,7 @@ from conda.cli.main_list import configure_parser as list_configure_parser
 from conda.cli.main_remove import configure_parser as remove_configure_parser
 from conda.cli.main_search import configure_parser as search_configure_parser
 from conda.cli.main_update import configure_parser as update_configure_parser
-from conda.common.io import disable_logger, stderr_log_level, captured
+from conda.common.io import captured, disable_logger, stderr_log_level
 from conda.common.url import path_to_url
 from conda.compat import itervalues
 from conda.connection import LocalFSAdapter
