@@ -23,6 +23,7 @@
 * fix ftp fetch timeout (#3392)
 * fix #3307 add try/except block for touch lock (#3326)
 * fix CONDA_CHANNELS environment variable splitting (#3390)
+* fix #3378 CONDA_FORCE_32BIT environment variable (#3391)
 
 
 ## 4.2.4 (2016-08-18)
