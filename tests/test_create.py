@@ -5,9 +5,27 @@ import bz2
 import json
 import os
 import sys
-from conda import CondaError
-from conda.base.context import bits, context, reset_context
-from conda.cli.main import generate_parser
+import bz2
+from contextlib import contextmanager
+from glob import glob
+from logging import getLogger, Handler
+from os.path import exists, isdir, isfile, join, relpath, basename, islink
+from shlex import split
+from shutil import rmtree, copyfile
+from subprocess import check_call, Popen, PIPE
+from tempfile import gettempdir
+from unittest import TestCase
+from uuid import uuid4
+from json import loads as json_loads
+
+import pytest
+from requests import Session
+from requests.adapters import BaseAdapter
+
+from conda import config
+from conda import plan
+from conda.cli import conda_argparse
+from conda.cli.common import get_index_trap
 from conda.cli.main_config import configure_parser as config_configure_parser
 from conda.cli.main_create import configure_parser as create_configure_parser
 from conda.cli.main_install import configure_parser as install_configure_parser
@@ -404,6 +422,23 @@ class IntegrationTests(TestCase):
         with make_temp_env("python=2 pandas") as prefix:
             assert exists(join(prefix, PYTHON_BINARY))
             assert_package_is_installed(prefix, 'numpy')
+
+    @pytest.mark.timeout(300)
+    def test_install_prune(self):
+        with make_temp_env("python=2 decorator") as prefix:
+            assert_package_is_installed(prefix, 'decorator')
+
+            # prune is a feature used by conda-env
+            # conda itself does not provide a public API for it
+            index = get_index_trap(prefix=prefix)
+            actions = plan.install_actions(prefix,
+                                           index,
+                                           specs=['flask'],
+                                           prune=True)
+            plan.execute_actions(actions, index, verbose=True)
+
+            assert_package_is_installed(prefix, 'flask')
+            assert not package_is_installed(prefix, 'decorator')
 
     @pytest.mark.skipif(on_win, reason="mkl package not available on Windows")
     @pytest.mark.timeout(300)
