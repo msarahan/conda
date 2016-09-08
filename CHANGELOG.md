@@ -1,39 +1,9 @@
-## 4.2.5 (2016-09-08)
+2016-09-08  4.1.12:
+-------------------
+  * fix #2837 "File exists" in symlinked path with parallel activations, #3210
+  * fix prune option when installing packages, #3354
+  * change check for placeholder to be more friendly to long PATH, #3349
 
-### Deprecations/Breaking Changes
-* partially revert #3041 giving conda config --add previous --prepend behavior (#3364 via #3370)
-* partially revert #2760 adding back conda package command (#3398)
-
-### Improvements
-* order output of conda config --show; make --json friendly (#3384 via #3386)
-* clean the pid based lock on exception (#3325)
-* improve file removal on all platforms (#3280 via #3396)
-
-### Bug Fixes
-* fix #3332 allow download urls with :: in them (#3335)
-* fix always_yes and not-set argparse args overriding other sources (#3374)
-* fix ftp fetch timeout (#3392)
-* fix #3307 add try/except block for touch lock (#3326)
-* fix CONDA_CHANNELS environment variable splitting (#3390)
-* fix #3378 CONDA_FORCE_32BIT environment variable (#3391)
-* make conda info channel urls actually give urls (#3397)
-* fix cio_test compatibility (#3395 via #3400)
-
-
-## 4.2.4 (2016-08-18)
-
-### Bug Fixes
-* fix #3277 conda list package order (#3278)
-* fix channel priority issue with duplicated channels (#3283)
-* fix local channel channels; add full conda-build unit tests (#3281)
-* fix conda install with no package specified (#3284)
-* fix #3253 exporting and importing conda environments (#3286)
-* fix priority messaging on conda config --get (#3304)
-* fix conda list --export; additional integration tests (#3291)
-* fix conda update --all idempotence; add integration tests for channel priority (#3306)
-
-### Non-User-Facing Changes
-* additional conda-env integration tests (#3288)
 
 2016-07-26  4.1.11:
 -------------------
