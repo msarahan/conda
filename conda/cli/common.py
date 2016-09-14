@@ -7,6 +7,7 @@ import contextlib
 import os
 import re
 import sys
+from conda._vendor.auxlib.entity import EntityEncoder
 from os.path import abspath, basename
 
 from .. import console
@@ -552,7 +553,7 @@ def disp_features(features):
 def stdout_json(d):
     import json
 
-    json.dump(d, sys.stdout, indent=2, sort_keys=True)
+    json.dump(d, sys.stdout, indent=2, sort_keys=True, cls=EntityEncoder)
     sys.stdout.write('\n')
 
 
