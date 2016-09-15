@@ -1,11 +1,17 @@
-## 4.3.0 (unreleased)
-
-### Bug Fixes
-* account for the Windows Python 2.7 os.environ unicode aversion (#3363)
-* fix link field in record object (#3424)
+## 4.1.13 (unreleased)
 
 ### Non-User-Facing Changes
-* remove unnecessary eval (#3428)
+* use install.rm_rf for TemporaryDirectory cleanup (#3425)
+
+
+## 4.2.7 (2016-09-15)
+
+### Bug Fixes
+* don't add binstar token if it's given in the channel spec (#3427, #3440)
+* fix #3433 failure to remove broken symlinks (#3436)
+
+### Non-User-Facing Changes
+* use install.rm_rf for TemporaryDirectory cleanup (#3425)
 
 
 ## 4.2.6 (2016-09-14)
@@ -68,7 +74,11 @@
 * additional conda-env integration tests (#3288)
 
 
-## 4.2.3 (2016-08-11)
+2016-09-08  4.1.12:
+-------------------
+  * fix #2837 "File exists" in symlinked path with parallel activations, #3210
+  * fix prune option when installing packages, #3354
+  * change check for placeholder to be more friendly to long PATH, #3349
 
 
 2016-07-26  4.1.11:
