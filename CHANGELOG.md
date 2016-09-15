@@ -1,3 +1,13 @@
+## 4.3.0 (unreleased)
+
+### Bug Fixes
+* account for the Windows Python 2.7 os.environ unicode aversion (#3363)
+* fix link field in record object (#3424)
+
+### Non-User-Facing Changes
+* remove unnecessary eval (#3428)
+
+
 ## 4.2.6 (2016-09-14)
 
 ### Improvements
