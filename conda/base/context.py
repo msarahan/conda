@@ -15,9 +15,10 @@ from .._vendor.auxlib.decorators import memoizedproperty
 from .._vendor.auxlib.ish import dals
 from .._vendor.auxlib.path import expand
 from ..common.compat import iteritems, odict
-from ..common.configuration import (Configuration, MapParameter, PrimitiveParameter,
-                                    SequenceParameter, LoadError)
-from ..common.url import urlparse, path_to_url
+from ..common.configuration import (Configuration, LoadError, MapParameter, PrimitiveParameter,
+                                    SequenceParameter, ValidationError)
+from ..common.disk import try_write
+from ..common.url import has_scheme, path_to_url, split_scheme_auth_token, urlparse
 from ..exceptions import CondaEnvironmentNotFoundError, CondaValueError
 
 try:
@@ -102,6 +103,13 @@ class Context(Configuration):
     bld_path = PrimitiveParameter('')
     binstar_upload = PrimitiveParameter(None, aliases=('anaconda_upload',),
                                         parameter_type=(bool, NoneType))
+
+    def post_build_validation(self):
+        errors = []
+        if self.client_cert_key and not self.client_cert:
+            msg = "'client_cert' is required when 'client_cert_key' is defined"
+            errors.append(ValidationError('client_cert', self.client_cert, "<<merged>>", msg))
+        return errors
 
     @property
     def default_python(self):
