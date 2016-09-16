@@ -598,6 +598,7 @@ class IntegrationTests(TestCase):
                 os.remove(shortcut_file)
 
     def test_create_default_packages(self):
+        # Regression test for #3453
         try:
             prefix = make_temp_prefix(str(uuid4())[:7])
 
