@@ -218,7 +218,7 @@ def execute(args, parser):
     elif args.export:
         format = 'export'
     else:
-        format = 'export'
+        format = 'human'
     if context.json:
         format = 'canonical'
 
