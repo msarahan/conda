@@ -1059,6 +1059,10 @@ def unlink(prefix, dist):
             if isdir(path) and not os.listdir(path):
                 rm_rf(path)
 
+        alt_files_path = join(prefix, 'conda-meta', dist2filename(dist, '.files'))
+        if isfile(alt_files_path):
+            rm_rf(alt_files_path)
+
 
 def messages(prefix):
     path = join(prefix, '.messages.txt')
