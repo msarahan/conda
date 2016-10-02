@@ -384,7 +384,6 @@ class Resolve(object):
         filter = {}
         touched = {}
         snames = set()
-        nspecs = set()
         unsat = set()
 
         def filter_group(matches, chains=None):
@@ -444,8 +443,6 @@ class Resolve(object):
             # not have a particular dependency, it must be ignored in this pass.
             if first:
                 snames.add(name)
-                if match1 not in specs:
-                    nspecs.add(MatchSpec(name))
             cdeps = defaultdict(list)
             for fkey in group:
                 if filter[fkey]:
