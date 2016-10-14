@@ -330,8 +330,20 @@ class Channel(object):
     def __hash__(self):
         return hash((self.location, self.name))
 
-    def __nonzero__(self):
-        return any((self.location, self.name))
+    def __init__(self, url):
+        log.debug("making channel object for url: %s", url)
+        if url.endswith('.tar.bz2'):
+            # throw away filename from url
+            url = url.rsplit('/', 1)[0]
+        if not has_scheme(url):
+            url = path_to_url(url)
+        self._raw_value = url
+        parsed = urlparse(url)
+        self._scheme = parsed.scheme
+        self._netloc = parsed.netloc
+        self._auth = parsed.auth
+        _path, self._platform = split_platform(parsed.path)
+        self._token, self._path = split_token(_path)
 
     def __bool__(self):
         return self.__nonzero__()
@@ -341,6 +353,21 @@ class Channel(object):
     def url_channel_wtf(self):
         return self.base_url, self.canonical_name
 
+    def __init__(self, name):
+        log.debug("making channel object for named channel: %s", name)
+        self._raw_value = name
+        if name in context.custom_channels:
+            parsed = urlparse(context.custom_channels[name])
+        elif name.split('/')[0] in context.custom_channels:
+            parsed = urlparse(context.custom_channels[name.split('/')[0]])
+        else:
+            parsed = urlparse(context.channel_alias)
+        self._scheme = parsed.scheme
+        self._netloc = parsed.netloc
+        self._auth = parsed.auth
+        self._token = None
+        self._path = join(parsed.path or '/', name)
+        self._platform = None
 
 class MultiChannel(Channel):
 
@@ -355,9 +382,9 @@ class MultiChannel(Channel):
         self.platform = None
         self.package_filename = None
 
-    @property
-    def channel_location(self):
-        return self.location
+    def __init__(self, value):
+        self._raw_value = value
+        self._scheme = self._netloc = self._auth = self._token = self._path = self._platform = None
 
     @property
     def canonical_name(self):
@@ -377,13 +404,15 @@ class MultiChannel(Channel):
 def prioritize_channels(channels, platform=None):
     # ('https://conda.anaconda.org/conda-forge/osx-64/', ('conda-forge', 1))
     result = odict()
+    auths = odict()
     for q, chn in enumerate(channels):
         channel = Channel(chn)
         for url in channel.get_urls(platform):
             if url in result:
                 continue
             result[url] = channel.canonical_name, q
-    return result
+            auths[url] = tuple(channel._auth.split(':')) if channel._auth else None
+    return result, auths
 
 
 def offline_keep(url):
