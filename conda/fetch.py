@@ -23,8 +23,8 @@ from requests.packages.urllib3.connectionpool import InsecureRequestWarning
 from ._vendor.auxlib.logz import stringify
 from .base.context import context
 from .common.disk import exp_backoff_fn, rm_rf
-from .common.url import add_username_and_pass_to_url, url_to_path, join_url, split_anaconda_token
-from .compat import input, iteritems, itervalues, text_type
+from .common.url import add_username_and_password, join_url, maybe_add_auth, url_to_path
+from .compat import input, iteritems, itervalues
 from .connection import CondaSession, RETRIES
 from .exceptions import CondaHTTPError, CondaRuntimeError, CondaSignatureError, MD5MismatchError, \
     ProxyError
@@ -267,7 +267,7 @@ def handle_proxy_407(url, session):
 http://conda.pydata.org/docs/html#configure-conda-for-use-behind-a-proxy-server
 for more information on how to configure proxies.""" % scheme)
     username, passwd = get_proxy_username_and_pass(scheme)
-    session.proxies[scheme] = add_username_and_pass_to_url(
+    session.proxies[scheme] = add_username_and_password(
                             session.proxies[scheme], username, passwd)
 
 
