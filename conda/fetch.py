@@ -223,7 +223,6 @@ def fetch_repodata(url, cache_dir=None, use_cache=False, session=None, auth=None
         raise CondaHTTPError(help_message, e.response.url, e.response.status_code,
                              e.response.reason)
 
-
     except requests.exceptions.SSLError as e:
         msg = "SSL Error: %s\n" % e
         stderrlog.info("SSL verification error: %s\n" % e)
