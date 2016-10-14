@@ -16,9 +16,8 @@ from .._vendor.auxlib.ish import dals
 from .._vendor.auxlib.path import expand
 from ..common.compat import iteritems, odict
 from ..common.configuration import (Configuration, MapParameter, PrimitiveParameter,
-                                    SequenceParameter)
-from ..common.disk import try_write
-from ..common.url import (has_scheme, path_to_url, split_scheme_auth_token, urlparse)
+                                    SequenceParameter, LoadError)
+from ..common.url import urlparse, path_to_url
 from ..exceptions import CondaEnvironmentNotFoundError, CondaValueError
 
 try:
@@ -288,9 +287,6 @@ def conda_in_private_env():
     # conda is located in its own private environment named '_conda'
     return basename(sys.prefix) == '_conda' and basename(dirname(sys.prefix)) == 'envs'
 
-context = Context(SEARCH_PATH, conda, None)
-
-
 def reset_context(search_path=SEARCH_PATH, argparse_args=None):
     context.__init__(search_path, conda, argparse_args)
     from ..models.channel import Channel
@@ -434,3 +430,10 @@ def inroot_notwritable(prefix):
     """
     return (abspath(prefix).startswith(context.root_dir) and
             not context.root_writable)
+
+try:
+    context = Context(SEARCH_PATH, conda, None)
+except LoadError as e:
+    print(e, file=sys.stderr)
+    # Exception handler isn't loaded so use sys.exit
+    sys.exit(1)
