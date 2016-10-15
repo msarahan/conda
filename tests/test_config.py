@@ -6,6 +6,7 @@
 import os
 import pytest
 import unittest
+from conda.models.channel import Channel
 from contextlib import contextmanager
 from datetime import datetime
 from os.path import join, dirname
@@ -88,13 +89,14 @@ class TestConfig(unittest.TestCase):
     # @pytest.mark.xfail(datetime.now() < datetime(2016, 8, 1),
     #                    reason="refactor to work with Channel entity")
     def test_normalize_urls(self):
-        current_platform = config.subdir
-        assert config.DEFAULT_CHANNEL_ALIAS == 'https://conda.anaconda.org/'
-        assert config.rc.get('channel_alias') == 'https://your.repo/'
-        assert config.channel_prefix(False) == 'https://your.repo/'
-        assert config.binstar_domain == 'https://myapistar.com/'
-        assert config.binstar_domain_tok == 'https://myapistar.com/t/01234abcde/'
-
+        context = reset_context([join(dirname(__file__), 'condarc')])
+        current_platform = context.subdir
+        assert DEFAULT_CHANNEL_ALIAS == 'https://conda.anaconda.org'
+        assert context.channel_alias == Channel('https://your.repo/')
+        # assert binstar.channel_prefix(False) == 'https://your.repo/'
+        # assert binstar.binstar_domain == 'https://mybinstar.com/'
+        # assert binstar.binstar_domain_tok == 'https://mybinstar.com/t/01234abcde/'
+        assert context.channels == ("binstar_username", "http://some.custom/channel", "defaults")
         channel_urls = [
             'defaults',
             'system',
