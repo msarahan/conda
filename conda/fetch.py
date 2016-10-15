@@ -317,22 +317,27 @@ def fetch_index(channel_urls, use_cache=False, unknown=False, index=None, channe
         finally:
             executor.shutdown(wait=True)
 
-    for channel, repodata in repodatas:
-        if repodata is None:
-            continue
-        new_index = repodata['packages']
-        url_s, priority = channel_urls[channel]
-        auth_s = channel_auths[channel]
-        channel = channel.rstrip('/')
-        for fn, info in iteritems(new_index):
-            info['fn'] = fn
-            info['schannel'] = url_s
-            info['channel'] = channel
-            info['priority'] = priority
-            info['url'] = channel + '/' + fn
-            info['auth'] = auth_s
-            key = url_s + '::' + fn if url_s != 'defaults' else fn
-            index[key] = info
+    def make_index(repodatas):
+        result = dict()
+        for channel_url, repodata in repodatas:
+            if repodata is None:
+                continue
+            canonical_name, priority = channel_urls[channel_url]
+            channel = Channel(channel_url)
+            for fn, info in iteritems(repodata['packages']):
+                full_url = join_url(channel_url, fn)
+                info.update(dict(fn=fn,
+                                 schannel=canonical_name,
+                                 channel=channel_url,
+                                 priority=priority,
+                                 url=full_url,
+                                 auth=channel.auth,
+                                 ))
+                key = canonical_name + '::' + fn if canonical_name != 'defaults' else fn
+                result[key] = Record(**info)
+        return result
+
+    index = make_index(repodatas)
 
     if not context.json:
         stdoutlog.info('\n')
