@@ -30,6 +30,7 @@ from .exceptions import CondaHTTPError, CondaRuntimeError, CondaSignatureError, 
 from .install import add_cached_package, dist2pair, find_new_location, package_cache
 from .lock import FileLock
 from .models.channel import Channel, offline_keep
+from .models.record import Record
 
 log = getLogger(__name__)
 dotlog = getLogger('dotupdate')
