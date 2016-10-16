@@ -64,5 +64,5 @@ class Record(DictSafeMixin, Entity):
     priority = IntegerField(required=False)
     url = StringField(required=False, nullable=True)
 
-    files = ListField(string_types, required=False)
+    files = ListField(string_types, default=(), required=False)
     link = ComposableField(Link, required=False)
