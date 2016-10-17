@@ -24,8 +24,9 @@ from conda.common.url import path_to_url
 from conda.common.yaml import yaml_load
 from conda.compat import itervalues
 from conda.connection import LocalFSAdapter
-from conda.exceptions import DryRunExit, conda_exception_handler, CondaHTTPError
-from conda.install import dist2dirname, linked as install_linked, linked_data, linked_data_, on_win
+from conda.core.linked_data import linked as install_linked, linked_data, linked_data_
+from conda.exceptions import CondaHTTPError, DryRunExit, conda_exception_handler
+from conda.utils import on_win
 from contextlib import contextmanager
 from datetime import datetime
 from glob import glob
