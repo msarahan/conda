@@ -18,6 +18,7 @@ from functools import wraps
 from logging import DEBUG, getLogger
 from os.path import basename, dirname, join
 from requests.packages.urllib3.connectionpool import InsecureRequestWarning
+from warnings import warn
 
 from ._vendor.auxlib.logz import stringify
 from .base.context import context
