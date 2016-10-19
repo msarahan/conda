@@ -204,6 +204,8 @@ class Package(object):
 class Resolve(object):
 
     def __init__(self, index, sort=False, processed=False):
+        assertion = lambda d, r: isinstance(d, Dist) and isinstance(r, Record)
+        assert all(assertion(d, r) for d, r in iteritems(index))
         self.index = index = {dist: record for dist, record in iteritems(index)}
         if not processed:
             for dist, info in iteritems(index.copy()):
@@ -427,8 +429,8 @@ class Resolve(object):
                 bad_deps.append((ms,))
         raise UnsatisfiableError(bad_deps)
 
-    def get_dists(self, specs):
-        log.debug('Retrieving packages for: %s' % (specs,))
+    def get_reduced_index(self, specs):
+        log.debug('Retrieving packages for: %s', specs)
 
         specs, features = self.verify_specs(specs)
         filter = self.default_filter(features)
@@ -503,20 +505,19 @@ class Resolve(object):
                 break
 
         # Determine all valid packages in the dependency graph
-        dists = {}
+        reduced_index = {}
         slist = list(specs)
         for fstr in features:
-            fkey = fstr + '@'
-            dists[fkey] = self.index[fkey]
+            dist = Dist(fstr + '@')
+            reduced_index[dist] = self.index[dist]
         while slist:
-            for fkey in self.find_matches(slist.pop()):
-                if dists.get(fkey) is None and self.valid(fkey, filter):
-                    dists[fkey] = self.index[fkey]
-                    for ms in self.ms_depends(fkey):
+            for dist in self.find_matches(slist.pop()):
+                if reduced_index.get(dist) is None and self.valid(dist, filter):
+                    reduced_index[dist] = self.index[dist]
+                    for ms in self.ms_depends(dist):
                         if ms.name[0] != '@':
                             slist.append(ms)
-
-        return dists
+        return reduced_index
 
     def match_any(self, mss, fkey):
         rec = self.index[fkey]
@@ -580,8 +581,9 @@ class Resolve(object):
                        for ms in self.ms_depends(fn))
         return depends_on_(MatchSpec(spec))
 
-    def version_key(self, fkey, vtype=None):
-        rec = self.index[fkey]
+    def version_key(self, dist, vtype=None):
+        assert isinstance(dist, Dist)
+        rec = self.index[dist]
         cpri = -rec.get('priority', 1)
         ver = normalized_version(rec.get('version', ''))
         bld = rec.get('build_number', 0)
@@ -899,16 +901,16 @@ class Resolve(object):
             # Find the compliant packages
             len0 = len(specs)
             specs = list(map(MatchSpec, specs))
-            dists = self.get_dists(specs)
-            if not dists:
-                return False if dists is None else ([[]] if returnall else [])
+            reduced_index = self.get_reduced_index(specs)
+            if not reduced_index:
+                return False if reduced_index is None else ([[]] if returnall else [])
 
             # Check if satisfiable
             def mysat(specs, add_if=False):
                 constraints = r2.generate_spec_constraints(C, specs)
                 return C.sat(constraints, add_if)
             dotlog.debug('Checking satisfiability')
-            r2 = Resolve(dists, True, True)
+            r2 = Resolve(reduced_index, True, True)
             C = r2.gen_clauses()
             solution = mysat(specs, True)
             if not solution:

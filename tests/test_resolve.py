@@ -282,13 +282,13 @@ def test_pseudo_boolean():
 
 
 def test_get_dists():
-    dists = r.get_dists(["anaconda 1.5.0"])
-    assert 'anaconda-1.5.0-np17py27_0.tar.bz2' in dists
-    assert 'dynd-python-0.3.0-np17py33_0.tar.bz2' in dists
+    dists = r.get_reduced_index(["anaconda 1.5.0"])
+    assert Dist('anaconda-1.5.0-np17py27_0.tar.bz2') in dists
+    assert Dist('dynd-python-0.3.0-np17py33_0.tar.bz2') in dists
 
 
 def test_generate_eq():
-    dists = r.get_dists(['anaconda'])
+    dists = r.get_reduced_index(['anaconda'])
     r2 = Resolve(dists, True, True)
     C = r2.gen_clauses()
     eqv, eqb = r2.generate_version_metrics(C, list(r2.groups.keys()))
@@ -568,7 +568,7 @@ def test_nonexistent_deps():
         Dist('mypackage-1.0-py33_0.tar.bz2'),
         Dist('mypackage-1.1-py33_0.tar.bz2'),
     }
-    assert set(r.get_dists(['mypackage']).keys()) == {
+    assert set(d.to_filename() for d in r.get_reduced_index(['mypackage']).keys()) == {
         'mypackage-1.1-py33_0.tar.bz2',
         'nose-1.1.2-py33_0.tar.bz2',
         'nose-1.2.1-py33_0.tar.bz2',
@@ -669,7 +669,7 @@ def test_nonexistent_deps():
         'mypackage-1.0-py33_0.tar.bz2',
         'mypackage-1.1-py33_0.tar.bz2',
         }
-    assert set(r.get_dists(['mypackage']).keys()) == {
+    assert set(d.to_filename() for d in r.get_reduced_index(['mypackage']).keys()) == {
         'mypackage-1.0-py33_0.tar.bz2',
         'nose-1.1.2-py33_0.tar.bz2',
         'nose-1.2.1-py33_0.tar.bz2',
@@ -783,9 +783,9 @@ def test_circular_dependencies():
     assert set(r.find_matches(MatchSpec('package1'))) == {
         Dist('package1-1.0-0.tar.bz2'),
     }
-    assert set(r.get_dists(['package1']).keys()) == {
-        'package1-1.0-0.tar.bz2',
-        'package2-1.0-0.tar.bz2',
+    assert set(r.get_reduced_index(['package1']).keys()) == {
+        Dist('package1-1.0-0.tar.bz2'),
+        Dist('package2-1.0-0.tar.bz2'),
     }
     assert r.install(['package1']) == r.install(['package2']) == \
         r.install(['package1', 'package2']) == [
