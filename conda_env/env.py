@@ -6,6 +6,9 @@ from conda.base.context import context
 from conda.cli import common
 from conda.core.linked_data import linked
 from copy import copy
+import os
+
+# TODO This should never have to import from conda.cli
 from itertools import chain
 
 from . import compat, exceptions, yaml

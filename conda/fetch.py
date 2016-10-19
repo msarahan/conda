@@ -18,6 +18,7 @@ from functools import wraps
 from logging import DEBUG, getLogger
 from os.path import basename, dirname, join
 from requests.packages.urllib3.connectionpool import InsecureRequestWarning
+from warnings import warn
 
 from .base.context import context
 from .common.disk import exp_backoff_fn, rm_rf
@@ -33,6 +34,10 @@ from .models.record import Record
 log = getLogger(__name__)
 
 
+
+# for conda-build backward compatibility
+handle_proxy_407 = lambda x, y: warn("handle_proxy_407 is deprecated. "
+                                     "Now handled by CondaSession.")
 
 
 def create_cache_dir():
