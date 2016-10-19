@@ -5,10 +5,6 @@
 # Consult LICENSE.txt or http://opensource.org/licenses/BSD-3-Clause.
 from __future__ import absolute_import, division, print_function, unicode_literals
 
-import bz2
-import hashlib
-import json
-import os
 import shutil
 import tempfile
 import warnings
@@ -20,17 +16,6 @@ from os.path import basename, dirname, join
 from requests.packages.urllib3.connectionpool import InsecureRequestWarning
 from warnings import warn
 
-from .base.context import context
-from .common.disk import exp_backoff_fn, rm_rf
-from .common.url import join_url, maybe_add_auth, url_to_path
-from .compat import iteritems, itervalues
-from .connection import CondaSession, RETRIES
-from .exceptions import CondaHTTPError, CondaRuntimeError, CondaSignatureError, MD5MismatchError
-from .install import add_cached_package, dist2pair, find_new_location, package_cache
-from .lock import FileLock
-from .models.channel import Channel, offline_keep
-from .models.record import Record
-
 log = getLogger(__name__)
 
 
@@ -38,15 +23,10 @@ log = getLogger(__name__)
 # for conda-build backward compatibility
 handle_proxy_407 = lambda x, y: warn("handle_proxy_407 is deprecated. "
                                      "Now handled by CondaSession.")
-
-
-def create_cache_dir():
-    cache_dir = join(context.pkgs_dirs[0], 'cache')
-    try:
-        os.makedirs(cache_dir)
-    except OSError:
-        pass
-    return cache_dir
+from .core.package_cache import download  # NOQA
+download = download
+from .core.index import fetch_index  # NOQA
+fetch_index = fetch_index
 
 
 def cache_fn_url(url):
