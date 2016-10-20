@@ -24,8 +24,9 @@ from conda.common.url import path_to_url
 from conda.common.yaml import yaml_load
 from conda.compat import itervalues
 from conda.connection import LocalFSAdapter
-from conda.exceptions import DryRunExit, conda_exception_handler, CondaHTTPError
-from conda.install import dist2dirname, linked as install_linked, linked_data, linked_data_, on_win
+from conda.core.linked_data import linked as install_linked, linked_data, linked_data_
+from conda.exceptions import CondaHTTPError, DryRunExit, conda_exception_handler
+from conda.utils import on_win
 from contextlib import contextmanager
 from datetime import datetime
 from glob import glob
@@ -173,8 +174,10 @@ def enforce_offline():
 
 def package_is_installed(prefix, package, exact=False):
     packages = list(install_linked(prefix))
-    if '::' not in package:
-        packages = list(map(dist2dirname, packages))
+    if '::' in package:
+        packages = list(map(text_type, packages))
+    else:
+        packages = list(map(lambda x: x.dist_name, packages))
     if exact:
         return package in packages
     return any(p.startswith(package) for p in packages)
@@ -204,14 +207,17 @@ class IntegrationTests(TestCase):
 
             run_command(Commands.INSTALL, prefix, 'flask=0.10')
             assert_package_is_installed(prefix, 'flask-0.10.1')
+            assert_package_is_installed(prefix, 'python-3')
 
             # Test force reinstall
             run_command(Commands.INSTALL, prefix, '--force', 'flask=0.10')
             assert_package_is_installed(prefix, 'flask-0.10.1')
+            assert_package_is_installed(prefix, 'python-3')
 
             run_command(Commands.UPDATE, prefix, 'flask')
             assert not package_is_installed(prefix, 'flask-0.10.1')
             assert_package_is_installed(prefix, 'flask')
+            assert_package_is_installed(prefix, 'python-3')
 
             run_command(Commands.REMOVE, prefix, 'flask')
             assert not package_is_installed(prefix, 'flask-0.')

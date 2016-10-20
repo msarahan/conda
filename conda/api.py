@@ -1,12 +1,7 @@
-from __future__ import print_function, division, absolute_import
+from __future__ import absolute_import, division, print_function
 
-from conda.models.record import EMPTY_LINK
+from conda.core.index import get_index
 
-from . import install
-from .base.context import context
-from .compat import iteritems, itervalues
-from .models.channel import prioritize_channels
-from .fetch import fetch_index
 from .resolve import Resolve
 
 def get_index(channel_urls=(), prepend=True, platform=None,
