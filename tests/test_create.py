@@ -12,6 +12,7 @@ from conda._vendor.auxlib.entity import EntityEncoder
 from conda.base.context import context, reset_context
 from conda.cli.common import get_index_trap
 from conda.cli.main import generate_parser
+from conda.cli.main_clean import configure_parser as clean_configure_parser
 from conda.cli.main_config import configure_parser as config_configure_parser
 from conda.cli.main_clean import configure_parser as clean_configure_parser
 from conda.cli.main_create import configure_parser as create_configure_parser
@@ -21,14 +22,15 @@ from conda.cli.main_list import configure_parser as list_configure_parser
 from conda.cli.main_remove import configure_parser as remove_configure_parser
 from conda.cli.main_search import configure_parser as search_configure_parser
 from conda.cli.main_update import configure_parser as update_configure_parser
-from conda.common.io import captured, disable_logger, stderr_log_level, replace_log_streams
+from conda.common.disk import rm_rf
+from conda.common.io import captured, disable_logger, replace_log_streams, stderr_log_level
 from conda.common.url import path_to_url
 from conda.common.yaml import yaml_load
 from conda.compat import itervalues
 from conda.connection import LocalFSAdapter
-from conda.core.index import create_cache_dir
-from conda.core.linked_data import linked as install_linked, linked_data, linked_data_
 from conda.exceptions import CondaHTTPError, DryRunExit, conda_exception_handler
+from conda.fetch import create_cache_dir
+from conda.install import dist2dirname, linked as install_linked, linked_data, linked_data_
 from conda.utils import on_win
 from contextlib import contextmanager
 from datetime import datetime
@@ -310,7 +312,7 @@ class IntegrationTests(TestCase):
                 tar_new_path = join(subchan, flask_fname)
                 copyfile(tar_old_path, tar_new_path)
                 with bz2.BZ2File(join(subchan, 'repodata.json.bz2'), 'w') as f:
-                    f.write(json.dumps(repodata, cls=EntityEncoder).encode('utf-8'))
+                    f.write(json.dumps(repodata).encode('utf-8'))
                 run_command(Commands.INSTALL, prefix, '-c', channel, 'flask', '--json')
                 assert_package_is_installed(prefix, channel + '::' + 'flask-')
 
@@ -808,3 +810,18 @@ class IntegrationTests(TestCase):
         # now clear it
         run_command(Commands.CLEAN, prefix, "--index-cache")
         assert not glob(join(index_cache_dir, "*.json"))
+
+    def test_install_mkdir(self):
+        try:
+            prefix = make_temp_prefix()
+            assert isdir(prefix)
+            run_command(Commands.INSTALL, prefix, "python=3.5", "--mkdir")
+            assert_package_is_installed(prefix, "python-3.5")
+
+            rm_rf(prefix)
+            assert not isdir(prefix)
+            run_command(Commands.INSTALL, prefix, "python=3.5", "--mkdir")
+            assert_package_is_installed(prefix, "python-3.5")
+
+        finally:
+            rmtree(prefix, ignore_errors=True)

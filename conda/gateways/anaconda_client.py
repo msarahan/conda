@@ -10,7 +10,6 @@ from stat import S_IREAD, S_IWRITE
 
 from ..common.disk import rm_rf
 from ..common.url import quote_plus, unquote_plus
-from .._vendor.appdirs import AppDirs, EnvAppDirs
 
 log = getLogger(__name__)
 
@@ -39,16 +38,23 @@ def read_binstar_tokens():
         with open(tkn_file) as f:
             token = f.read()
         tokens[url] = tokens[replace_first_api_with_conda(url)] = token
-
     return tokens
 
 
 def set_binstar_token(url, token):
-    token_dir = _get_binstar_token_directory()
-    if not isdir(token_dir):
-        os.makedirs(token_dir)
+    try:
+        from binstar_client.utils.appdirs import AppDirs, EnvAppDirs
+    except ImportError:
+        raise
 
-    tokenfile = join(token_dir, '%s.token' % quote_plus(url))
+    if 'BINSTAR_CONFIG_DIR' in os.environ:
+        dirs = EnvAppDirs('binstar', 'ContinuumIO', os.environ['BINSTAR_CONFIG_DIR'])
+    else:
+        dirs = AppDirs('binstar', 'ContinuumIO')
+
+    if not isdir(dirs.user_data_dir):
+        os.makedirs(dirs.user_data_dir)
+    tokenfile = join(dirs.user_data_dir, '%s.token' % quote_plus(url))
 
     if isfile(tokenfile):
         os.unlink(tokenfile)
@@ -58,8 +64,17 @@ def set_binstar_token(url, token):
 
 
 def remove_binstar_token(url):
-    token_dir = _get_binstar_token_directory()
-    tokenfile = join(token_dir, '%s.token' % quote_plus(url))
+    try:
+        from binstar_client.utils.appdirs import AppDirs, EnvAppDirs
+    except ImportError:
+        raise
+
+    if 'BINSTAR_CONFIG_DIR' in os.environ:
+        dirs = EnvAppDirs('binstar', 'ContinuumIO', os.environ['BINSTAR_CONFIG_DIR'])
+    else:
+        dirs = AppDirs('binstar', 'ContinuumIO')
+
+    tokenfile = join(dirs.user_data_dir, '%s.token' % quote_plus(url))
     rm_rf(tokenfile)
 
 
