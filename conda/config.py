@@ -3,50 +3,15 @@
 #
 # conda is distributed under the terms of the BSD 3-clause license.
 # Consult LICENSE.txt or http://opensource.org/licenses/BSD-3-Clause.
+from __future__ import print_function, division, absolute_import, unicode_literals
 
-from __future__ import print_function, division, absolute_import
-
-import logging
 import os
-import re
 import sys
-from collections import OrderedDict, namedtuple
-from os.path import abspath, expanduser, isfile, isdir, join
-from platform import machine
+from os.path import abspath, expanduser, isfile, join
 
-from .compat import urlparse, string_types
-from .utils import try_write, yaml_load
+from conda.base.context import context, non_x86_linux_machines  # NOQA
+non_x86_linux_machines = non_x86_linux_machines
 
-log = logging.getLogger(__name__)
-stderrlog = logging.getLogger('stderrlog')
-
-default_python = '%d.%d' % sys.version_info[:2]
-# CONDA_FORCE_32BIT should only be used when running conda-build (in order
-# to build 32-bit packages on a 64-bit system).  We don't want to mention it
-# in the documentation, because it can mess up a lot of things.
-force_32bit = bool(int(os.getenv('CONDA_FORCE_32BIT', 0)))
-
-# ----- operating system and architecture -----
-
-_sys_map = {
-    'linux2': 'linux',
-    'linux': 'linux',
-    'darwin': 'osx',
-    'win32': 'win',
-    'openbsd5': 'openbsd',
-}
-non_x86_linux_machines = {'armv6l', 'armv7l', 'ppc64le'}
-platform = _sys_map.get(sys.platform, 'unknown')
-bits = 8 * tuple.__itemsize__
-if force_32bit:
-    bits = 32
-
-if platform == 'linux' and machine() in non_x86_linux_machines:
-    arch_name = machine()
-    subdir = 'linux-%s' % arch_name
-else:
-    arch_name = {64: 'x86_64', 32: 'x86'}[bits]
-    subdir = '%s-%d' % (platform, bits)
 
 # ----- rc file -----
 
@@ -65,8 +30,6 @@ rc_list_keys = [
     'envs_dirs',
     'default_channels',
 ]
-
-DEFAULT_CHANNEL_ALIAS = 'https://conda.anaconda.org/'
 
 ADD_BINSTAR_TOKEN = True
 
@@ -87,12 +50,14 @@ rc_bool_keys = [
     'allow_other_channels',
     'update_dependencies',
     'channel_priority',
+    'shortcuts',
 ]
 
 rc_string_keys = [
     'ssl_verify',
     'channel_alias',
-    'root_dir',
+    'client_ssl_cert',
+    'client_ssl_cert_key',
 ]
 
 # Not supported by conda config yet
@@ -100,13 +65,29 @@ rc_other = [
     'proxy_servers',
 ]
 
+root_dir = context.root_prefix
+root_writable = context.root_writable
+
 user_rc_path = abspath(expanduser('~/.condarc'))
 sys_rc_path = join(sys.prefix, '.condarc')
-local_channel = []
-root_dir = root_writable = None
-offline = False
-add_anaconda_token = ADD_BINSTAR_TOKEN
-rc = {}
+
+
+get_rc_urls = lambda: context.channels
+
+
+def get_local_urls():
+    from conda.models.channel import get_conda_build_local_url
+    return get_conda_build_local_url() or []
+
+
+class RC(object):
+
+    def get(self, key, default=None):
+        return getattr(context, key, default)
+
+
+rc = RC()
+envs_dirs = context.envs_dirs
 
 def get_rc_path():
     path = os.getenv('CONDARC')
@@ -184,9 +165,14 @@ def get_local_urls(clear_cache=True):
         pass
     return local_channel
 
+
 defaults_ = [
     'https://repo.continuum.io/pkgs/free',
-    'https://repo.continuum.io/pkgs/pro']
+    'https://repo.continuum.io/pkgs/pro',
+]
+if platform == "win":
+    defaults_.append('https://repo.continuum.io/pkgs/msys2')
+
 
 def get_default_urls(merged=False):
     if 'default_channels' in sys_rc:
@@ -215,6 +201,8 @@ def is_offline():
 def offline_keep(url):
     return not offline or not is_url(url) or url.startswith('file:/')
 
+BINSTAR_TOKEN_PAT = re.compile(r'((:?binstar\.org|anaconda\.org)/?)(t/[0-9a-zA-Z\-<>]{4,})/')
+
 def init_binstar(quiet=False):
     global binstar_client, binstar_domain, binstar_domain_tok
     global binstar_regex, BINSTAR_TOKEN_PAT
@@ -231,12 +219,14 @@ def init_binstar(quiet=False):
             binstar_client = ()
         except Exception as e:
             stderrlog.info("Warning: could not import binstar_client (%s)" % e)
+            binstar_client = ()
     if binstar_client == ():
         binstar_domain = DEFAULT_CHANNEL_ALIAS
         binstar_domain_tok = None
     else:
-        binstar_domain = binstar_client.domain.replace("api", "conda").rstrip('/') + '/'
-        if add_anaconda_token:
+        binstar_domain = binstar_client.domain.rstrip('/') + '/'
+        binstar_domain = re.sub('/api/$', '/conda/', binstar_domain)
+        if add_anaconda_token and binstar_client.token:
             binstar_domain_tok = binstar_domain + 't/%s/' % (binstar_client.token,)
     binstar_regex = (r'((:?%s|binstar\.org|anaconda\.org)/?)(t/[0-9a-zA-Z\-<>]{4,})/' %
                      re.escape(binstar_domain[:-1]))
@@ -438,7 +428,9 @@ def load_condarc(path=None):
     binstar_upload = rc.get('anaconda_upload',
                             rc.get('binstar_upload', None))  # None means ask
     allow_softlinks = bool(rc.get('allow_softlinks', True))
-    auto_update_conda = bool(rc.get('auto_update_conda', rc.get('self_update', True)))
+    auto_update_conda = bool(rc.get('auto_update_conda',
+                                    rc.get('self_update',
+                                           sys_rc.get('auto_update_conda', True))))
     # show channel URLs when displaying what is going to be downloaded
     show_channel_urls = rc.get('show_channel_urls', None)  # None means letting conda decide
     # set packages disallowed to be installed
@@ -447,6 +439,7 @@ def load_condarc(path=None):
     create_default_packages = list(rc.get('create_default_packages', []))
     update_dependencies = bool(rc.get('update_dependencies', True))
     channel_priority = bool(rc.get('channel_priority', True))
+    shortcuts = bool(rc.get('shortcuts', True))
 
     # ssl_verify can be a boolean value or a filename string
     ssl_verify = rc.get('ssl_verify', True)
@@ -459,7 +452,7 @@ def load_condarc(path=None):
     except KeyError:
         track_features = None
 
-    globals().update(locals())
-    return rc
 
-load_condarc(rc_path)
+# put back because of conda build
+default_python = context.default_python
+binstar_upload = context.binstar_upload
