@@ -1,12 +1,7 @@
-from __future__ import print_function, division, absolute_import
+from __future__ import absolute_import, division, print_function, unicode_literals
 
-from conda.models.record import EMPTY_LINK
+from conda.core.index import get_index
 
-from . import install
-from .base.context import context
-from .compat import iteritems, itervalues
-from .models.channel import prioritize_channels
-from .fetch import fetch_index
 from .resolve import Resolve
 
 def get_index(channel_urls=(), prepend=True, platform=None,
@@ -21,10 +16,10 @@ def get_index(channel_urls=(), prepend=True, platform=None,
     if use_local:
         channel_urls = ['local'] + list(channel_urls)
     if prepend:
-        channel_urls = list(channel_urls)  # TODO: refactor and remove
-        channel_urls.extend(get_channel_urls(platform))
-    channel_urls = prioritize_channels(channel_urls)
-    index = fetch_index(channel_urls, use_cache=use_cache, unknown=unknown)
+        channel_urls += context.channels
+    channel_urls, channel_auth = prioritize_channels(channel_urls)
+    index = fetch_index(channel_urls, use_cache=use_cache, unknown=unknown,
+                        channel_auths=channel_auth)
     if prefix:
         priorities = {c: p for c, p in itervalues(channel_urls)}
         maxp = max(itervalues(priorities)) + 1 if priorities else 1
