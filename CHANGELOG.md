@@ -1,3 +1,34 @@
+## 4.3.0 (unreleased)
+
+### Deprecations/Breaking Changes
+* the 'r' channel is now part of defaults (#3677)
+* remove dead install_tar function (#3641)
+
+### Improvements
+* cache VersionOrder objects to improve performance (#3596)
+* fix documentation and typos (#3526, #3572, #3627)
+* imporoved solver hint detection, simplified filtering (#3597)
+* add multikey configuration validation (#3432)
+* some Fish autocompletions (#2519)
+* fix #3667 unicode literals and unicode decode (#3682)
+
+### Bug Fixes
+* account for the Windows Python 2.7 os.environ unicode aversion (#3363)
+* fix link field in record object (#3424)
+* anaconda api token bug fix; additional tests (#3673)
+
+### Non-User-Facing Changes
+* remove unnecessary eval (#3428)
+* add conda.exports module (#3429)
+* apply PEP-8 to conda-env (#3653)
+* refactor dist into an object (#3616)
+* vendor appdirs; remove conda's dependency on anaconda-client import (#3675)
+* revert boto patch from #2380 (#3676)
+* move and update ROOT_NO_RM (#3697)
+* integration tests for conda clean (#3695, #3699)
+* disable coverage on s3 and ftp requests adapaters (#3696, #3701)
+
+
 ## 4.2.11 (unreleased)
 
 ### Bug Fixes
