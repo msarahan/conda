@@ -6,45 +6,35 @@ set -e
 # turn OFF verbose printing of commands/results
 set +x
 
-# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
-# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
-# #                                                                     # #
-# # TRAVIS CI SCRIPT                                                    # #
-# #                                                                     # #
-# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
-# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+make_conda_entrypoint() {
+    local filepath="$1"
+    local workingdir="$2"
+	cat <<- EOF > $filepath
+	#!$(which python)
+	if __name__ == '__main__':
+	   import sys
+	   sys.path.insert(0, '$workingdir')
+	   import conda.cli
+	   sys.exit(conda.cli.main())
+	EOF
+    chmod +x $filepath
+    cat $filepath
+}
 
-###########################################################################
-# HELPER FUNCTIONS                                                        #
 main_test() {
     echo "MAIN TEST"
 
-    PYTHONHASHSEED=$(python -c "import random as r; print(r.randint(0,4294967296))")
-    export PYTHONHASHSEED
-    echo "${PYTHONHASHSEED}"
-
-    # detect what shells are available to test with
-    # don't bother testing for the default shell `sh`, generally speaking the default
-    # shell will be supported if it's one of the supported shells
-    shells=""
-    [[ $(which bash) ]] && shells="${shells} --shell=bash"
-    [[ $(which dash) ]] && shells="${shells} --shell=dash"
-    [[ $(which posh) ]] && shells="${shells} --shell=posh"
-    [[ $(which zsh) ]]  && shells="${shells} --shell=zsh"
-    [[ $(which ksh) ]]  && shells="${shells} --shell=ksh"
-    [[ $(which csh) ]]  && shells="${shells} --shell=csh"
-    [[ $(which tcsh) ]] && shells="${shells} --shell=tcsh"
-
-    python -m pytest --cov-report xml ${shells} -m "not installed" tests
-
+    # basic unit tests
+    python -m pytest --cov-report xml --shell=bash --shell=zsh -m "not installed" tests
     python setup.py --version
-    python setup.py install
+}
+
+activate_test() {
+    python setup.py develop
     hash -r
+    which conda
     python -m conda info
-
-    python -m pytest --cov-report xml --cov-append ${shells} -m "installed" tests
-
-    echo "END MAIN TEST"
+    python -m pytest --cov-report term-missing --cov-report xml --cov-append --shell=bash --shell=zsh -m "installed" tests
 }
 
 
@@ -83,8 +73,7 @@ conda_build_unit_test() {
     # the exit code of the conditional clause
     pushd conda-build
     echo
-    echo ">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>><<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<"
-    echo ">>>>>>>>>>>>>>>>>>> conda-build py.test start <<<<<<<<<<<<<<<<<<"
+    echo ">>>>>>>>>>>> running conda-build unit tests >>>>>>>>>>>>>>>>>>>>>"
     echo
     python -m pytest -n 2 --basetemp /tmp/cb tests || PYTEST_STATUS=$?
     echo
@@ -126,6 +115,9 @@ elif [[ -n "${CONDA_BUILD}" ]]; then
     conda_build_unit_test
 else
     main_test
+    if [[ "$(uname -s)" == "Linux" ]]; then
+        activate_test
+    fi
 fi
 
 echo "DONE SCRIPT"

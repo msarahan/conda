@@ -2648,36 +2648,19 @@ def run_in(command, shell, cwd=None, env=None, extra_args=""):
                 **shells["cmd.exe"])
 
         try:
-            p = subprocess.Popen(cmd_bits,
-                                 stdout=subprocess.PIPE,
-                                 stderr=subprocess.PIPE,
-                                 cwd=cwd,
-                                 env=env)
-            streams = p.communicate()
+            print(cmd_bits)
+            p = subprocess.Popen(cmd_bits, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                                 cwd=cwd, env=env)
+            stdout, stderr = p.communicate()
         finally:
             # unlink temporary file such that it is garbage collected
             os.unlink(cmd_name)
     else:
-        # heredoc/hereword are the closest we can get to truly mimicking a
-        # proper sourcing of the activate/deactivate scripts
-        #
-        # must use heredoc to avoid Ubuntu/dash incompatibility with hereword
-        cmd_bits = dedent("""\
-            {exe} {shell_args} {extra_args} <<- 'HEREDOC'
-            {command}
-            HEREDOC
-            """).format(
-                command=translate_stream(command, shells[shell]["path_to"]),
-                extra_args=extra_args,
-                **shells[shell])
-
-        print("cmd_bits: {{{}}}".format(cmd_bits))
-
-        p = subprocess.Popen(cmd_bits,
-                             shell=True,
-                             stdout=subprocess.PIPE,
-                             stderr=subprocess.PIPE,
-                             cwd=cwd,
-                             env=env)
-        streams = p.communicate()
-    return map(lambda s: u"{}".format(s.decode('utf-8').replace('\r\n', '\n').rstrip("\n")), streams)
+        cmd_bits = ([shells[shell]["exe"]] + shells[shell]["shell_args"] +
+                    [translate_stream(command, shells[shell]["path_to"])])
+        print(cmd_bits)
+        p = subprocess.Popen(cmd_bits, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        stdout, stderr = p.communicate()
+    streams = [u"%s" % stream.decode('utf-8').replace('\r\n', '\n').rstrip("\n")
+               for stream in (stdout, stderr)]
+    return streams

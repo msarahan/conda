@@ -87,21 +87,8 @@ osx_setup() {
             ;;
     esac
     pyenv rehash
-
-    PYTHON_EXE="$(pyenv which python)"
-    export PYTHON_EXE
-
-    echo "END OSX SETUP"
-}
-
-
-linux_setup() {
-    echo "LINUX SETUP"
-
-    PYTHON_EXE="$(which python)"
-    export PYTHON_EXE
-
-    echo "END LINUX SETUP"
+    export PYTHON_EXE="$(pyenv which python)"
+    rvm get head
 }
 
 
