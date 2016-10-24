@@ -684,14 +684,19 @@ class Resolve(object):
         return {self.push_MatchSpec(C, nm): 1 for nm in missing}
 
     def generate_version_metrics(self, C, specs, include0=False):
-        eqv = {}
-        eqb = {}
-        sdict = {}
+        eqv = {}  # a C.minimize() objective: Dict[varname, coeff]
+        eqb = {}  # a C.minimize() objective: Dict[varname, coeff]
+        sdict = {}  # Dict[package_name, Dist]
+
         for s in specs:
             s = MatchSpec(s)  # needed for testing
             rec = sdict.setdefault(s.name, [])
             if s.target:
-                rec.append(s.target)
+                dist = Dist(s.target)
+                if dist in self.index:
+                    if self.index[dist].get('priority', 0) < MAX_CHANNEL_PRIORITY:
+                        rec.append(dist)
+
         for name, targets in iteritems(sdict):
             pkgs = [(self.version_key(p), p) for p in self.groups.get(name, [])]
             pkey = None
