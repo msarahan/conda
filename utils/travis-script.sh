@@ -24,8 +24,27 @@ make_conda_entrypoint() {
 main_test() {
     echo "MAIN TEST"
 
-    # basic unit tests
-    python -m pytest --cov-report xml --shell=bash --shell=zsh -m "not installed" tests
+    PYTHONHASHSEED=$(python -c "import random as r; print(r.randint(0,4294967296))")
+    export PYTHONHASHSEED
+    echo "${PYTHONHASHSEED}"
+
+    # detect what shells are available to test with
+    # refer to conda.util.shells for appropriate syntaxes
+    # don't bother testing for the default shell `sh`, generally speaking the default
+    # shell will be supported if it's one of the supported shells
+    shells=""
+    [[ $(which bash) ]] && shells="${shells} --shell=bash"
+    [[ $(which dash) ]] && shells="${shells} --shell=dash"
+    [[ $(which posh) ]] && shells="${shells} --shell=posh"
+    [[ $(which zsh) ]]  && shells="${shells} --shell=zsh"
+    [[ $(which ksh) ]]  && shells="${shells} --shell=ksh"
+    [[ $(which csh) ]]  && shells="${shells} --shell=csh"
+    [[ $(which tcsh) ]] && shells="${shells} --shell=tcsh"
+
+    python -m pytest --cov-report xml ${shells} -m "not installed" tests
+
+    # `develop` instead of `install` to avoid coverage issues of tracking two
+    # separate "codes"
     python setup.py --version
 }
 
@@ -115,9 +134,6 @@ elif [[ -n "${CONDA_BUILD}" ]]; then
     conda_build_unit_test
 else
     main_test
-    if [[ "$(uname -s)" == "Linux" ]]; then
-        activate_test
-    fi
 fi
 
 echo "DONE SCRIPT"
