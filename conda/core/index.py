@@ -192,8 +192,9 @@ def fetch_repodata_remote_request(session, url, etag, mod_stamp):
         def maybe_decompress(filename, resp_content):
             return ensure_text_type(bz2.decompress(resp_content)
                                     if filename.endswith('.bz2')
-                                    else resp_content)
-        fetched_repodata = json.loads(maybe_decompress(filename, resp.content))
+                                    else resp_content).strip()
+        json_str = maybe_decompress(filename, resp.content)
+        fetched_repodata = json.loads(json_str) if json_str else {}
         fetched_repodata['_url'] = url
         add_http_value_to_dict(resp, 'Etag', fetched_repodata, '_etag')
         add_http_value_to_dict(resp, 'Last-Modified', fetched_repodata, '_mod')
@@ -203,27 +204,89 @@ def fetch_repodata_remote_request(session, url, etag, mod_stamp):
         raise CondaRuntimeError("Invalid index file: {0}{1}: {2}"
                                 .format(url, filename, e))
 
-    except requests.exceptions.HTTPError as e:
-        if e.response.status_code == 407:  # Proxy Authentication Required
-            handle_proxy_407(url, session)
-            # Try again
-            return fetch_repodata(url, cache_dir=cache_dir, use_cache=use_cache, session=session)
-
-        if e.response.status_code == 404:
-            if url.endswith('/noarch/'):  # noarch directory might not exist
+    except (ConnectionError, HTTPError, SSLError) as e:
+        # status_code might not exist on SSLError
+        status_code = getattr(e.response, 'status_code', None)
+        if status_code == 404:
+            if not url.endswith('/noarch'):
                 return None
-            msg = 'Could not find URL: %s' % url
-        elif e.response.status_code == 403 and url.endswith('/noarch/'):
-            return None
+            else:
+                help_message = dals("""
+                The remote server could not find the channel you requested.
 
-        elif e.response.status_code == 401 and context.channel_alias in url:
-            # Note, this will not trigger if the binstar configured url does
-            # not match the conda configured one.
-            msg = ("Warning: you may need to login to anaconda.org again with "
-                   "'anaconda login' to access private packages(%s, %s)" %
-                   (url, e))
-            stderrlog.info(msg)
-            return fetch_repodata(url, cache_dir=cache_dir, use_cache=use_cache, session=session)
+                As of conda 4.3, a valid channel *must* contain a `noarch/repodata.json` and
+                associated `noarch/repodata.json.bz2` file, even if `noarch/repodata.json` is
+                empty.
+
+                You will need to adjust your conda configuration to proceed.
+                Use `conda config --show` to view your configuration's current state.
+                Further configuration help can be found at <%s>.
+                """ % join_url(CONDA_HOMEPAGE_URL, 'docs/config.html'))
+
+        elif status_code == 403:
+            if not url.endswith('/noarch'):
+                return None
+            else:
+                help_message = dals("""
+                The channel you requested is not available on the remote server.
+
+                As of conda 4.3, a valid channel *must* contain a `noarch/repodata.json` and
+                associated `noarch/repodata.json.bz2` file, even if `noarch/repodata.json` is
+                empty.
+
+                You will need to adjust your conda configuration to proceed.
+                Use `conda config --show` to view your configuration's current state.
+                Further configuration help can be found at <%s>.
+                """ % join_url(CONDA_HOMEPAGE_URL, 'docs/config.html'))
+
+        elif status_code == 401:
+            channel = Channel(url)
+            if channel.token:
+                help_message = dals("""
+                The token '%s' given for the URL is invalid.
+
+                If this token was pulled from anaconda-client, you will need to use
+                anaconda-client to reauthenticate.
+
+                If you supplied this token to conda directly, you will need to adjust your
+                conda configuration to proceed.
+
+                Use `conda config --show` to view your configuration's current state.
+                Further configuration help can be found at <%s>.
+               """ % (channel.token, join_url(CONDA_HOMEPAGE_URL, 'docs/config.html')))
+
+            elif context.channel_alias.location in url:
+                # Note, this will not trigger if the binstar configured url does
+                # not match the conda configured one.
+                help_message = dals("""
+                The remote server has indicated you are using invalid credentials for this channel.
+
+                If the remote site is anaconda.org or follows the Anaconda Server API, you
+                will need to
+                  (a) login to the site with `anaconda login`, or
+                  (b) provide conda with a valid token directly.
+
+                Further configuration help can be found at <%s>.
+               """ % join_url(CONDA_HOMEPAGE_URL, 'docs/config.html'))
+
+            else:
+                help_message = dals("""
+                The credentials you have provided for this URL are invalid.
+
+                You will need to modify your conda configuration to proceed.
+                Use `conda config --show` to view your configuration's current state.
+                Further configuration help can be found at <%s>.
+                """ % join_url(CONDA_HOMEPAGE_URL, 'docs/config.html'))
+
+        elif status_code is not None and 500 <= status_code < 600:
+            help_message = dals("""
+            An remote server error occurred when trying to retrieve this URL.
+
+            A 500-type error (e.g. 500, 501, 502, 503, etc.) indicates the server failed to
+            fulfill a valid request.  The problem may be spurious, and will resolve itself if you
+            try your request again.  If the problem persists, consider notifying the maintainer
+            of the remote server.
+            """)
 
         else:
             help_message = "An HTTP error occurred when trying to retrieve this URL.\n%r" % e
