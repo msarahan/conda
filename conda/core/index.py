@@ -395,8 +395,9 @@ def fetch_index(channel_urls, use_cache=False, index=None):
 
     def make_index(repodatas):
         result = dict()
-        for channel, repodata in repodatas:
-            if repodata is None:
+
+        for channel_url, repodata in repodatas:
+            if not repodata:
                 continue
             url_s, priority = channel_urls[channel]
             channel = channel.rstrip('/')
