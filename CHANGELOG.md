@@ -1,38 +1,3 @@
-## 4.3.0 (unreleased)
-
-### Deprecations/Breaking Changes
-* the 'r' channel is now part of defaults (#3677)
-* remove dead install_tar function (#3641)
-
-### Improvements
-* cache VersionOrder objects to improve performance (#3596)
-* fix documentation and typos (#3526, #3572, #3627)
-* imporoved solver hint detection, simplified filtering (#3597)
-* add multikey configuration validation (#3432)
-* some Fish autocompletions (#2519)
-* reduce priority for packages removed from the index (#3703)
-* add user-agent, uid, gid to conda info (#3671)
-
-### Bug Fixes
-* account for the Windows Python 2.7 os.environ unicode aversion (#3363)
-* fix link field in record object (#3424)
-* anaconda api token bug fix; additional tests (#3673)
-* fix #3667 unicode literals and unicode decode (#3682)
-* add conda-env entrypoint (#3743)
-
-### Non-User-Facing Changes
-* remove unnecessary eval (#3428)
-* add conda.exports module (#3429)
-* apply PEP-8 to conda-env (#3653)
-* refactor dist into an object (#3616)
-* vendor appdirs; remove conda's dependency on anaconda-client import (#3675)
-* revert boto patch from #2380 (#3676)
-* move and update ROOT_NO_RM (#3697)
-* integration tests for conda clean (#3695, #3699)
-* disable coverage on s3 and ftp requests adapaters (#3696, #3701)
-* github repo hygiene (#3705, #3706)
-
-
 ## 4.1.13 (unreleased)
 
 ### Improvements
@@ -46,6 +11,17 @@
 
 ### Improvements
 * improve handling of local dependency information (#2107)
+
+
+## 4.2.12 (unreleased)
+
+### Bug Fixes
+
+* fix #3732, #3471, #3744 CONDA_BLD_PATH (#3747)
+* fix #3717 allow no-name channels (#3748)
+* fix #3738 move conda-env to ruamel_yaml (#3740)
+* fix conda-env entry point (#3745 via #3743)
+* fix again #3664 trash emptying (#3746)
 
 
 ## 4.2.11 (2016-10-23)
