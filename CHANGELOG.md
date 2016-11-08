@@ -1,3 +1,29 @@
+## 4.1.13 (unreleased)
+
+### Improvements
+* use install.rm_rf for TemporaryDirectory cleanup (#3425)
+
+### Bug Fixes
+* fix the api->conda substitution (#3456)
+
+
+## 3.19.4 (unreleased)
+
+### Improvements
+* improve handling of local dependency information (#2107)
+
+
+## 4.2.12 (unreleased)
+
+### Bug Fixes
+
+* fix #3732, #3471, #3744 CONDA_BLD_PATH (#3747)
+* fix #3717 allow no-name channels (#3748)
+* fix #3738 move conda-env to ruamel_yaml (#3740)
+* fix conda-env entry point (#3745 via #3743)
+* fix again #3664 trash emptying (#3746)
+
+
 ## 4.2.11 (2016-10-23)
 
 ### Improvements
@@ -133,17 +159,15 @@
 * additional conda-env integration tests (#3288)
 
 
-2016-09-08  4.1.12:
--------------------
-  * fix #2837 "File exists" in symlinked path with parallel activations, #3210
-  * fix prune option when installing packages, #3354
-  * change check for placeholder to be more friendly to long PATH, #3349
+## 4.2.3 (2016-08-11)
 
+### Improvements
+* added zsh and zsh.exe to Windows shells (#3257)
 
-2016-07-26  4.1.11:
--------------------
-  * fix PS1 backup in activate script, #3135 via #3155
-  * correct resolution for 'handle failures in binstar_client more generaly', #3156
+### Bug Fixes
+* allow conda to downgrade itself (#3273)
+* fix breaking changes to conda-build from 4.2.2 (#3265)
+* fix empty environment issues with conda and conda-env (#3269)
 
 ### Non-User-Facing Changes
 * add integration tests for conda-env (#3270)
