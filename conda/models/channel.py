@@ -350,6 +350,8 @@ class Channel(object):
     def __bool__(self):
         return self.__nonzero__()
 
+    def __json__(self):
+        return self.__dict__
 
     @property
     def url_channel_wtf(self):
