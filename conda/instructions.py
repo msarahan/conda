@@ -1,12 +1,13 @@
 from __future__ import absolute_import, division, print_function
 
-from conda.exceptions import CondaFileIOError
-from conda.models.dist import Dist
 from logging import getLogger
 
+from .base.constants import LinkType
 from .base.context import context
-from conda.core.package_cache import fetch_pkg, is_extracted, extract, rm_extracted, rm_fetched
-from .install import (LINK_HARD, link, messages, symlink_conda, unlink, yield_lines, load_meta)
+from .core.install import get_package_installer, PackageUninstaller
+from .core.package_cache import extract, fetch_pkg, is_extracted, rm_extracted, rm_fetched
+from .install import symlink_conda
+from .models.dist import Dist
 
 from .file_permissions import FilePermissions
 from .exceptions import CondaIOError
@@ -88,20 +89,21 @@ def RM_FETCHED_CMD(state, arg):
 def split_linkarg(arg):
     """Return tuple(dist, linktype)"""
     parts = arg.split()
-    return (parts[0], int(LINK_HARD if len(parts) < 2 else parts[1]))
+    return (parts[0], int(LinkType.hard_link if len(parts) < 2 else parts[1]))
 
 
 def LINK_CMD(state, arg):
     dist, lt = split_linkarg(arg)
-    dist = Dist(dist)
+    dist, lt = Dist(dist), LinkType.make(lt)
     log.debug("=======> LINKING %s <=======", dist)
-    link(state['prefix'], dist, lt, index=state['index'])
+    installer = get_package_installer(state['prefix'], state['index'], dist)
+    installer.link(lt)
 
 
 def UNLINK_CMD(state, arg):
     log.debug("=======> UNLINKING %s <=======", arg)
     dist = Dist(arg)
-    unlink(state['prefix'], dist)
+    PackageUninstaller(state['prefix'], dist).unlink()
 
 
 def SYMLINK_CONDA_CMD(state, arg):
@@ -314,5 +316,3 @@ def execute_instructions(plan, index=None, verbose=False, _commands=None):
 
             state['i'] = None
             getLogger('progress.stop').info(None)
-
-    messages(state['prefix'])
