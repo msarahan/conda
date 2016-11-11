@@ -24,7 +24,6 @@ from ..common.compat import iteritems, itervalues
 from ..common.url import url_to_path
 from ..connection import CondaSession, handle_proxy_407
 from ..exceptions import CondaHTTPError, CondaRuntimeError
-from ..lock import FileLock
 from ..models.channel import Channel, offline_keep, prioritize_channels
 from ..models.record import EMPTY_LINK, Record
 
@@ -142,8 +141,7 @@ def fetch_repodata(url, cache_dir=None, use_cache=False, session=None):
 
             if url.startswith('file://'):
                 file_path = url_to_path(url)
-                with FileLock(dirname(file_path)):
-                    json_str = get_json_str(filename, resp.content)
+                json_str = get_json_str(filename, resp.content)
             else:
                 json_str = get_json_str(filename, resp.content)
 
