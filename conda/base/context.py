@@ -472,6 +472,7 @@ def inroot_notwritable(prefix):
     return (abspath(prefix).startswith(context.root_dir) and
             not context.root_writable)
 
+
 try:
     context = Context(SEARCH_PATH, conda, None)
 except LoadError as e:

@@ -90,6 +90,7 @@ class RC(object):
 rc = RC()
 envs_dirs = context.envs_dirs
 
+
 def get_rc_path():
     path = os.getenv('CONDARC')
     if path == ' ':
@@ -100,6 +101,7 @@ def get_rc_path():
         if isfile(path):
             return path
     return None
+
 
 rc_path = get_rc_path()
 
@@ -450,7 +452,6 @@ def load_condarc(path=None):
         track_features = set(track_features)
     except KeyError:
         track_features = None
-
 
 # put back because of conda build
 default_python = context.default_python
