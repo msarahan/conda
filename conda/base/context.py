@@ -96,6 +96,7 @@ class Context(Configuration):
     _custom_multichannels = MapParameter(Sequence, aliases=('custom_multichannels',))
 
     # command line
+    always_softlink = PrimitiveParameter(False, aliases=('softlink',))
     always_copy = PrimitiveParameter(False, aliases=('copy',))
     always_yes = PrimitiveParameter(False, aliases=('yes',))
     channel_priority = PrimitiveParameter(True)
@@ -374,6 +375,8 @@ def get_help_dict():
         'always_yes': dals("""
             """),
         'always_copy': dals("""
+            """),
+        'always_softlink': dals("""
             """),
         'changeps1': dals("""
             """),
