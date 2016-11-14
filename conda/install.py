@@ -24,6 +24,7 @@ from __future__ import absolute_import, division, print_function, unicode_litera
 import functools
 import logging
 import os
+import re
 from errno import EACCES, EEXIST, EPERM, EROFS
 from os import chmod, makedirs, stat
 from os.path import dirname, isdir, isfile, join, normcase, normpath
@@ -85,7 +86,7 @@ if on_win:
         try:
             os.makedirs(os.path.dirname(dst))
         except OSError as exc:  # Python >2.5
-            if exc.errno == errno.EEXIST and os.path.isdir(os.path.dirname(dst)):
+            if exc.errno == EEXIST and os.path.isdir(os.path.dirname(dst)):
                 pass
             else:
                 raise

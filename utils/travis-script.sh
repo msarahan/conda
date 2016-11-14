@@ -52,7 +52,6 @@ main_test() {
 activate_test() {
     python setup.py develop
     hash -r
-    which conda
     python -m conda info
     python -m pytest --cov-report term-missing --cov-report xml --cov-append --shell=bash --shell=zsh -m "installed" tests
 }
