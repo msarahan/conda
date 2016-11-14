@@ -6,7 +6,6 @@ from .base.constants import LinkType
 from .base.context import context
 from .core.install import get_package_installer, PackageUninstaller
 from .core.package_cache import extract, fetch_pkg, is_extracted, rm_extracted, rm_fetched
-from .install import symlink_conda
 from .models.dist import Dist
 
 from .file_permissions import FilePermissions
@@ -107,7 +106,8 @@ def UNLINK_CMD(state, arg):
 
 
 def SYMLINK_CONDA_CMD(state, arg):
-    symlink_conda(state['prefix'], arg)
+    log.debug("No longer symlinking conda. Passing for prefix %s", state['prefix'])
+    # symlink_conda(state['prefix'], arg)
 
 
 def get_package(plan, instruction):
