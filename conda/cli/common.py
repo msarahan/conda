@@ -1,4 +1,4 @@
-from __future__ import print_function, division, absolute_import
+from __future__ import absolute_import, division, print_function, unicode_literals
 
 from itertools import chain
 
@@ -7,21 +7,31 @@ import contextlib
 import os
 import re
 import sys
+from functools import partial
 from os.path import abspath, basename
 
 from .. import console
-from ..base.constants import ROOT_ENV_NAME
-from ..base.context import context, platform
-from ..exceptions import (DryRunExit, CondaSystemExit, CondaRuntimeError,
-                          CondaValueError, CondaFileIOError)
-from ..install import dist2quad
+from .._vendor.auxlib.entity import EntityEncoder
+from ..base.constants import NULL, ROOT_ENV_NAME
+from ..base.context import context, get_prefix as context_get_prefix
+from ..exceptions import (CondaFileIOError, CondaRuntimeError, CondaSystemExit, CondaValueError,
+                          DryRunExit)
 from ..resolve import MatchSpec
 from ..utils import memoize
-
-# for conda-build 1.21.11 compatibility only
-from conda.base.context import get_prefix as context_get_prefix
-from functools import partial
 get_prefix = partial(context_get_prefix, context)
+
+
+class NullCountAction(argparse._CountAction):
+
+    @staticmethod
+    def _ensure_value(namespace, name, value):
+        if getattr(namespace, name, NULL) in (NULL, None):
+            setattr(namespace, name, value)
+        return getattr(namespace, name)
+
+    def __call__(self, parser, namespace, values, option_string=None):
+        new_count = self._ensure_value(namespace, self.dest, 0) + 1
+        setattr(namespace, self.dest, new_count)
 
 
 class Completer(object):
@@ -74,7 +84,7 @@ class Packages(Completer):
 
     def _get_items(self):
         # TODO: Include .tar.bz2 files for local installs.
-        from ..api import get_index
+        from conda.core.index import get_index
         args = self.parsed_args
         call_dict = dict(channel_urls=args.channel or (),
                          use_cache=True,
@@ -83,7 +93,7 @@ class Packages(Completer):
         if hasattr(args, 'platform'):  # in search
             call_dict['platform'] = args.platform
         index = get_index(**call_dict)
-        return [dist2quad(i)[0] for i in index]
+        return [record.name for record in index]
 
 class InstalledPackages(Completer):
     def __init__(self, prefix, parsed_args, **kwargs):
@@ -92,9 +102,9 @@ class InstalledPackages(Completer):
 
     @memoize
     def _get_items(self):
-        import conda.install
-        packages = conda.install.linked(context.prefix_w_legacy_search)
-        return [dist2quad(i)[0] for i in packages]
+        from conda.core.linked_data import linked
+        packages = linked(context.prefix_w_legacy_search)
+        return [dist.quad[0] for dist in packages]
 
 def add_parser_help(p):
     """
@@ -130,6 +140,7 @@ def add_parser_yes(p):
     p.add_argument(
         "-y", "--yes",
         action="store_true",
+        default=NULL,
         help="Do not ask for confirmation.",
     )
     p.add_argument(
@@ -143,19 +154,21 @@ def add_parser_json(p):
     p.add_argument(
         "--json",
         action="store_true",
+        default=NULL,
         help="Report all output as json. Suitable for using conda programmatically."
     )
     p.add_argument(
         "--debug",
         action="store_true",
-        help="Show debug output."
+        default=NULL,
+        help="Show debug output.",
     )
     p.add_argument(
         "--verbose", "-v",
-        action="count",
+        action=NullCountAction,
         help="Use once for info, twice for debug.",
         dest="verbosity",
-        default=0,
+        default=NULL,
     )
 
 
@@ -163,6 +176,7 @@ def add_parser_quiet(p):
     p.add_argument(
         '-q', "--quiet",
         action="store_true",
+        default=NULL,
         help="Do not display progress bar.",
     )
 
@@ -215,6 +229,7 @@ def add_parser_copy(p):
     p.add_argument(
         '--copy',
         action="store_true",
+        default=NULL,
         help="Install all packages using copies instead of hard- or soft-linking."
         )
 
@@ -223,7 +238,7 @@ def add_parser_pscheck(p):
         "--force-pscheck",
         action="store_true",
         help=("No-op. Included for backwards compatibility (deprecated)."
-              if platform == 'win' else argparse.SUPPRESS)
+              if context.platform == 'win' else argparse.SUPPRESS)
     )
 
 def add_parser_install(p):
@@ -272,31 +287,33 @@ def add_parser_install(p):
         "--update-dependencies", "--update-deps",
         action="store_true",
         dest="update_deps",
-        default=context.update_dependencies,
-        help="Update dependencies (default: %(default)s).",
+        default=NULL,
+        help="Update dependencies (default: %s)." % context.update_dependencies,
     )
     p.add_argument(
         "--no-update-dependencies", "--no-update-deps",
         action="store_false",
         dest="update_deps",
-        default=not context.update_dependencies,
-        help="Don't update dependencies (default: %(default)s).",
+        default=NULL,
+        help="Don't update dependencies (default: %s)." % (not context.update_dependencies,),
     )
     p.add_argument(
         "--channel-priority", "--channel-pri", "--chan-pri",
         action="store_true",
         dest="channel_priority",
-        default=context.channel_priority,
-        help="Channel priority takes precedence over package version (default: %(default)s). "
+        default=NULL,
+        help="Channel priority takes precedence over package version (default: %s). "
              "Note: This feature is in beta and may change in a future release."
+             "" % (context.channel_priority,)
     )
     p.add_argument(
         "--no-channel-priority", "--no-channel-pri", "--no-chan-pri",
-        action="store_true",
+        action="store_false",
         dest="channel_priority",
-        default=not context.channel_priority,
-        help="Package version takes precedence over channel priority (default: %(default)s). "
+        default=NULL,
+        help="Package version takes precedence over channel priority (default: %s). "
              "Note: This feature is in beta and may change in a future release."
+             "" % (not context.channel_priority,)
     )
     add_parser_show_channel_urls(p)
 
@@ -328,18 +345,15 @@ def add_parser_use_local(p):
         help="Use locally built packages.",
     )
 
-class OfflineAction(argparse.Action):
-    def __call__(self, *args, **kwargs):
-        pass
 
 def add_parser_offline(p):
     p.add_argument(
         "--offline",
-        action=OfflineAction,
-        default=context.offline,
+        action='store_true',
+        default=NULL,
         help="Offline mode, don't connect to the Internet.",
-        nargs=0
     )
+
 
 def add_parser_no_pin(p):
     p.add_argument(
@@ -350,13 +364,14 @@ def add_parser_no_pin(p):
         help="Ignore pinned file.",
     )
 
+
 def add_parser_show_channel_urls(p):
     p.add_argument(
         "--show-channel-urls",
         action="store_true",
         dest="show_channel_urls",
-        default=context.show_channel_urls,
-        help="Show channel urls (default: %(default)s).",
+        default=NULL,
+        help="Show channel urls (default: %s)." % context.show_channel_urls,
     )
     p.add_argument(
         "--no-show-channel-urls",
@@ -386,7 +401,7 @@ def ensure_override_channels_requires_channel(args, dashc=True):
 def confirm(args, message="Proceed", choices=('yes', 'no'), default='yes'):
     assert default in choices, default
     if args.dry_run:
-        raise DryRunExit
+        raise DryRunExit()
 
     options = []
     for option in choices:
@@ -414,8 +429,8 @@ def confirm(args, message="Proceed", choices=('yes', 'no'), default='yes'):
 
 def confirm_yn(args, message="Proceed", default='yes', exit_no=True):
     if args.dry_run:
-        raise DryRunExit
-    if args.yes or context.always_yes:
+        raise DryRunExit()
+    if context.always_yes:
         return True
     try:
         choice = confirm(args, message=message, choices=('yes', 'no'),
@@ -534,7 +549,7 @@ def disp_features(features):
 def stdout_json(d):
     import json
 
-    json.dump(d, sys.stdout, indent=2, sort_keys=True)
+    json.dump(d, sys.stdout, indent=2, sort_keys=True, cls=EntityEncoder)
     sys.stdout.write('\n')
 
 
@@ -543,8 +558,8 @@ def get_index_trap(*args, **kwargs):
     Retrieves the package index, but traps exceptions and reports them as
     JSON if necessary.
     """
-    from ..api import get_index
-    kwargs.pop('json')
+    from conda.core.index import get_index
+    kwargs.pop('json', None)
     return get_index(*args, **kwargs)
 
 
@@ -561,8 +576,6 @@ def stdout_json_success(success=True, **kwargs):
     result = {'success': success}
     result.update(kwargs)
     stdout_json(result)
-
-root_no_rm = 'python', 'pycosat', 'pyyaml', 'conda', 'openssl', 'requests'
 
 
 def handle_envs_list(acc, output=True):
