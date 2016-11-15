@@ -4,7 +4,6 @@ from __future__ import absolute_import, division, print_function, unicode_litera
 import bz2
 import hashlib
 import json
-import requests
 import warnings
 from conda.base.constants import DEFAULTS
 from conda.models.dist import Dist
@@ -12,6 +11,7 @@ from functools import wraps
 from logging import DEBUG, getLogger
 from os import makedirs
 from os.path import dirname, join
+from requests.exceptions import ConnectionError, HTTPError, SSLError
 from requests.packages.urllib3.exceptions import InsecureRequestWarning
 
 from .linked_data import linked_data
