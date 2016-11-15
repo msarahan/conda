@@ -13,6 +13,7 @@ from conda.base.constants import CONDA_HOMEPAGE_URL
 from functools import wraps
 from logging import DEBUG, getLogger
 from os.path import basename, dirname, join
+from requests.exceptions import ConnectionError, HTTPError, SSLError
 from requests.packages.urllib3.connectionpool import InsecureRequestWarning
 from warnings import warn
 
@@ -91,7 +92,7 @@ def fetch_repodata(url, cache_dir=None, use_cache=False, session=None, auth=None
 
     try:
         resp = session.get(join_url(url, filename), headers=headers, proxies=session.proxies,
-                           timeout=(3.05, 60))
+                           timeout=(6.1, 60))
         if log.isEnabledFor(DEBUG):
             log.debug(stringify(resp))
         resp.raise_for_status()
@@ -117,8 +118,10 @@ def fetch_repodata(url, cache_dir=None, use_cache=False, session=None, auth=None
     except ValueError as e:
         raise CondaRuntimeError("Invalid index file: {0}: {1}".format(join_url(url, filename), e))
 
-    except requests.exceptions.HTTPError as e:
-        if e.response.status_code == 404:
+    except (ConnectionError, HTTPError, SSLError) as e:
+        # status_code might not exist on SSLError
+        status_code = getattr(e.response, 'status_code', None)
+        if status_code == 404:
             if url.endswith('/noarch'):  # noarch directory might not exist
                 return None
 
@@ -130,7 +133,7 @@ def fetch_repodata(url, cache_dir=None, use_cache=False, session=None, auth=None
             Further configuration help can be found at <%s>.
             """ % join_url(CONDA_HOMEPAGE_URL, 'docs/config.html'))
 
-        elif e.response.status_code == 403:
+        elif status_code == 403:
             if url.endswith('/noarch'):
                 return None
             else:
@@ -142,7 +145,7 @@ def fetch_repodata(url, cache_dir=None, use_cache=False, session=None, auth=None
                 Further configuration help can be found at <%s>.
                 """ % join_url(CONDA_HOMEPAGE_URL, 'docs/config.html'))
 
-        elif e.response.status_code == 401:
+        elif status_code == 401:
             channel = Channel(url)
             if channel.token:
                 help_message = dals("""
@@ -181,7 +184,7 @@ def fetch_repodata(url, cache_dir=None, use_cache=False, session=None, auth=None
                 Further configuration help can be found at <%s>.
                 """ % join_url(CONDA_HOMEPAGE_URL, 'docs/config.html'))
 
-        elif 500 <= e.response.status_code < 600:
+        elif status_code is not None and 500 <= status_code < 600:
             help_message = dals("""
             An remote server error occurred when trying to retrieve this URL.
 
@@ -192,24 +195,11 @@ def fetch_repodata(url, cache_dir=None, use_cache=False, session=None, auth=None
             """)
 
         else:
-            help_message = "An HTTP error occurred when trying to retrieve this URL."
+            help_message = "An HTTP error occurred when trying to retrieve this URL.\n%r" % e
 
-        raise CondaHTTPError(help_message, e.response.url, e.response.status_code,
-                             e.response.reason)
+        raise CondaHTTPError(help_message, e.response.url if e.response else None, status_code,
+                             e.response.reason if e.response else None)
 
-    except requests.exceptions.SSLError as e:
-        msg = "SSL Error: %s\n" % e
-        stderrlog.info("SSL verification error: %s\n" % e)
-        log.debug(msg)
-
-    except requests.exceptions.ConnectionError as e:
-        msg = "Connection error: %s: %s\n" % (e, url)
-        stderrlog.info('Could not connect to %s\n' % url)
-        log.debug(msg)
-        if fail_unknown_host:
-            raise CondaRuntimeError(msg)
-
-        raise CondaRuntimeError(msg)
     cache['_url'] = url
     try:
         with open(cache_path, 'w') as fo:
@@ -387,7 +377,7 @@ def download(url, dst_path, session=None, md5=None, urlstxt=False, retries=None)
     with FileLock(dst_path):
         rm_rf(dst_path)
         try:
-            resp = session.get(url, stream=True, proxies=session.proxies, timeout=(3.05, 27))
+            resp = session.get(url, stream=True, proxies=session.proxies, timeout=(6.1, 60))
             resp.raise_for_status()
         except requests.exceptions.HTTPError as e:
             msg = "HTTPError: %s: %s\n" % (e, url)

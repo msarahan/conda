@@ -1,47 +1,18 @@
-## 4.3.0 (unreleased)
-
-### Deprecations/Breaking Changes
-* the 'r' channel is now part of defaults (#3677)
-* remove dead install_tar function (#3641)
-* no longer symlinking conda for activated envs (#3712)
+4.1.13 (unreleased):
+--------------------
+  * improve handling of local dependency information, #2107
+  * show warning message for pre-link scripts, #3727
+  * error and exit for install of packages that require conda minimum version 4.3, #3726
+  * fix conda/install.py single-file behavior, #3854
 
 ### Improvements
-* noarch python packages (#3712)
-* cache VersionOrder objects to improve performance (#3596)
-* fix documentation and typos (#3526, #3572, #3627)
-* imporoved solver hint detection, simplified filtering (#3597)
-* add multikey configuration validation (#3432)
-* some Fish autocompletions (#2519)
-* reduce priority for packages removed from the index (#3703)
-* add user-agent, uid, gid to conda info (#3671)
-* make http timeouts configurable (#3832)
-* add a pkgs_dirs config parameter (#3691)
-* Add an 'always_softlink' option (#3870, #3876)
-
-### Bug Fixes
-* account for the Windows Python 2.7 os.environ unicode aversion (#3363)
-* fix link field in record object (#3424)
-* anaconda api token bug fix; additional tests (#3673)
-* fix #3667 unicode literals and unicode decode (#3682)
-* add conda-env entrypoint (#3743)
-* fix #3807 json dump on conda config --show --json (#3811)
-* fix #3801 location of temporary hard links of index.json (#3813)
-* fix invalid yml example (#3849)
-* add arm platforms back to subdirs (#3852)
-* fix #3771 better error message for assertion errors (#3802)
+* double/extend http timeouts (#3831)
+* let descriptive http errors cover more http exceptions (#3834)
+* backport some conda-build configuration (#3875)
 
 ### Non-User-Facing Changes
-* remove unnecessary eval (#3428)
-* add conda.exports module (#3429)
-* apply PEP-8 to conda-env (#3653)
-* refactor dist into an object (#3616)
-* vendor appdirs; remove conda's dependency on anaconda-client import (#3675)
-* revert boto patch from #2380 (#3676)
-* move and update ROOT_NO_RM (#3697)
-* integration tests for conda clean (#3695, #3699)
-* disable coverage on s3 and ftp requests adapaters (#3696, #3701)
-* github repo hygiene (#3705, #3706)
-* major install refactor (#3712)
+* flake8 E116, E121, & E123 enabled (#3883)
+
 
 ## 4.1.13 (unreleased)
 
@@ -58,7 +29,7 @@
 * improve handling of local dependency information (#2107)
 
 
-## 4.2.12 (unreleased)
+## 4.2.12 (2016-11-02)
 
 ### Bug Fixes
 

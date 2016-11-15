@@ -8,6 +8,7 @@ from __future__ import absolute_import, division, print_function, unicode_litera
 
 import errno
 import logging
+import sys
 from argparse import RawDescriptionHelpFormatter
 from os.path import join
 
@@ -160,9 +161,8 @@ def execute(args, parser):
 
     if plan.nothing_to_do(actions):
         if args.all:
-            print()
-            print("Remove all packages in environment %s:\n" % prefix)
-            if not context.json:
+            print("\nRemove all packages in environment %s:\n" % prefix, file=sys.stderr)
+            if not args.json:
                 confirm_yn(args)
             rm_rf(prefix)
 
