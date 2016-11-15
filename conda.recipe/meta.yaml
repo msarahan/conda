@@ -35,10 +35,7 @@ requirements:
     - python
     - conda-env
     - menuinst  [win]
-    - pycosat >=0.6.1
-    - pyyaml
-    - ruamel_yaml
-    - requests
+    - enum34    [py<34]
 
 test:
   requires:

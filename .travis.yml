@@ -22,8 +22,7 @@ install:
   - conda install psutil ruamel_yaml
   - conda install flake8 pytest pytest-cov mock
   - conda install pip
-  - pip install auxlib pytest-timeout radon responses
-  - python setup.py install
+  - pip install auxlib pytest-cov radon ruamel-yaml pyyaml
 
 script:
   - export PYTHONHASHSEED=$(python -c "import random as r; print(r.randint(0,4294967296))")
