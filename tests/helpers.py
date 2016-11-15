@@ -49,15 +49,10 @@ def run_conda_command(*args):
     env = os.environ.copy()
     p = subprocess.Popen((sys.executable, "-m", "conda") + args, stdout=subprocess.PIPE,
                          stderr=subprocess.PIPE, env=env)
-
-    stdout, stderr = [stream.strip().decode('utf-8').replace('\r\n', '\n').replace('\\\\', '\\')
-                      for stream in p.communicate()]
-    print(stdout)
-    print(stderr, file=sys.stderr)
-    # assert p.returncode == 0, p.returncode
-
-    return stdout, strip_expected(stderr)
-
+    stdout, stderr = p.communicate()
+    return (stdout.decode('utf-8').replace('\r\n', '\n'),
+        stderr.decode('utf-8').replace('\r\n', '\n').replace(
+        "Using Anaconda API: https://api.anaconda.org\n", ""))
 
 class CapturedText(object):
     pass
@@ -95,8 +90,13 @@ def captured(disallow_stderr=True):
         if disallow_stderr and c.stderr:
             raise Exception("Got stderr output: %s" % c.stderr)
 
+    stdout.seek(0)
+    stderr.seek(0)
+    return stdout.read(), stderr.read().replace(
+        "Using Anaconda API: https://api.anaconda.org\n", "")
 
-def capture_json_with_argv(command, **kwargs):
+
+def capture_json_with_argv(*argv, **kwargs):
     # used in test_config (6 times), test_info (2 times), test_list (5 times), and test_search (10 times)
     stdout, stderr, exit_code = run_inprocess_conda_command(command)
 

@@ -1,4 +1,9 @@
-## 4.2.13 (unreleased)
+4.1.13 (unreleased):
+--------------------
+  * improve handling of local dependency information, #2107
+  * show warning message for pre-link scripts, #3727
+  * error and exit for install of packages that require conda minimum version 4.3, #3726
+  * fix conda/install.py single-file behavior, #3854
 
 ### Improvements
 * double/extend http timeouts (#3831)

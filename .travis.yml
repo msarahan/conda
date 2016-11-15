@@ -34,9 +34,12 @@ matrix:
       language: python
 
 install:
-  - which -a python
-  - env | sort
-  - source ./utils/travis-run-install.sh
+  - printenv
+  - source ./utils/travis-bootstrap-conda.sh
+  - conda install psutil ruamel_yaml
+  - conda install flake8 pytest pytest-cov mock
+  - conda install pip
+  - pip install auxlib pytest-cov radon ruamel-yaml pyyaml
 
 script:
   - source ./utils/travis-run-script.sh
