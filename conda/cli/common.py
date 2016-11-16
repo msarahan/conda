@@ -246,6 +246,7 @@ def add_parser_install(p):
     p.add_argument(
         '-f', "--force",
         action="store_true",
+        default=NULL,
         help="Force install (even when package already installed), "
                "implies --no-deps.",
     )
