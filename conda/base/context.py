@@ -16,8 +16,8 @@ from .._vendor.auxlib.ish import dals
 from .._vendor.auxlib.path import expand
 from ..common.compat import iteritems, odict
 from ..common.configuration import (Configuration, LoadError, MapParameter, PrimitiveParameter,
-                                    SequenceParameter, ValidationError)
-from ..common.disk import conda_bld_ensure_dir
+                                    SequenceParameter)
+from ..common.disk import try_write, conda_bld_ensure_dir
 from ..common.url import has_scheme, path_to_url, split_scheme_auth_token, urlparse
 from ..exceptions import CondaEnvironmentNotFoundError, CondaValueError
 
@@ -67,6 +67,7 @@ class Context(Configuration):
     force_32bit = PrimitiveParameter(False)
     track_features = SequenceParameter(string_types)
     use_pip = PrimitiveParameter(True)
+    concurrent = PrimitiveParameter(False)
 
     _root_dir = PrimitiveParameter(sys.prefix, aliases=('root_dir',))
     _envs_dirs = SequenceParameter(string_types, aliases=('envs_dirs',))
@@ -109,6 +110,9 @@ class Context(Configuration):
     show_channel_urls = PrimitiveParameter(None, parameter_type=(bool, NoneType))
     update_dependencies = PrimitiveParameter(True, aliases=('update_deps',))
     verbosity = PrimitiveParameter(0, aliases=('verbose',), parameter_type=int)
+
+    _envs_dirs = SequenceParameter(string_types, aliases=('envs_dirs', 'envs_path'),
+                                   string_delimiter=os.pathsep)
 
     # conda_build
     bld_path = PrimitiveParameter('')
@@ -154,18 +158,6 @@ class Context(Configuration):
         path = join(self.croot, 'svn_cache')
         conda_bld_ensure_dir(path)
         return path
-
-    def post_build_validation(self):
-        errors = []
-        if self.client_ssl_cert_key and not self.client_ssl_cert:
-            error = ValidationError('client_ssl_cert', self.client_ssl_cert, "<<merged>>",
-                                    "'client_ssl_cert' is required when 'client_ssl_cert_key' "
-                                    "is defined")
-            errors.append(error)
-        return errors
-
-    _envs_dirs = SequenceParameter(string_types, aliases=('envs_dirs', 'envs_path'),
-                                   string_delimiter=os.pathsep)
 
     @property
     def default_python(self):
@@ -498,6 +490,7 @@ def inroot_notwritable(prefix):
     """
     return (abspath(prefix).startswith(context.root_dir) and
             not context.root_writable)
+
 
 try:
     context = Context(SEARCH_PATH, conda, None)
