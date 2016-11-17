@@ -4,15 +4,15 @@ from __future__ import absolute_import, division, print_function, unicode_litera
 import bz2
 import hashlib
 import json
-import requests
 import warnings
 from conda.base.constants import DEFAULTS
 from conda.models.dist import Dist
 from functools import wraps
 from logging import DEBUG, getLogger
 from os import makedirs
-from os.path import dirname, join
+from requests.exceptions import ConnectionError, HTTPError, SSLError
 from requests.packages.urllib3.exceptions import InsecureRequestWarning
+from os.path import join
 
 from .linked_data import linked_data
 from .package_cache import package_cache
@@ -21,10 +21,9 @@ from .._vendor.auxlib.entity import EntityEncoder
 from .._vendor.auxlib.logz import stringify
 from ..base.context import context
 from ..common.compat import iteritems, itervalues
-from ..common.url import url_to_path
-from ..connection import CondaSession, handle_proxy_407
+from ..common.url import join_url
+from ..connection import CondaSession
 from ..exceptions import CondaHTTPError, CondaRuntimeError
-from ..lock import FileLock
 from ..models.channel import Channel, offline_keep, prioritize_channels
 from ..models.record import EMPTY_LINK, Record
 
@@ -100,6 +99,7 @@ def fetch_repodata(url, cache_dir=None, use_cache=False, session=None):
         with open(cache_path) as f:
             cache = json.load(f)
     except (IOError, ValueError):
+        log.debug("No local cache found for %s at %s", url, cache_path)
         cache = {'packages': {}}
 
     if use_cache:
@@ -140,9 +140,7 @@ def fetch_repodata(url, cache_dir=None, use_cache=False, session=None):
                     return resp_content.decode('utf-8')
 
             if url.startswith('file://'):
-                file_path = url_to_path(url)
-                with FileLock(dirname(file_path)):
-                    json_str = get_json_str(filename, resp.content)
+                json_str = get_json_str(filename, resp.content)
             else:
                 json_str = get_json_str(filename, resp.content)
 
@@ -213,6 +211,46 @@ def fetch_repodata(url, cache_dir=None, use_cache=False, session=None):
     return cache or None
 
 
+def _collect_repodatas_serial(use_cache, urls):
+    session = CondaSession()
+    repodatas = [(url, fetch_repodata(url, use_cache=use_cache, session=session))
+                 for url in urls]
+    return repodatas
+
+
+def _collect_repodatas_concurrent(executor, use_cache, urls):
+    futures = tuple(executor.submit(fetch_repodata, url, use_cache=use_cache,
+                                    session=CondaSession()) for url in urls)
+    repodatas = [(u, f.result()) for u, f in zip(urls, futures)]
+    return repodatas
+
+
+def _collect_repodatas(use_cache, urls):
+    # TODO: there HAS to be a way to clean up this logic
+    if context.concurrent:
+        try:
+            import concurrent.futures
+            executor = concurrent.futures.ThreadPoolExecutor(10)
+        except (ImportError, RuntimeError) as e:
+            log.debug(repr(e))
+            # concurrent.futures is only available in Python >= 3.2 or if futures is installed
+            # RuntimeError is thrown if number of threads are limited by OS
+            repodatas = _collect_repodatas_serial(use_cache, urls)
+        else:
+            try:
+                repodatas = _collect_repodatas_concurrent(executor, use_cache, urls)
+            except RuntimeError as e:
+                # Cannot start new thread, then give up parallel execution
+                log.debug(repr(e))
+                repodatas = _collect_repodatas_serial(use_cache, urls)
+            finally:
+                executor.shutdown(wait=True)
+    else:
+        repodatas = _collect_repodatas_serial(use_cache, urls)
+
+    return repodatas
+
+
 def fetch_index(channel_urls, use_cache=False, unknown=False, index=None):
     log.debug('channel_urls=' + repr(channel_urls))
     # pool = ThreadPool(5)
@@ -223,29 +261,7 @@ def fetch_index(channel_urls, use_cache=False, unknown=False, index=None):
     #     channel_urls = prioritize_channels(channel_urls)
 
     urls = tuple(filter(offline_keep, channel_urls))
-    try:
-        import concurrent.futures
-        executor = concurrent.futures.ThreadPoolExecutor(10)
-    except (ImportError, RuntimeError) as e:
-        # concurrent.futures is only available in Python >= 3.2 or if futures is installed
-        # RuntimeError is thrown if number of threads are limited by OS
-        log.debug(repr(e))
-        session = CondaSession()
-        repodatas = [(url, fetch_repodata(url, use_cache=use_cache, session=session))
-                     for url in urls]
-    else:
-        try:
-            futures = tuple(executor.submit(fetch_repodata, url, use_cache=use_cache,
-                                            session=CondaSession()) for url in urls)
-            repodatas = [(u, f.result()) for u, f in zip(urls, futures)]
-        except RuntimeError as e:
-            # Cannot start new thread, then give up parallel execution
-            log.debug(repr(e))
-            session = CondaSession()
-            repodatas = [(url, fetch_repodata(url, use_cache=use_cache, session=session))
-                         for url in urls]
-        finally:
-            executor.shutdown(wait=True)
+    repodatas = _collect_repodatas(use_cache, urls)
 
     def make_index(repodatas):
         result = dict()

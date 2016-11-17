@@ -114,15 +114,17 @@ def test_lock_retries(tmpdir):
     assert not tmpdir.join(path).exists()
 
 
-def test_delete_lock():
-    from .test_create import make_temp_env
-    from conda.exceptions import delete_lock
-    with make_temp_env() as prefix:
-        try:
-            with DirectoryLock(prefix) as lock:
-                path = basename(lock.lock_file_path)
-                assert isfile(join(prefix, path))
-                raise TypeError
-        except TypeError:
-            delete_lock(extra_path=prefix)
-            assert not exists(join(prefix, path))
+def test_permission_file():
+    """
+        Test when lock cannot be created due to permission
+        Make sure no exception raised
+    """
+    import tempfile
+    from conda.compat import text_type
+    with tempfile.NamedTemporaryFile(mode='r') as f:
+        if not isinstance(f.name, text_type):
+            return
+        with FileLock(f.name) as lock:
+
+            path = basename(lock.lock_file_path)
+            assert not exists(join(f.name, path))

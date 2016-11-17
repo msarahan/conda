@@ -9,7 +9,7 @@ import os
 import sys
 from os.path import abspath, expanduser, isfile, join
 
-from conda.base.context import context, non_x86_linux_machines  # NOQA
+from conda.base.context import context, non_x86_linux_machines
 non_x86_linux_machines = non_x86_linux_machines
 
 
@@ -40,6 +40,7 @@ rc_bool_keys = [
     'always_yes',
     'always_copy',
     'allow_softlinks',
+    'always_softlink',
     'auto_update_conda',
     'changeps1',
     'use_pip',
@@ -83,11 +84,13 @@ def get_local_urls():
 class RC(object):
 
     def get(self, key, default=None):
+        key = key.replace('-', '_')
         return getattr(context, key, default)
 
 
 rc = RC()
 envs_dirs = context.envs_dirs
+
 
 def get_rc_path():
     path = os.getenv('CONDARC')
@@ -99,6 +102,7 @@ def get_rc_path():
         if isfile(path):
             return path
     return None
+
 
 rc_path = get_rc_path()
 
@@ -451,7 +455,6 @@ def load_condarc(path=None):
         track_features = set(track_features)
     except KeyError:
         track_features = None
-
 
 # put back because of conda build
 default_python = context.default_python

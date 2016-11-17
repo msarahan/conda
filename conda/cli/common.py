@@ -231,7 +231,7 @@ def add_parser_copy(p):
         action="store_true",
         default=NULL,
         help="Install all packages using copies instead of hard- or soft-linking."
-        )
+    )
 
 def add_parser_pscheck(p):
     p.add_argument(
@@ -246,6 +246,7 @@ def add_parser_install(p):
     p.add_argument(
         '-f', "--force",
         action="store_true",
+        default=NULL,
         help="Force install (even when package already installed), "
                "implies --no-deps.",
     )
@@ -576,6 +577,9 @@ def stdout_json_success(success=True, **kwargs):
     result = {'success': success}
     result.update(kwargs)
     stdout_json(result)
+
+
+root_no_rm = 'python', 'pycosat', 'pyyaml', 'conda', 'openssl', 'requests'
 
 
 def handle_envs_list(acc, output=True):
