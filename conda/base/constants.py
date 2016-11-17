@@ -11,7 +11,6 @@ from logging import getLogger
 from platform import machine
 
 from .._vendor.auxlib.collection import frozendict
-from ..common.compat import string_types
 
 log = getLogger(__name__)
 
@@ -48,6 +47,44 @@ class Platform(Enum):
             p = 'linux'
         return cls(p)
 
+    def __json__(self):
+        return self.value
+
+
+class FileMode(Enum):
+    text = 'text'
+    binary = 'binary'
+
+    def __str__(self):
+        return "%s" % self.value
+
+
+class LinkType(Enum):
+    # LINK_HARD = 1
+    # LINK_SOFT = 2
+    # LINK_COPY = 3
+    # link_name_map = {
+    #     LINK_HARD: 'hard-link',
+    #     LINK_SOFT: 'soft-link',
+    #     LINK_COPY: 'copy',
+    # }
+    hardlink = 1
+    softlink = 2
+    copy = 3
+    directory = 4
+
+    def __int__(self):
+        return self.value
+
+    def __str__(self):
+        return self.name
+
+
+PREFIX_PLACEHOLDER = ('/opt/anaconda1anaconda2'
+                      # this is intentionally split into parts,
+                      # such that running this program on itself
+                      # will leave it unchanged
+                      'anaconda3')
 
 machine_bits = 8 * tuple.__itemsize__
 
