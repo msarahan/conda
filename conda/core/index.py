@@ -10,9 +10,9 @@ from conda.models.dist import Dist
 from functools import wraps
 from logging import DEBUG, getLogger
 from os import makedirs
-from os.path import dirname, join
 from requests.exceptions import ConnectionError, HTTPError, SSLError
 from requests.packages.urllib3.exceptions import InsecureRequestWarning
+from os.path import join
 
 from .linked_data import linked_data
 from .package_cache import package_cache
@@ -21,10 +21,9 @@ from .._vendor.auxlib.entity import EntityEncoder
 from .._vendor.auxlib.logz import stringify
 from ..base.context import context
 from ..common.compat import iteritems, itervalues
-from ..common.url import url_to_path
-from ..connection import CondaSession, handle_proxy_407
+from ..common.url import join_url
+from ..connection import CondaSession
 from ..exceptions import CondaHTTPError, CondaRuntimeError
-from ..lock import FileLock
 from ..models.channel import Channel, offline_keep, prioritize_channels
 from ..models.record import EMPTY_LINK, Record
 
@@ -141,9 +140,7 @@ def fetch_repodata(url, cache_dir=None, use_cache=False, session=None):
                     return resp_content.decode('utf-8')
 
             if url.startswith('file://'):
-                file_path = url_to_path(url)
-                with FileLock(dirname(file_path)):
-                    json_str = get_json_str(filename, resp.content)
+                json_str = get_json_str(filename, resp.content)
             else:
                 json_str = get_json_str(filename, resp.content)
 
