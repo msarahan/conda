@@ -10,7 +10,10 @@ from logging import getLogger
 from traceback import format_exc
 
 from . import CondaError, text_type, CondaExitZero
-from .compat import iteritems, iterkeys
+from ._vendor.auxlib.entity import EntityEncoder
+from ._vendor.auxlib.ish import dals
+from .common.compat import iteritems, iterkeys, string_types
+
 log = logging.getLogger(__name__)
 
 
@@ -245,6 +248,8 @@ class CondaHTTPError(CondaError):
         """) + message
         if isinstance(elapsed_time, timedelta):
             elapsed_time = text_type(elapsed_time).split(':', 1)[-1]
+        if isinstance(reason, string_types):
+            reason = reason.upper()
         super(CondaHTTPError, self).__init__(message, url=url, status_code=status_code,
                                              reason=reason, elapsed_time=elapsed_time)
 
