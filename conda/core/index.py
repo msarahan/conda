@@ -175,32 +175,14 @@ def fetch_repodata(url, cache_dir=None, use_cache=False, session=None):
             return fetch_repodata(url, cache_dir=cache_dir, use_cache=use_cache, session=session)
 
         else:
-            msg = "HTTPError: %s: %s\n" % (e, url)
+            help_message = "An HTTP error occurred when trying to retrieve this URL.\n%r" % e
 
-        log.debug(msg)
-        raise CondaHTTPError(msg)
+        raise CondaHTTPError(help_message,
+                             getattr(e.response, 'url', None),
+                             status_code,
+                             getattr(e.response, 'reason', None),
+                             getattr(e.response, 'elapsed', None))
 
-    except requests.exceptions.SSLError as e:
-        msg = "SSL Error: %s\n" % e
-        stderrlog.info("SSL verification error: %s\n" % e)
-        log.debug(msg)
-
-    except requests.exceptions.ConnectionError as e:
-        # requests isn't so nice here. For whatever reason, https gives this
-        # error and http gives the above error. Also, there is no status_code
-        # attribute here. We have to just check if it looks like 407.  See
-        # https://github.com/kennethreitz/requests/issues/2061.
-        if "407" in str(e):  # Proxy Authentication Required
-            handle_proxy_407(url, session)
-            # Try again
-            return fetch_repodata(url, cache_dir=cache_dir, use_cache=use_cache, session=session)
-        msg = "Connection error: %s: %s\n" % (e, url)
-        stderrlog.info('Could not connect to %s\n' % url)
-        log.debug(msg)
-        if fail_unknown_host:
-            raise CondaRuntimeError(msg)
-
-        raise CondaRuntimeError(msg)
     cache['_url'] = url
     try:
         with open(cache_path, 'w') as fo:
