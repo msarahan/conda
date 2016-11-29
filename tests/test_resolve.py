@@ -990,12 +990,36 @@ def test_broken_install():
         'system-5.8-1.tar.bz2',
         'tk-8.5.13-0.tar.bz2',
         'zlib-1.2.7-0.tar.bz2']]
-    installed[1] = Dist('numpy-1.7.1-py33_p0.tar.bz2')
-    installed.append(Dist('notarealpackage-2.0-0.tar.bz2'))
-    assert r.install([], installed) == [Dist(fn) for fn in installed]
-    installed2 = r.install(['numpy'], installed)
-    installed3 = r.remove(['pandas'], installed)
-    assert set(installed3) == set(installed[:3] + installed[4:])
+
+    # Add a fake package and an incompatible numpy
+    installed2 = list(installed)
+    installed2[1] = Dist('numpy-1.7.1-py33_p0.tar.bz2')
+    installed2.append(Dist('notarealpackage-2.0-0.tar.bz2'))
+    assert r.install([], installed2) == installed2
+    installed3 = r.install(['numpy'], installed2)
+    installed4 = r.remove(['pandas'], installed2)
+    assert set(installed4) == set(installed2[:3] + installed2[4:])
+
+    # Remove the installed version of pandas from the index
+    index2 = index.copy()
+    d = Dist('pandas-0.11.0-np16py27_1.tar.bz2')
+    index2[d] = Record.from_objects(index2[d], priority=MAX_CHANNEL_PRIORITY)
+    r2 = Resolve(index2)
+    installed2 = r2.install(['pandas', 'python 2.7*', 'numpy 1.6*'], installed)
+    assert installed2 == [Dist(d) for d in [
+        'dateutil-2.1-py27_1.tar.bz2',
+        'numpy-1.6.2-py27_4.tar.bz2',
+        'openssl-1.0.1c-0.tar.bz2',
+        'pandas-0.10.1-np16py27_0.tar.bz2',
+        'python-2.7.5-0.tar.bz2',
+        'pytz-2013b-py27_0.tar.bz2',
+        'readline-6.2-0.tar.bz2',
+        'scipy-0.11.0-np16py27_3.tar.bz2',
+        'six-1.3.0-py27_0.tar.bz2',
+        'sqlite-3.7.13-0.tar.bz2',
+        'system-5.8-1.tar.bz2',
+        'tk-8.5.13-0.tar.bz2',
+        'zlib-1.2.7-0.tar.bz2']]
 
 
 def test_remove():
@@ -1056,13 +1080,13 @@ def test_channel_priority():
     os.environ['CONDA_CHANNEL_PRIORITY'] = 'True'
     reset_context(())
 
-    rec['priority'] = 0
+    r2.index[Dist(fn2)] = Record.from_objects(r2.index[Dist(fn2)], priority=0)
     # Should select the "other", older package because it
     # has a lower channel priority number
     installed1 = r2.install(spec)
     # Should select the newer package because now the "other"
     # package has a higher priority number
-    rec['priority'] = 2
+    r2.index[Dist(fn2)] = Record.from_objects(r2.index[Dist(fn2)], priority=2)
     installed2 = r2.install(spec)
     # Should also select the newer package because we have
     # turned off channel priority altogether
@@ -1070,7 +1094,7 @@ def test_channel_priority():
     os.environ['CONDA_CHANNEL_PRIORITY'] = 'False'
     reset_context(())
 
-    rec['priority'] = 0
+    r2.index[Dist(fn2)] = Record.from_objects(r2.index[Dist(fn2)], priority=0)
     installed3 = r2.install(spec)
     assert installed1 != installed2
     assert installed1 != installed3
