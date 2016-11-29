@@ -63,14 +63,19 @@ def get_index(channel_urls=(), prepend=True, platform=None, use_local=False, use
             key = Dist(prefix + fn)
             if key in index:
                 # Copy the link information so the resolver knows this is installed
-                index[key] = index[key].copy()
-                index[key]['link'] = info.get('link') or EMPTY_LINK
+                link = info.get('link') or EMPTY_LINK
+                index[key] = Record.from_objects(index[key], link=link)
             else:
-                # only if the package in not in the repodata, use local
-                # conda-meta (with 'depends' defaulting to [])
-                info.setdefault('depends', [])
-                info['priority'] = priority
-                index[key] = info
+                # # only if the package in not in the repodata, use local
+                # # conda-meta (with 'depends' defaulting to [])
+                # info.setdefault('depends', [])  # disabled because already default for Record
+
+                # If the schannel is known but the package is not in the index, it is
+                # because 1) the channel is unavailable offline or 2) the package has
+                # been removed from that channel. Either way, we should prefer any
+                # other version of the package to this one.
+                priority = MAX_CHANNEL_PRIORITY if schannel in priorities else priority
+                index[key] = Record.from_objects(info, priority=priority)
 
     return index
 
@@ -175,32 +180,14 @@ def fetch_repodata(url, cache_dir=None, use_cache=False, session=None):
             return fetch_repodata(url, cache_dir=cache_dir, use_cache=use_cache, session=session)
 
         else:
-            msg = "HTTPError: %s: %s\n" % (e, url)
+            help_message = "An HTTP error occurred when trying to retrieve this URL.\n%r" % e
 
-        log.debug(msg)
-        raise CondaHTTPError(msg)
+        raise CondaHTTPError(help_message,
+                             getattr(e.response, 'url', None),
+                             status_code,
+                             getattr(e.response, 'reason', None),
+                             getattr(e.response, 'elapsed', None))
 
-    except requests.exceptions.SSLError as e:
-        msg = "SSL Error: %s\n" % e
-        stderrlog.info("SSL verification error: %s\n" % e)
-        log.debug(msg)
-
-    except requests.exceptions.ConnectionError as e:
-        # requests isn't so nice here. For whatever reason, https gives this
-        # error and http gives the above error. Also, there is no status_code
-        # attribute here. We have to just check if it looks like 407.  See
-        # https://github.com/kennethreitz/requests/issues/2061.
-        if "407" in str(e):  # Proxy Authentication Required
-            handle_proxy_407(url, session)
-            # Try again
-            return fetch_repodata(url, cache_dir=cache_dir, use_cache=use_cache, session=session)
-        msg = "Connection error: %s: %s\n" % (e, url)
-        stderrlog.info('Could not connect to %s\n' % url)
-        log.debug(msg)
-        if fail_unknown_host:
-            raise CondaRuntimeError(msg)
-
-        raise CondaRuntimeError(msg)
     cache['_url'] = url
     try:
         with open(cache_path, 'w') as fo:
@@ -301,6 +288,7 @@ def add_http_value_to_dict(resp, http_key, d, dict_key):
 
 
 def add_unknown(index, priorities):
+    # TODO: discuss with @mcg1969 and document
     priorities = {p[0]: p[1] for p in itervalues(priorities)}
     maxp = max(itervalues(priorities)) + 1 if priorities else 1
     for dist, info in iteritems(package_cache()):
@@ -311,7 +299,7 @@ def add_unknown(index, priorities):
             continue
         try:
             with open(join(info['dirs'][0], 'info', 'index.json')) as fi:
-                meta = Record(**json.load(fi))
+                meta = json.load(fi)
         except IOError:
             continue
         if info['urls']:
@@ -338,13 +326,14 @@ def add_unknown(index, priorities):
                      })
         meta.setdefault('depends', [])
         log.debug("adding cached pkg to index: %s" % dist)
-        index[dist] = meta
+        index[dist] = Record(**meta)
 
 
 def add_pip_dependency(index):
-    for info in itervalues(index):
+    # TODO: discuss with @mcg1969 and document
+    for dist, info in iteritems(index):
         if info['name'] == 'python' and info['version'].startswith(('2.', '3.')):
-            info['depends'] = info['depends'] + ('pip',)
+            index[dist] = Record.from_objects(info, depends=info['depends'] + ('pip',))
 
 
 def create_cache_dir():
