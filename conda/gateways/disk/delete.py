@@ -165,3 +165,11 @@ def backoff_rmdir(dirpath):
             _rmdir(join(root, dir))
 
     _rmdir(dirpath)
+
+
+def maybe_rmdir_if_empty(dirpath, max_tries=MAX_TRIES):
+    if isdir(dirpath) and not listdir(dirpath):
+        try:
+            backoff_rmdir(dirpath, max_tries=max_tries)
+        except (IOError, OSError) as e:
+            log.debug("Failed to remove '%s'. %r", dirpath, e)
