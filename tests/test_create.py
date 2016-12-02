@@ -40,8 +40,8 @@ from contextlib import contextmanager
 from datetime import datetime
 from glob import glob
 from json import loads as json_loads
-from logging import DEBUG, getLogger
-from os.path import basename, exists, isdir, isfile, islink, join, relpath
+from logging import DEBUG, getLogger, INFO
+from os.path import basename, exists, isdir, isfile, join, relpath
 from requests import Session
 from requests.adapters import BaseAdapter
 from shlex import split
@@ -57,6 +57,7 @@ except ImportError:
     from mock import patch
 
 log = getLogger(__name__)
+TEST_LOG_LEVEL = INFO
 PYTHON_BINARY = 'python.exe' if on_win else 'bin/python'
 BIN_DIRECTORY = 'Scripts' if on_win else 'bin'
 
@@ -138,7 +139,7 @@ def run_command(command, prefix, *arguments, **kwargs):
 def make_temp_env(*packages, **kwargs):
     prefix = kwargs.pop('prefix', None) or make_temp_prefix()
     assert isdir(prefix), prefix
-    with stderr_log_level(DEBUG, 'conda'), stderr_log_level(DEBUG, 'requests'):
+    with stderr_log_level(TEST_LOG_LEVEL, 'conda'), stderr_log_level(TEST_LOG_LEVEL, 'requests'):
         with disable_logger('fetch'), disable_logger('dotupdate'):
             try:
                 # try to clear any config that's been set by other tests
