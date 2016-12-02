@@ -33,7 +33,6 @@ on_win = bool(sys.platform == "win32")
 def path_to_url(path):
     path = abspath(expanduser(path))
     url = urljoin('file:', pathname2url(path))
-    log.debug("%s converted to %s", path, url)
     return url
 
 

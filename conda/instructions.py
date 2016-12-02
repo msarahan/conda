@@ -64,6 +64,8 @@ def PREFIX_CMD(state, arg):
 
 
 def PRINT_CMD(state, arg):
+    if arg.startswith(('Unlinking packages', 'Linking packages')):
+        return
     getLogger('print').info(arg)
 
 
@@ -347,7 +349,3 @@ def execute_instructions(plan, index=None, verbose=False, _commands=None):
 
             state['i'] = None
             getLogger('progress.stop').info(None)
-
-    # # NOW CALL UNLINKLINKTRANSACTION
-    # if unlink_dists or link_dists:
-    #     UNLINKLINKTRANSACTION_CMD(state, )
