@@ -8,8 +8,8 @@ from os import chmod, lstat, walk
 from os.path import isdir, join
 from stat import S_IEXEC, S_IMODE, S_ISDIR, S_ISLNK, S_ISREG, S_IWRITE
 
-from . import exp_backoff_fn
-from ...compat import lchmod
+from . import MAX_TRIES, exp_backoff_fn
+from ...common.compat import lchmod
 
 log = getLogger(__name__)
 
