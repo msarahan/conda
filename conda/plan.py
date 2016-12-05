@@ -19,7 +19,6 @@ import sys
 from . import instructions as inst
 from .base.constants import DEFAULTS
 from .base.context import context
-from .common.compat import text_type
 from .core.linked_data import is_linked
 from .core.package_cache import find_new_location, is_extracted, is_fetched
 from .exceptions import (ArgumentError, CondaIndexError, CondaRuntimeError, InstallError,
@@ -30,7 +29,7 @@ from .models.channel import Channel
 from .models.dist import Dist
 from .models.enums import LinkType
 from .resolve import MatchSpec, Package, Resolve
-from .utils import human_bytes, md5_file, on_win
+from .utils import human_bytes, md5_file
 
 log = getLogger(__name__)
 

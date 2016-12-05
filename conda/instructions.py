@@ -326,7 +326,6 @@ def handle_menuinst(unlink_dists, link_dists):
     return unlink_dists, link_dists
 
 
-
 def inject_UNLINKLINKTRANSACTION(plan):
     first_unlink_link_idx = next((q for q, p in enumerate(plan) if p[0] in (UNLINK, LINK)), -1)
     if first_unlink_link_idx >= 0:
