@@ -19,7 +19,7 @@ import sys
 from conda.cli.common import prefix_if_in_private_env
 from conda.common.path import preferred_env_to_prefix, preferred_env_matches_prefix, is_private_env, \
     prefix_to_env_name
-from conda.compat import itervalues
+from .common.compat import itervalues
 from . import instructions as inst
 from .base.constants import DEFAULTS
 from .base.context import context
