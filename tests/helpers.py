@@ -13,6 +13,7 @@ from shlex import split
 
 from conda.base.context import reset_context
 from conda.common.io import captured, argv
+from conda.gateways.logging import initialize_logging
 from conda import cli
 
 try:
