@@ -9,8 +9,7 @@ NOTE:
 """
 from __future__ import absolute_import, division, print_function, unicode_literals
 
-from collections import defaultdict
-from conda.gateways.disk.test import try_hard_link
+from collections import defaultdict, namedtuple
 from logging import getLogger
 import os
 from os.path import abspath, basename, dirname, exists, join
@@ -23,7 +22,8 @@ from .common.compat import itervalues
 from . import instructions as inst
 from .base.constants import DEFAULTS
 from .base.context import context
-from .core.linked_data import is_linked
+from .core.index import supplement_index_with_prefix
+from .core.linked_data import is_linked, linked_data
 from .core.package_cache import find_new_location, is_extracted, is_fetched
 from .exceptions import (ArgumentError, CondaIndexError, CondaRuntimeError, InstallError,
                          RemoveError, PackageNotFoundError)
