@@ -35,8 +35,39 @@ stderrlog = getLogger('stderrlog')
 fail_unknown_host = False
 
 
-def get_index(channel_urls=(), prepend=True, platform=None, use_local=False, use_cache=False,
-              unknown=False, prefix=False):
+def supplement_index_with_prefix(index, prefix, channel_priority_map):
+    # type: (Dict[Dist, Record], str, Dict[channel_url, Tuple[canonical_name, priority]) -> None
+    # supplement index with information from prefix/conda-meta
+    assert prefix
+
+    priorities = {chnl: prrty for chnl, prrty in itervalues(channel_priority_map)}
+    maxp = max(itervalues(priorities)) + 1 if priorities else 1
+    for dist, info in iteritems(linked_data(prefix)):
+        fn = info['fn']
+        schannel = info['schannel']
+        prefix = '' if schannel == DEFAULTS else schannel + '::'
+        priority = priorities.get(schannel, maxp)
+        key = Dist(prefix + fn)
+        if key in index:
+            # Copy the link information so the resolver knows this is installed
+            old_record = index[key]
+            link = info.get('link') or EMPTY_LINK
+            index[key] = Record.from_objects(old_record, link=link)
+        else:
+            # # only if the package in not in the repodata, use local
+            # # conda-meta (with 'depends' defaulting to [])
+            # info.setdefault('depends', ())
+
+            # If the schannel is known but the package is not in the index, it is
+            # because 1) the channel is unavailable offline or 2) the package has
+            # been removed from that channel. Either way, we should prefer any
+            # other version of the package to this one.
+            priority = MAX_CHANNEL_PRIORITY if schannel in priorities else priority
+            index[key] = Record.from_objects(info, priority=priority)
+
+
+def get_index(channel_urls=(), prepend=True, platform=None,
+              use_local=False, use_cache=False, unknown=False, prefix=False):
     """
     Return the index of packages available on the channels
 
@@ -48,10 +79,9 @@ def get_index(channel_urls=(), prepend=True, platform=None, use_local=False, use
         channel_urls = ['local'] + list(channel_urls)
     if prepend:
         channel_urls += context.channels
-    channel_urls = prioritize_channels(channel_urls, platform=platform)
-    index = fetch_index(channel_urls, use_cache=use_cache, unknown=unknown)
+    channel_priority_map = prioritize_channels(channel_urls, platform=platform)
+    index = fetch_index(channel_priority_map, use_cache=use_cache, unknown=unknown)
 
-    # supplement index with information from prefix/conda-meta
     if prefix:
         priorities = {c: p for c, p in itervalues(channel_urls)}
         maxp = max(itervalues(priorities)) + 1 if priorities else 1
@@ -199,6 +229,7 @@ def fetch_repodata(url, cache_dir=None, use_cache=False, session=None):
 
 
 def _collect_repodatas_serial(use_cache, urls):
+    # type: (bool, List[str]) -> List[Sequence[str, Option[Dict[Dist, Record]]]]
     session = CondaSession()
     repodatas = [(url, fetch_repodata(url, use_cache=use_cache, session=session))
                  for url in urls]
@@ -213,6 +244,7 @@ def _collect_repodatas_concurrent(executor, use_cache, urls):
 
 
 def _collect_repodatas(use_cache, urls):
+    # type: (bool, List[str]) -> List[Sequence[str, Option[Dict[Dist, Record]]]]  # sorta a lie
     # TODO: there HAS to be a way to clean up this logic
     if context.concurrent:
         try:
@@ -239,6 +271,7 @@ def _collect_repodatas(use_cache, urls):
 
 
 def fetch_index(channel_urls, use_cache=False, unknown=False, index=None):
+    # type: (prioritize_channels(), bool, bool, Dict[Dist, Record]) -> Dict[Dist, Record]
     log.debug('channel_urls=' + repr(channel_urls))
     # pool = ThreadPool(5)
     if index is None:
@@ -249,6 +282,8 @@ def fetch_index(channel_urls, use_cache=False, unknown=False, index=None):
 
     urls = tuple(filter(offline_keep, channel_urls))
     repodatas = _collect_repodatas(use_cache, urls)
+    # type: List[Sequence[str, Option[Dict[Dist, Record]]]]
+    #   this is sorta a lie; actually more primitve types
 
     def make_index(repodatas):
         result = dict()
