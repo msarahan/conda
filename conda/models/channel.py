@@ -25,27 +25,6 @@ def get_conda_build_local_url():
     return context.local_build_root,
 
 
-"""
-scheme <> auth <> location <> token <> channel <> subchannel <> platform <> package_filename
-
-channel <> subchannel <> namespace <> package_name
-
-"""
-
-def get_default_channels_canonical_name(platform):
-    channels = []
-    platform = context.subdir if platform is None else platform
-    if "win" not in platform:
-        for channel in DEFAULT_CHANNELS_UNIX:
-            channels.append(UrlChannel(channel))
-    else:
-        for channel in DEFAULT_CHANNELS_WIN:
-            channels.append(UrlChannel(channel))
-    return channels
-
-
-class ChannelType(type):
-
 def tokenized_startswith(test_iterable, startswith_iterable):
     return all(t == sw for t, sw in zip(test_iterable, startswith_iterable))
 
@@ -152,6 +131,11 @@ def parse_conda_channel_url(url):
     # from host, port, path
     assert channel_location is not None or channel_name is not None
 
+    scheme = configured_scheme or 'https'
+    if package_filename and not platform and scheme != 'file':
+        # magic -- add in subdir if it's missing
+        platform = context.subdir
+
     return Channel(configured_scheme or 'https',
                    auth or configured_auth,
                    channel_location,
@@ -184,6 +168,14 @@ class ChannelType(type):
 
 @with_metaclass(ChannelType)
 class Channel(object):
+    """
+    Channel:
+    scheme <> auth <> location <> token <> channel <> subchannel <> platform <> package_filename
+
+    Package Spec:
+    channel <> subchannel <> namespace <> package_name
+
+    """
     _cache_ = dict()
 
     @staticmethod
@@ -421,3 +413,6 @@ def prioritize_channels(channels, platform=None):
 
 def offline_keep(url):
     return not context.offline or not is_url(url) or url.startswith('file:/')
+
+
+DEFAULTS = Channel('defaults')

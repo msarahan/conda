@@ -15,8 +15,9 @@ from ..base.context import context
 from ..common.compat import text_type
 from ..exceptions import CommandArgumentError, PackageNotFoundError
 from ..misc import make_icon_url
-from ..models.channel import Channel
-from ..resolve import NoPackagesFoundError, Package
+from ..models.dist import Dist
+from ..resolve import NoPackagesFoundError
+from conda.models.package import Package
 
 descr = """Search for packages and display their information. The input is a
 Python regular expression.  To perform a search with a search string that starts
