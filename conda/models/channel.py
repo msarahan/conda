@@ -413,6 +413,3 @@ def prioritize_channels(channels, platform=None):
 
 def offline_keep(url):
     return not context.offline or not is_url(url) or url.startswith('file:/')
-
-
-DEFAULTS = Channel('defaults')
