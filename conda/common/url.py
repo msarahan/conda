@@ -31,6 +31,8 @@ on_win = bool(sys.platform == "win32")
 
 @memoize
 def path_to_url(path):
+    if path.startswith('file:/'):
+        return path
     path = abspath(expanduser(path))
     url = urljoin('file:', pathname2url(path))
     return url
@@ -170,7 +172,7 @@ def split_platform(url):
         (u'https://1.2.3.4/t/tk-123/path', u'osx-64')
 
     """
-    from conda.base.constants import PLATFORM_DIRECTORIES
+    from ..base.constants import PLATFORM_DIRECTORIES
     _platform_match_regex = r'/(%s)/?' % r'|'.join(r'%s' % d for d in PLATFORM_DIRECTORIES)
     _platform_match = re.search(_platform_match_regex, url, re.IGNORECASE)
     platform = _platform_match.groups()[0] if _platform_match else None
