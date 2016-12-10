@@ -154,6 +154,10 @@ def win_path_double_escape(path):
     return path.replace('\\', '\\\\') if on_win else path
 
 
+def win_path_backout(path):
+    return path.replace('\\', '/') if on_win else path
+
+
 def ensure_pad(name, pad="_"):
     return "%s%s%s" % (pad, name.strip(pad), pad)
 
@@ -188,10 +192,6 @@ def is_private_env(env):
     if env is not None and env.startswith("_") and env.endswith("_"):
         return True
     return False
-
-
-def win_path_backout(path):
-    return path.replace('\\', '/') if on_win else path
 
 
 def right_pad_os_sep(path):
