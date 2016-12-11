@@ -202,7 +202,7 @@ def explicit(specs, prefix, verbose=False, force_extract=True, index_args=None, 
             raise MD5MismatchError('MD5 mismatch for: %s\n   spec: %s\n   repo: %s'
                                    % (fn, md5, info['md5']))
 
-    execute_actions(actions, index=index, verbose=verbose)
+    execute_actions(actions, index, verbose=verbose)
     return actions
 
 
