@@ -3,6 +3,13 @@ from __future__ import absolute_import, division, print_function, unicode_litera
 
 from . import exp_backoff_fn
 
+log = getLogger(__name__)
+
+# in the rest of conda's code, os.rename is preferrably imported from here
+rename = rename
+
+SHEBANG_REGEX = re.compile(br'^(#!((?:\\ |[^ \n\r])+)(.*))')
+
 
 class CancelOperation(Exception):
     pass
@@ -25,3 +32,7 @@ def update_file_in_place_as_binary(file_full_path, callback):
     finally:
         if fh:
             fh.close()
+
+
+def backoff_rename(source_path, destination_path):
+    exp_backoff_fn(rename, source_path, destination_path)

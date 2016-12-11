@@ -1,28 +1,20 @@
 from __future__ import absolute_import, division, print_function
 
-from conda.install import symlink_conda
 import ctypes
+import os
+import tarfile
 from functools import reduce
 from logging import getLogger
 from operator import add
-import os
 from os.path import basename, isdir, isfile, islink, join
-import tarfile
 
 from .base.context import context
-from .core.install import PackageUninstaller, get_package_installer
-from .core.package_cache import extract, fetch_pkg, is_extracted, rm_extracted, rm_fetched
+from .common.compat import on_win
+from .core.link import UnlinkLinkTransaction
+from .core.package_cache import ProgressiveFetchExtract
 from .exceptions import CondaFileIOError, CondaIOError
+from .install import symlink_conda
 from .models.dist import Dist
-from .models.enums import LinkType
-
-from .file_permissions import FilePermissions
-from .exceptions import CondaIOError
-from .utils import on_win
-from os.path import join, isdir, isfile, islink
-import os
-import tarfile
-import ctypes
 
 
 log = getLogger(__name__)
@@ -41,6 +33,8 @@ SYMLINK_CONDA = 'SYMLINK_CONDA'
 UNLINK = 'UNLINK'
 LINK = 'LINK'
 UNLINKLINKTRANSACTION = 'UNLINKLINKTRANSACTION'
+PROGRESSIVEFETCHEXTRACT = 'PROGRESSIVEFETCHEXTRACT'
+
 
 PROGRESS_COMMANDS = set([EXTRACT, RM_EXTRACTED])
 ACTION_CODES = (
@@ -66,9 +60,20 @@ def PRINT_CMD(state, arg):
     getLogger('print').info(arg)
 
 
-def FETCH_CMD(state, arg):
-    dist = Dist(arg)
-    fetch_pkg(state['index'][dist])
+def FETCH_CMD(state, package_cache_entry):
+    raise NotImplementedError()
+
+
+def EXTRACT_CMD(state, arg):
+    raise NotImplementedError()
+
+
+def RM_EXTRACTED_CMD(state, arg):
+    raise NotImplementedError()
+
+
+def RM_FETCHED_CMD(state, arg):
+    raise NotImplementedError()
 
 
 def PROGRESS_CMD(state, arg):
@@ -77,28 +82,16 @@ def PROGRESS_CMD(state, arg):
     getLogger('progress.start').info(state['maxval'])
 
 
-def EXTRACT_CMD(state, arg):
-    dist = Dist(arg)
-    if not is_extracted(dist):
-        extract(dist)
-
-
-def RM_EXTRACTED_CMD(state, arg):
-    dist = Dist(arg)
-    rm_extracted(dist)
-
-
-def RM_FETCHED_CMD(state, arg):
-    dist = Dist(arg)
-    rm_fetched(dist)
-
-
 def SYMLINK_CONDA_CMD(state, arg):
     if basename(state['prefix']).startswith('_'):
         log.info("Conda environment at %s "
                  "start with '_'. Skipping symlinking conda.", state['prefix'])
         return
     symlink_conda(state['prefix'], arg)
+
+
+def PROGRESSIVEFETCHEXTRACT_CMD(state, link_dists):
+    ProgressiveFetchExtract(state['index'], link_dists).execute()
 
 
 def UNLINKLINKTRANSACTION_CMD(state, arg):
@@ -162,23 +155,21 @@ def CHECK_FETCH_CMD(state, fetch_dists):
     check_size(prefix, size)
 
 
-def CHECK_EXTRACT_CMD(state, extract_dists):
+def CHECK_EXTRACT_CMD(state, package_tarball_paths):
     """
         check whether there is enough space for extract packages
     :param plan: the plan for the action
     :param state : the state of plan
     :return:
     """
-    if not extract_dists:
+    if not package_tarball_paths:
         return
 
-    def extracted_size(dist):
-        from .core.package_cache import package_cache
-        dist_tarball = package_cache()[dist]['files'][0]
-        with tarfile.open(dist_tarball) as tar_bz2:
+    def extracted_size(tarball_path):
+        with tarfile.open(tarball_path) as tar_bz2:
             return reduce(add, (m.size for m in tar_bz2.getmembers()), 0)
 
-    size = reduce(add, (extracted_size(dist)for dist in extract_dists), 0)
+    size = reduce(add, (extracted_size(dist)for dist in package_tarball_paths), 0)
 
     prefix = state['prefix']
     assert isdir(prefix)
@@ -200,6 +191,7 @@ commands = {
     LINK: None,
     SYMLINK_CONDA: SYMLINK_CONDA_CMD,
     UNLINKLINKTRANSACTION: UNLINKLINKTRANSACTION_CMD,
+    PROGRESSIVEFETCHEXTRACT: PROGRESSIVEFETCHEXTRACT_CMD,
 }
 
 
