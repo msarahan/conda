@@ -23,7 +23,8 @@ from ..common.url import join_url
 from ..connection import CondaSession
 from ..exceptions import CondaHTTPError, CondaRuntimeError
 from ..models.channel import Channel, offline_keep, prioritize_channels
-from ..models.record import EMPTY_LINK, Record
+from ..models.dist import Dist
+from ..models.index_record import EMPTY_LINK, IndexRecord
 
 log = getLogger(__name__)
 dotlog = getLogger('dotupdate')
@@ -34,7 +35,7 @@ fail_unknown_host = False
 
 
 def supplement_index_with_prefix(index, prefix, channel_priority_map):
-    # type: (Dict[Dist, Record], str, Dict[channel_url, Tuple[canonical_name, priority]) -> None
+    # type: (Dict[Dist, IndexRecord], str, Dict[channel_url, Tuple[canonical_name, priority]) -> None
     # supplement index with information from prefix/conda-meta
     assert prefix
 
@@ -50,7 +51,7 @@ def supplement_index_with_prefix(index, prefix, channel_priority_map):
             # Copy the link information so the resolver knows this is installed
             old_record = index[key]
             link = info.get('link') or EMPTY_LINK
-            index[key] = Record.from_objects(old_record, link=link)
+            index[key] = IndexRecord.from_objects(old_record, link=link)
         else:
             # # only if the package in not in the repodata, use local
             # # conda-meta (with 'depends' defaulting to [])
@@ -61,7 +62,7 @@ def supplement_index_with_prefix(index, prefix, channel_priority_map):
             # been removed from that channel. Either way, we should prefer any
             # other version of the package to this one.
             priority = MAX_CHANNEL_PRIORITY if schannel in priorities else priority
-            index[key] = Record.from_objects(info, priority=priority)
+            index[key] = IndexRecord.from_objects(info, priority=priority)
 
 
 def get_index(channel_urls=(), prepend=True, platform=None,
@@ -227,7 +228,7 @@ def fetch_repodata(url, cache_dir=None, use_cache=False, session=None):
 
 
 def _collect_repodatas_serial(use_cache, urls):
-    # type: (bool, List[str]) -> List[Sequence[str, Option[Dict[Dist, Record]]]]
+    # type: (bool, List[str]) -> List[Sequence[str, Option[Dict[Dist, IndexRecord]]]]
     session = CondaSession()
     repodatas = [(url, fetch_repodata(url, use_cache=use_cache, session=session))
                  for url in urls]
@@ -242,7 +243,7 @@ def _collect_repodatas_concurrent(executor, use_cache, urls):
 
 
 def _collect_repodatas(use_cache, urls):
-    # type: (bool, List[str]) -> List[Sequence[str, Option[Dict[Dist, Record]]]]  # sorta a lie
+    # type: (bool, List[str]) -> List[Sequence[str, Option[Dict[Dist, IndexRecord]]]]  # sorta a lie
     # TODO: there HAS to be a way to clean up this logic
     if context.concurrent:
         try:
@@ -269,7 +270,7 @@ def _collect_repodatas(use_cache, urls):
 
 
 def fetch_index(channel_urls, use_cache=False, unknown=False, index=None):
-    # type: (prioritize_channels(), bool, bool, Dict[Dist, Record]) -> Dict[Dist, Record]
+    # type: (prioritize_channels(), bool, bool, Dict[Dist, IndexRecord]) -> Dict[Dist, IndexRecord]
     log.debug('channel_urls=' + repr(channel_urls))
     # pool = ThreadPool(5)
     if index is None:
@@ -280,7 +281,7 @@ def fetch_index(channel_urls, use_cache=False, unknown=False, index=None):
 
     urls = tuple(filter(offline_keep, channel_urls))
     repodatas = _collect_repodatas(use_cache, urls)
-    # type: List[Sequence[str, Option[Dict[Dist, Record]]]]
+    # type: List[Sequence[str, Option[Dict[Dist, IndexRecord]]]]
     #   this is sorta a lie; actually more primitve types
 
     def make_index(repodatas):
@@ -291,12 +292,16 @@ def fetch_index(channel_urls, use_cache=False, unknown=False, index=None):
             url_s, priority = channel_urls[channel]
             channel = channel.rstrip('/')
             for fn, info in iteritems(repodata['packages']):
-                key = url_s + '::' + fn if url_s != DEFAULTS else fn
-                key = Dist(key)
-                url = channel + '/' + fn
-                info.update(dict(fn=fn, schannel=url_s, channel=channel, priority=priority,
-                                 url=url))
-                result[key] = Record(**info)
+                full_url = join_url(channel_url, fn)
+                info.update(dict(fn=fn,
+                                 schannel=canonical_name,
+                                 channel=channel_url,
+                                 priority=priority,
+                                 url=full_url,
+                                 auth=channel.auth,
+                                 ))
+                key = Dist(canonical_name + '::' + fn if canonical_name != 'defaults' else fn)
+                result[key] = IndexRecord(**info)
         return result
 
     index = make_index(repodatas)
@@ -367,7 +372,7 @@ def add_pip_dependency(index):
     # TODO: discuss with @mcg1969 and document
     for dist, info in iteritems(index):
         if info['name'] == 'python' and info['version'].startswith(('2.', '3.')):
-            index[dist] = Record.from_objects(info, depends=info['depends'] + ('pip',))
+            index[dist] = IndexRecord.from_objects(info, depends=info['depends'] + ('pip',))
 
 
 def create_cache_dir():
