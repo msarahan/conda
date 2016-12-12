@@ -1,9 +1,6 @@
-## 4.2.14 (unreleased)
-
-### Bug Fixes
-* fix location of temporary hard links of index.json (#3975)
-* fix potential errors in multi-channel export and offline clone (#3995)
-
+2016-07-09  4.0.11:
+-------------------
+  * allow auto_update_conda from sysrc, #3015 via #3021
 
 ## 4.1.13 (unreleased)
 
@@ -525,6 +522,17 @@
 * Conda finally has an official logo.
 * Fix `conda clean --packages` on Windows, #1944
 * Conda sub-commands now support dashes in names, #1840
+
+
+2016-XX-XX   3.19.4:
+--------------------
+  * improve handling of local dependency information, #2107
+  * use install.rm_rf for TemporaryDirectory cleanup, #3425
+  * fix the api->conda substitution, #3456
+  * error and exit for install of packages that require conda minimum version 4.3, #3726
+  * show warning message for pre-link scripts, #3727
+  * fix silent directory removal, #3730
+  * fix conda/install.py single-file behavior, #3854
 
 
 2016-02-19   3.19.3:
