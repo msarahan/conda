@@ -167,7 +167,7 @@ def backoff_rmdir(dirpath):
 
 
 def try_rmdir_all_empty(dirpath, max_tries=MAX_TRIES):
-    if not isdir(dirpath):
+    if not dirpath or not isdir(dirpath):
         return
 
     try:
