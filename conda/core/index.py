@@ -21,7 +21,7 @@ from .linked_data import linked_data
 from .._vendor.auxlib.entity import EntityEncoder
 from .._vendor.auxlib.logz import stringify
 from ..base.context import context
-from ..common.compat import iteritems, itervalues
+from ..common.compat import iteritems, itervalues, ensure_text_type
 from ..common.url import join_url
 from ..connection import CondaSession
 from ..exceptions import CondaHTTPError, CondaRuntimeError
@@ -193,21 +193,18 @@ def fetch_repodata(url, cache_dir=None, use_cache=False, session=None):
             log.debug(stringify(resp))
         resp.raise_for_status()
 
-        if resp.status_code != 304:
-            def get_json_str(filename, resp_content):
-                if filename.endswith('.bz2'):
-                    return bz2.decompress(resp_content).decode('utf-8')
-                else:
-                    return resp_content.decode('utf-8')
+        if resp.status_code == 304:
+            with open(cache_path) as f:
+                fetched_repodata = json.load(f)
+        else:
+            def maybe_decompress(filename, resp_content):
+                return ensure_text_type(bz2.decompress(resp_content)
+                                        if filename.endswith('.bz2')
+                                        else resp_content)
+            fetched_repodata = json.loads(maybe_decompress(filename, resp.content))
 
-            if url.startswith('file://'):
-                json_str = get_json_str(filename, resp.content)
-            else:
-                json_str = get_json_str(filename, resp.content)
-
-            fetched_repodata = json.loads(json_str)
-            add_http_value_to_dict(resp, 'Etag', fetched_repodata, '_etag')
-            add_http_value_to_dict(resp, 'Last-Modified', fetched_repodata, '_mod')
+        add_http_value_to_dict(resp, 'Etag', fetched_repodata, '_etag')
+        add_http_value_to_dict(resp, 'Last-Modified', fetched_repodata, '_mod')
 
     except ValueError as e:
         raise CondaRuntimeError("Invalid index file: {0}{1}: {2}"
