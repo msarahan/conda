@@ -35,7 +35,8 @@ SEARCH_PATH = (
 )
 
 DEFAULT_CHANNEL_ALIAS = 'https://conda.anaconda.org'
-CONDA_HOMEPAGE_URL = 'http://conda.pydata.org'
+CONDA_HOMEPAGE_URL = 'https://conda.pydata.org'
+DEFAULTS = 'defaults'
 
 PLATFORM_DIRECTORIES = ("linux-64",
                         "linux-32",
