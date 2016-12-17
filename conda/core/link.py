@@ -333,9 +333,7 @@ class UnlinkLinkTransaction(object):
                           'uninstalling' if is_unlink else 'installing', Dist(pkg_data), e)
 
             raise CondaMultiError(tuple(concatv(
-                UnlinkLinkTransaction._reverse_actions(target_prefix, num_unlink_pkgs, pkg_idx,
-                                                       pkg_data, actions,
-                                                       reverse_from_idx=axn_idx),
+                (e,),
                 reverse_excs,
             )))
 
