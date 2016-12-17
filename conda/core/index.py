@@ -17,15 +17,15 @@ import warnings
 from requests.exceptions import ConnectionError, HTTPError, SSLError
 from requests.packages.urllib3.exceptions import InsecureRequestWarning
 
-from conda.gateways.disk.update import touch
 from .linked_data import linked_data
 from .._vendor.auxlib.entity import EntityEncoder
 from .._vendor.auxlib.logz import stringify
 from ..base.context import context
-from ..common.compat import iteritems, itervalues, ensure_text_type
+from ..common.compat import ensure_text_type, iteritems, itervalues
 from ..common.url import join_url
 from ..connection import CondaSession
 from ..exceptions import CondaHTTPError, CondaRuntimeError
+from ..gateways.disk.update import touch
 from ..models.channel import Channel, offline_keep, prioritize_channels
 from ..models.dist import Dist
 from ..models.index_record import EMPTY_LINK, IndexRecord
