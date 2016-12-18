@@ -433,7 +433,10 @@ class MultiChannel(Channel):
         return None
 
 
-def prioritize_channels(channels, platform=None):
+def prioritize_channels(channels, with_credentials=True, platform=None):
+    # prioritize_channels returns and OrderedDict with platform-specific channel
+    #   urls as the key, and a tuple of canonical channel name and channel priority
+    #   number as the value
     # ('https://conda.anaconda.org/conda-forge/osx-64/', ('conda-forge', 1))
     result = odict()
     auths = odict()
