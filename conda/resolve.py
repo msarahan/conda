@@ -187,7 +187,7 @@ class Resolve(object):
             filter.update({Dist(fstr+'@'): True for fstr in features})
         return filter
 
-    def valid(self, spec_or_dist, filter):
+    def valid(self, spec_or_dist, filter, optional=True):
         """Tests if a package, MatchSpec, or a list of both has satisfiable
         dependencies, assuming cyclic dependencies are always valid.
 
@@ -195,6 +195,8 @@ class Resolve(object):
             spec_or_dist: a package key, a MatchSpec, or an iterable of these.
             filter: a dictionary of (fkey,valid) pairs, used to consider a subset
                 of dependencies, and to eliminate repeated searches.
+            optional: if True (default), do not enforce optional specifications
+                when considering validity. If False, enforce them.
 
         Returns:
             True if the full set of dependencies can be satisfied; False otherwise.
@@ -205,7 +207,7 @@ class Resolve(object):
             return v_ms_(spec) if isinstance(spec, MatchSpec) else v_fkey_(spec)
 
         def v_ms_(ms):
-            return ms.optional or any(v_fkey_(fkey) for fkey in self.find_matches(ms))
+            return (optional and ms.optional) or any(v_fkey_(fkey) for fkey in self.find_matches(ms))
 
         def v_fkey_(dist):
             val = filter.get(dist)
@@ -217,7 +219,7 @@ class Resolve(object):
         result = v_(spec_or_dist)
         return result
 
-    def invalid_chains(self, spec, filter):
+    def invalid_chains(self, spec, filter, optional=True):
         """Constructs a set of 'dependency chains' for invalid specs.
 
         A dependency chain is a tuple of MatchSpec objects, starting with
@@ -230,15 +232,14 @@ class Resolve(object):
             spec: a package key or MatchSpec
             filter: a dictionary of (dist, valid) pairs to be used when
                 testing for package validity.
+            optional: if True (default), do not enforce optional specifications
+                when considering validity. If False, enforce them.
 
         Returns:
             A generator of tuples, empty if the MatchSpec is valid.
         """
         def chains_(spec, names):
-            if spec.name in names:
-                return
-            names.add(spec.name)
-            if self.valid(spec, filter):
+            if self.valid(spec, filter, optional) or spec.name in names:
                 return
             dists = self.find_matches(spec) if isinstance(spec, MatchSpec) else [Dist(spec)]
             found = False
@@ -330,11 +331,11 @@ class Resolve(object):
             filter = {}
             for mn, v in sdep.items():
                 if mn != ms.name and mn in commkeys:
-                    # Mark this package's "unique" dependencies as invali
+                    # Mark this package's "unique" dependencies as invalid
                     for fkey in v - commkeys[mn]:
                         filter[fkey] = False
             # Find the dependencies that lead to those invalid choices
-            ndeps = set(self.invalid_chains(ms, filter))
+            ndeps = set(self.invalid_chains(ms, filter, False))
             # This may produce some additional invalid chains that we
             # don't care about. Select only those that terminate in our
             # predetermined set of "common" keys.
