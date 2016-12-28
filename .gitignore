@@ -16,12 +16,3 @@ junit.xml
 tmpfile.rc
 .vagrant/
 Vagrantfile
-docs/_build
-env/
-dev-init.bat
-devenv/
-Miniconda*.sh
-miniconda*.sh
-miniconda*.exe
-.pytest_cache/
-.asv/
