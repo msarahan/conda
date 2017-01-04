@@ -399,9 +399,9 @@ def fetch_index(channel_urls, use_cache=False, index=None):
         for channel_url, repodata in repodatas:
             if not repodata:
                 continue
-            url_s, priority = channel_urls[channel]
-            channel = channel.rstrip('/')
-            for fn, info in iteritems(repodata['packages']):
+            canonical_name, priority = channel_urls[channel_url]
+            channel = Channel(channel_url)
+            for fn, info in iteritems(repodata.get('packages', {})):
                 rec = IndexRecord.from_objects(info,
                                                fn=fn,
                                                schannel=canonical_name,
