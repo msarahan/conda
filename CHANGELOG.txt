@@ -1,3 +1,46 @@
+4.1.13 (unreleased):
+--------------------
+  * improve handling of local dependency information, #2107
+  * show warning message for pre-link scripts, #3727
+  * error and exit for install of packages that require conda minimum version 4.3, #3726
+  * fix conda/install.py single-file behavior, #3854
+  * fix open-ended test failures relating to python 3.6 release (#4167)
+
+
+2016-09-08  4.1.12:
+-------------------
+  * fix #2837 "File exists" in symlinked path with parallel activations, #3210
+  * fix prune option when installing packages, #3354
+  * change check for placeholder to be more friendly to long PATH, #3349
+
+
+2016-07-26  4.1.11:
+-------------------
+  * fix PS1 backup in activate script, #3135 via #3155
+  * correct resolution for 'handle failures in binstar_client more generaly', #3156
+
+
+2016-07-25  4.1.10:
+-------------------
+  * ignore symlink failure because of read-only file system, #3055
+  * backpaort shortcut tests, #3064
+  * fix #2979 redefition of $SHELL variable, #3081
+  * fix #3060 --clone root --copy exception, #3080
+
+
+2016-07-20  4.1.9:
+------------------
+  * fix #3104, add global BINSTAR_TOKEN_PAT
+  * handle failures in binstar_client more generally
+
+
+2016-07-12  4.1.8:
+------------------
+  * fix #3004 UNAUTHORIZED for url (null binstar token), #3008
+  * fix overwrite existing redirect shortcuts when symlinking envs, #3025
+  * partially revert no default shortcuts, #3032, #3047
+
+
 2016-07-09  4.0.11:
 -------------------
   * allow auto_update_conda from sysrc, #3015 via #3021
