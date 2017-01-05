@@ -73,6 +73,8 @@ class Context(Configuration):
     rollback_enabled = PrimitiveParameter(True)
     track_features = SequenceParameter(string_types)
     use_pip = PrimitiveParameter(True)
+    _root_dir = PrimitiveParameter(sys.prefix, aliases=('root_dir',))
+    _subdir = PrimitiveParameter('', aliases=('subdir',))
 
     _root_dir = PrimitiveParameter("", aliases=('root_dir',))
     _envs_dirs = SequenceParameter(string_types, aliases=('envs_dirs', 'envs_path'),
@@ -216,6 +218,8 @@ class Context(Configuration):
 
     @property
     def subdir(self):
+        if self._subdir:
+            return self._subdir
         m = machine()
         if m in non_x86_linux_machines:
             return 'linux-%s' % m

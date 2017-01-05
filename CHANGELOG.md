@@ -1,77 +1,18 @@
-## 4.3.2 (unreleased)
-
-### Deprecations/Breaking Changes
-* Further refine conda channels specification. To verify if the url of a channel
-  represents a valid conda channel, we check that `noarch/repodata.json` and/or
-  `noarch/repodata.json.bz2` exist, even if empty. (#3739)
-
-### Improvements
-* add new 'path_conflict' and 'clobber' configuration options (#4119)
-* separate fetch/extract pass for explicit URLs (#4125)
-* update conda homepage to conda.io (#4180)
-
-### Bug Fixes
-* fix pre/post unlink/link scripts (#4113)
-* fix package version regex and bug in create_link (#4132)
-* fix history tracking (#4143)
-* fix index creation order (#4131)
-* fix #4152 conda env export failure (#4175)
-* fix #3779 channel UNC path encoding errors on windows (#4190)
-* fix progress bar (#4191)
-
-2016-09-08  4.1.12:
--------------------
-  * fix #2837 "File exists" in symlinked path with parallel activations, #3210
-  * fix prune option when installing packages, #3354
-  * change check for placeholder to be more friendly to long PATH, #3349
-
-
-2016-07-26  4.1.11:
--------------------
-  * fix PS1 backup in activate script, #3135 via #3155
-  * correct resolution for 'handle failures in binstar_client more generaly', #3156
-
-
-2016-07-25  4.1.10:
--------------------
-  * ignore symlink failure because of read-only file system, #3055
-  * backpaort shortcut tests, #3064
-  * fix #2979 redefition of $SHELL variable, #3081
-  * fix #3060 --clone root --copy exception, #3080
-
-
-2016-07-20  4.1.9:
-------------------
-  * fix #3104, add global BINSTAR_TOKEN_PAT
-  * handle failures in binstar_client more generally
-
-
-2016-07-12  4.1.8:
-------------------
-  * fix #3004 UNAUTHORIZED for url (null binstar token), #3008
-  * fix overwrite existing redirect shortcuts when symlinking envs, #3025
-  * partially revert no default shortcuts, #3032, #3047
-
-
-2016-07-09  4.0.11:
--------------------
-  * allow auto_update_conda from sysrc, #3015 via #3021
-
-## 4.1.13 (unreleased)
-
-### Deprecations/Breaking Changes
-* show warning message for pre-link scripts (#3727)
-* error and exit for install of packages that require conda minimum version 4.3 (#3726)
+## 4.2.14 (2017-01-05)
 
 ### Improvements
 * use install.rm_rf for TemporaryDirectory cleanup (#3425)
 * improve handling of local dependency information (#2107)
 * add default channels to exports for Windows and Unix (#4103)
+* make subdir configurable (#4178)
 
 ### Bug Fixes
 * fix conda/install.py single-file behavior (#3854)
 * fix the api->conda substitution (#3456)
 * fix silent directory removal (#3730)
+* fix location of temporary hard links of index.json (#3975)
+* fix potential errors in multi-channel export and offline clone (#3995)
+* fix auxlib/packaging, git hashes are not limited to 7 characters (#4189)
 
 ### Non-User-Facing Changes
 * fix open-ended test failures relating to python 3.6 release (#4166)
