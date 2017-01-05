@@ -6,11 +6,11 @@ from logging import getLogger
 from os.path import abspath, expanduser
 import re
 import socket
-import sys
 
-from conda._vendor.auxlib.ish import dals
-from conda.exceptions import CondaValueError
 from .path import split_filename
+from .._vendor.auxlib.ish import dals
+from ..common.compat import on_win
+from ..exceptions import CondaValueError
 
 try:
     # Python 3
