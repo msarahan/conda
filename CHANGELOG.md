@@ -1,11 +1,22 @@
-4.1.13 (unreleased):
---------------------
-  * improve handling of local dependency information, #2107
-  * show warning message for pre-link scripts, #3727
-  * error and exit for install of packages that require conda minimum version 4.3, #3726
-  * fix conda/install.py single-file behavior, #3854
-  * fix open-ended test failures relating to python 3.6 release (#4167)
+## 4.3.2 (unreleased)
 
+### Deprecations/Breaking Changes
+* Further refine conda channels specification. To verify if the url of a channel
+  represents a valid conda channel, we check that `noarch/repodata.json` and/or
+  `noarch/repodata.json.bz2` exist, even if empty. (#3739)
+
+### Improvements
+* add new 'path_conflict' and 'clobber' configuration options (#4119)
+* separate fetch/extract pass for explicit URLs (#4125)
+* update conda homepage to conda.io (#4180)
+
+### Bug Fixes
+* fix pre/post unlink/link scripts (#4113)
+* fix package version regex and bug in create_link (#4132)
+* fix history tracking (#4143)
+* fix index creation order (#4131)
+* fix #4152 conda env export failure (#4175)
+* fix progress bar (#4191)
 
 2016-09-08  4.1.12:
 -------------------
