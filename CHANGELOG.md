@@ -17,6 +17,7 @@
 ### Non-User-Facing Changes
 * fix open-ended test failures relating to python 3.6 release (#4166)
 * allow args passed to cli.main() (#4193)
+* test against python 3.6 (#4197)
 
 
 ## 3.19.4 (unreleased)
