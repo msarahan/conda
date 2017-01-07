@@ -1,4 +1,10 @@
-sudo: false
+os:
+  - linux
+
+addons:
+  apt:
+    packages:
+    - zsh
 
 env:
   global:
