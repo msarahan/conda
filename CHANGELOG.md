@@ -1,12 +1,13 @@
-4.1.13 (unreleased):
---------------------
-  * improve handling of local dependency information, #2107
-  * show warning message for pre-link scripts, #3727
-  * error and exit for install of packages that require conda minimum version 4.3, #3726
-  * fix conda/install.py single-file behavior, #3854
-  * fix open-ended test failures relating to python 3.6 release, #4167
-  * fix #3287 activate in 4.1-4.2.3 clobbers non-conda PATH changes, #4211
-  * fix relative path to python in activate.bat, #4244
+## 4.2.15 (2017-01-10)
+
+### Improvements
+* use 'post' instead of 'dev' for commits according to PEP-440 (#4234)
+* do not use IFS to find activate/deactivate scripts to source (#4243)
+* fix relative path to python in activate.bat (#4244)
+
+### Bug Fixes
+* replace sed with python for activate and deactivate #4257
+
 
 ## 4.2.14 (2017-01-07)
 
