@@ -5,23 +5,26 @@ from itertools import chain
 import argparse
 import contextlib
 from functools import partial
+import json
 import os
-from os.path import abspath, basename
+from os.path import abspath, basename, isfile, join
 import re
 import sys
 
-from conda import iteritems
-from conda.common.path import is_private_env, prefix_to_env_name
-from conda.install import linked_data
 from .. import console
 from .._vendor.auxlib.entity import EntityEncoder
 from ..base.constants import ROOT_ENV_NAME
 from ..base.context import context, get_prefix as context_get_prefix
+from ..common.compat import iteritems
 from ..common.constants import NULL
+from ..common.path import is_private_env, prefix_to_env_name
+from ..core.linked_data import linked_data
 from ..exceptions import (CondaFileIOError, CondaRuntimeError, CondaSystemExit, CondaValueError,
                           DryRunExit)
 from ..resolve import MatchSpec
 from ..utils import memoize
+
+
 get_prefix = partial(context_get_prefix, context)
 
 
@@ -90,7 +93,7 @@ class Packages(Completer):
         # TODO: Include .tar.bz2 files for local installs.
         from conda.core.index import get_index
         args = self.parsed_args
-        call_dict = dict(channel_urls=args.channel or (),
+        call_dict = dict(channel_urls=args.channels or (),
                          use_cache=True,
                          prepend=not args.override_channels,
                          unknown=args.unknown)
@@ -407,7 +410,7 @@ def ensure_use_local(args):
                                 " to use the --use-local option." % e)
 
 def ensure_override_channels_requires_channel(args, dashc=True):
-    if args.override_channels and not (args.channel or args.use_local):
+    if args.override_channels and not (args.channels or args.use_local):
         if dashc:
             raise CondaValueError('--override-channels requires -c/--channel'
                                   ' or --use-local')
