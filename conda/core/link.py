@@ -16,7 +16,7 @@ from .path_actions import (CompilePycAction, CreateApplicationEntryPointAction,
                            CreateLinkedPackageRecordAction, CreatePrivateEnvMetaAction,
                            CreatePythonEntryPointAction, LinkPathAction, MakeMenuAction,
                            RemoveLinkedPackageRecordAction, RemoveMenuAction,
-                           RemovePrivateEnvMetaAction, UnlinkPathAction)
+                           RemovePrivateEnvMetaAction, UnlinkPathAction, CreateNonadminAction)
 from .. import CondaMultiError
 from .._vendor.auxlib.ish import dals
 from ..base.context import context
@@ -382,6 +382,7 @@ class UnlinkLinkTransaction(object):
         create_directory_actions = LinkPathAction.create_directory_actions(
             *required_quad, file_link_actions=file_link_actions
         )
+        create_nonadmin_actions = CreateNonadminAction.create_actions(*required_quad)
         create_menu_actions = MakeMenuAction.create_actions(*required_quad)
 
         python_entry_point_actions = CreatePythonEntryPointAction.create_actions(*required_quad)
@@ -407,6 +408,7 @@ class UnlinkLinkTransaction(object):
             meta_create_actions,
             create_directory_actions,
             file_link_actions,
+            create_nonadmin_actions,
             python_entry_point_actions,
             compile_pyc_actions,
             create_menu_actions,
