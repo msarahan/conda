@@ -50,8 +50,6 @@ def path_to_url(path):
 
 @memoize
 def urlparse(url):
-    if on_win and url.startswith('file:'):
-        url.replace('\\', '/')
     return parse_url(url)
 
 
