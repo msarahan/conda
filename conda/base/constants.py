@@ -86,8 +86,6 @@ ROOT_NO_RM = (
 MAX_CHANNEL_PRIORITY = 10000
 
 
-PRIVATE_ENVS = join(sys.prefix, "conda-meta/private_envs")
-
 UNKNOWN_CHANNEL = "<unknown>"
 
 INTERRUPT_SIGNALS = (
