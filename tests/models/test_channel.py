@@ -727,61 +727,51 @@ class ChannelAuthTokenPriorityTests(TestCase):
         assert channel.canonical_name == "donald"
 
 
-class UrlChannelTests(TestCase):
+class UnknownChannelTests(TestCase):
 
-    def test_file_urls(self):
-        url = "file:///machine/shared_folder"
-        c = Channel(url)
-        assert c.scheme == "file"
-        assert c.auth is None
-        assert c.location == "/machine"
-        assert c.token is None
-        assert c.name == "shared_folder"
-        assert c.platform is None
-        assert c.package_filename is None
+    def test_regression_against_unknown_none(self):
+        defaults = Channel('defaults')
 
-        assert c.canonical_name == "file:///machine/shared_folder"
-        assert c.url() == "file:///machine/shared_folder/%s" % context.subdir
-        assert c.urls() == [
-            "file:///machine/shared_folder/%s" % context.subdir,
-            "file:///machine/shared_folder/noarch",
-        ]
+        channel = Channel(None)
+        assert channel.scheme is None
+        assert channel.location is None
+        assert channel.platform is None
+        assert channel.name == "<unknown>"
+        assert channel.canonical_name == "<unknown>"
 
-    @patch.object(conda.models.channel, 'on_win', return_value=True)
-    def test_file_url_with_backslashes(self, on_win_mock):
-        url = "file://\\machine\\shared_folder\\path\\conda"
-        c = Channel(url)
-        assert c.scheme == "file"
-        assert c.auth is None
-        assert c.location == "/machine/shared_folder/path"
-        assert c.token is None
-        assert c.name == "conda"
-        assert c.platform is None
-        assert c.package_filename is None
+        assert channel.base_url is None
+        assert channel.url() == defaults.url()
+        assert channel.urls() == defaults.urls()
 
-        assert c.canonical_name == "file:///machine/shared_folder/path/conda"
-        assert c.url() == "file:///machine/shared_folder/path/conda/%s" % context.subdir
-        assert c.urls() == [
-            "file:///machine/shared_folder/path/conda/%s" % context.subdir,
-            "file:///machine/shared_folder/path/conda/noarch",
-        ]
+        channel = Channel('<unknown>')
+        assert channel.scheme is None
+        assert channel.location is None
+        assert channel.platform is None
+        assert channel.name == "<unknown>"
+        assert channel.canonical_name == "<unknown>"
 
-    def test_env_var_file_urls(self):
-        channels = ("file://\\\\network_share\\shared_folder\\path\\conda,"
-                    "https://some.url/ch_name,"
-                    "file:///some/place/on/my/machine")
-        with env_var("CONDA_CHANNELS", channels, reset_context):
-            assert context.channels == (
-                "file://\\\\network_share\\shared_folder\\path\\conda",
-                "https://some.url/ch_name",
-                "file:///some/place/on/my/machine",
-            )
-            prioritized = prioritize_channels(context.channels)
-            assert prioritized == OrderedDict((
-                ("file://network_share/shared_folder/path/conda/%s" % context.subdir, ("file://network_share/shared_folder/path/conda", 0)),
-                ("file://network_share/shared_folder/path/conda/noarch", ("file://network_share/shared_folder/path/conda", 0)),
-                ("https://some.url/ch_name/%s" % context.subdir, ("https://some.url/ch_name", 1)),
-                ("https://some.url/ch_name/noarch", ("https://some.url/ch_name", 1)),
-                ("file:///some/place/on/my/machine/%s" % context.subdir, ("file:///some/place/on/my/machine", 2)),
-                ("file:///some/place/on/my/machine/noarch", ("file:///some/place/on/my/machine", 2)),
-            ))
+        assert channel.base_url is None
+        assert channel.url() == defaults.url()
+        assert channel.urls() == defaults.urls()
+
+        channel = Channel('None:///<unknown>')
+        assert channel.scheme is None
+        assert channel.location is None
+        assert channel.platform is None
+        assert channel.name == "<unknown>"
+        assert channel.canonical_name == "<unknown>"
+
+        assert channel.base_url is None
+        assert channel.url() == defaults.url()
+        assert channel.urls() == defaults.urls()
+
+        channel = Channel('None')
+        assert channel.scheme is None
+        assert channel.location is None
+        assert channel.platform is None
+        assert channel.name == "<unknown>"
+        assert channel.canonical_name == "<unknown>"
+
+        assert channel.base_url is None
+        assert channel.url() == defaults.url()
+        assert channel.urls() == defaults.urls()
