@@ -3,16 +3,14 @@ from __future__ import absolute_import, division, print_function, unicode_litera
 
 from itertools import chain
 from logging import getLogger
-
 from requests.packages.urllib3.util import Url
 
-from ..base.constants import (DEFAULT_CHANNELS_UNIX, DEFAULT_CHANNELS_WIN, MAX_CHANNEL_PRIORITY,
-                              UNKNOWN_CHANNEL)
+from ..base.constants import DEFAULT_CHANNELS_UNIX, DEFAULT_CHANNELS_WIN, UNKNOWN_CHANNEL, UTF8
 from ..base.context import context
 from ..common.compat import ensure_text_type, iteritems, odict, with_metaclass
 from ..common.path import is_path, win_path_backout
-from ..common.url import (has_scheme, is_url, join_url, on_win, path_to_url,
-                          split_conda_url_easy_parts, split_scheme_auth_token, urlparse)
+from ..common.url import (has_scheme, is_url, join_url, path_to_url, split_conda_url_easy_parts,
+                          split_scheme_auth_token, urlparse)
 
 try:
     from cytoolz.functoolz import excepts
@@ -208,9 +206,10 @@ class Channel(object):
 
     @staticmethod
     def from_value(value):
-        if value is None:
+        if value in (None, '<unknown>', 'None:///<unknown>', 'None'):
             return Channel(name=UNKNOWN_CHANNEL)
-        value = ensure_text_type(value)
+        if hasattr(value, 'decode'):
+            value = value.decode(UTF8)
         if has_scheme(value):
             if value.startswith('file:'):
                 value = win_path_backout(value)
@@ -255,33 +254,10 @@ class Channel(object):
         else:
             return join_url(self.location, self.name).lstrip('/')
 
-    # @staticmethod
-    # def get_channel_from_package_cache(channel):
-    #     assert channel.scheme == 'file', channel.scheme
-    #     assert channel.platform is None, channel.platform
-    #     assert channel.package_filename
-    #
-    #     local_file_dir = join_url(channel.location, channel.name)
-    #
-    #     if win_path_ok(local_file_dir) in context.pkgs_dirs:
-    #         from ..core.package_cache import PackageCache
-    #         package_cache = PackageCache(local_file_dir)
-    #         recorded_url = package_cache.urls_data.get_url(channel.package_filename)
-    #         if recorded_url.startswith('file:/'):
-    #             # make sure path actually is a channel
-    #             _, platform = split_platform(recorded_url)
-    #             if platform:
-    #                 return Channel(recorded_url)
-    #             else:
-    #                 return Channel(None)
-    #         else:
-    #             return Channel(recorded_url)
-    #     else:
-    #         # we can't use the channel name 'local' because that's already taken by conda-build
-    #         #   maybe the path really doesn't have a channel name
-    #         return Channel(None)
+    def urls(self, with_credentials=False, platform=None):
+        if self.canonical_name == UNKNOWN_CHANNEL:
+            return Channel('defaults').urls(with_credentials, platform)
 
-    def urls(self, with_credentials=False):
         base = [self.location]
         if with_credentials and self.token:
             base.extend(['t', self.token])
@@ -333,7 +309,7 @@ class Channel(object):
 
     @property
     def base_url(self):
-        if self.canonical_name is None:
+        if self.canonical_name == UNKNOWN_CHANNEL:
             return None
         return "%s://%s" % (self.scheme, join_url(self.location, self.name))
 
