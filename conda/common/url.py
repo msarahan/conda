@@ -6,11 +6,7 @@ from logging import getLogger
 from os.path import abspath, expanduser
 import re
 import socket
-
-from .path import split_filename
-from .._vendor.auxlib.ish import dals
-from ..common.compat import on_win
-from ..exceptions import CondaValueError
+import sys
 
 try:
     # Python 3
@@ -22,10 +18,9 @@ except ImportError:
     from urllib import quote, quote_plus, unquote, unquote_plus, pathname2url  # NOQA
     from urlparse import urlunparse as stdlib_urlparse, urljoin  # NOQA
 
-from requests.packages.urllib3.exceptions import LocationParseError
-from requests.packages.urllib3.util.url import Url, parse_url
-
 from .._vendor.auxlib.decorators import memoize
+from .._vendor.urllib3.exceptions import LocationParseError
+from .._vendor.urllib3.util.url import Url, parse_url
 
 log = getLogger(__name__)
 

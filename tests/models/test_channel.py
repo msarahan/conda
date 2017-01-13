@@ -727,65 +727,6 @@ class ChannelAuthTokenPriorityTests(TestCase):
         assert channel.canonical_name == "donald"
 
 
-class UrlChannelTests(TestCase):
-
-    def test_file_urls(self):
-        url = "file:///machine/shared_folder"
-        c = Channel(url)
-        assert c.scheme == "file"
-        assert c.auth is None
-        assert c.location == "/machine"
-        assert c.token is None
-        assert c.name == "shared_folder"
-        assert c.platform is None
-        assert c.package_filename is None
-
-        assert c.canonical_name == "file:///machine/shared_folder"
-        assert c.url() == "file:///machine/shared_folder/%s" % context.subdir
-        assert c.urls() == [
-            "file:///machine/shared_folder/%s" % context.subdir,
-            "file:///machine/shared_folder/noarch",
-        ]
-
-    def test_file_url_with_backslashes(self):
-        url = "file://\\machine\\shared_folder\\path\\conda"
-        c = Channel(url)
-        assert c.scheme == "file"
-        assert c.auth is None
-        assert c.location == "/machine/shared_folder/path"
-        assert c.token is None
-        assert c.name == "conda"
-        assert c.platform is None
-        assert c.package_filename is None
-
-        assert c.canonical_name == "file:///machine/shared_folder/path/conda"
-        assert c.url() == "file:///machine/shared_folder/path/conda/%s" % context.subdir
-        assert c.urls() == [
-            "file:///machine/shared_folder/path/conda/%s" % context.subdir,
-            "file:///machine/shared_folder/path/conda/noarch",
-        ]
-
-    def test_env_var_file_urls(self):
-        channels = ("file://\\\\network_share\\shared_folder\\path\\conda,"
-                    "https://some.url/ch_name,"
-                    "file:///some/place/on/my/machine")
-        with env_var("CONDA_CHANNELS", channels, reset_context):
-            assert context.channels == (
-                "file://\\\\network_share\\shared_folder\\path\\conda",
-                "https://some.url/ch_name",
-                "file:///some/place/on/my/machine",
-            )
-            prioritized = prioritize_channels(context.channels)
-            assert prioritized == OrderedDict((
-                ("file://network_share/shared_folder/path/conda/%s" % context.subdir, ("file://network_share/shared_folder/path/conda", 0)),
-                ("file://network_share/shared_folder/path/conda/noarch", ("file://network_share/shared_folder/path/conda", 0)),
-                ("https://some.url/ch_name/%s" % context.subdir, ("https://some.url/ch_name", 1)),
-                ("https://some.url/ch_name/noarch", ("https://some.url/ch_name", 1)),
-                ("file:///some/place/on/my/machine/%s" % context.subdir, ("file:///some/place/on/my/machine", 2)),
-                ("file:///some/place/on/my/machine/noarch", ("file:///some/place/on/my/machine", 2)),
-            ))
-
-
 class UnknownChannelTests(TestCase):
 
     def test_regression_against_unknown_none(self):

@@ -80,8 +80,8 @@ ROOT_NO_RM = (
     'requests',
 )
 
-# Maximum priority, reserved for packages we really want to remove
-MAX_CHANNEL_PRIORITY = 10000
+UNKNOWN_CHANNEL = "<unknown>"
+
 
 
 UNKNOWN_CHANNEL = "<unknown>"
