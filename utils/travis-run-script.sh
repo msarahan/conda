@@ -24,15 +24,8 @@ main_test() {
     echo $PYTHONHASHSEED
 
     # basic unit tests
-    python -m pytest --cov-report xml --shell=bash --shell=zsh -m "not installed" tests
-    python utils/setup-testing.py --version
-}
-
-activate_test() {
-#    local prefix=$(python -c "import sys; print(sys.prefix)")
-#    ln -sf shell/activate $prefix/bin/activate
-#    ln -sf shell/deactivate $prefix/bin/deactivate
-#    make_conda_entrypoint $prefix/bin/conda $prefix/bin/python pwd
+    python -m pytest --cov-report xml --shell=bash --shell=zsh -m "not installed" conda tests
+    python setup.py --version
 
     python utils/setup-testing.py develop
     hash -r
