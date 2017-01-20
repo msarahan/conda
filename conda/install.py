@@ -24,18 +24,34 @@ from __future__ import absolute_import, division, print_function, unicode_litera
 import functools
 import logging
 import os
-from errno import EACCES, EEXIST, EPERM, EROFS
-from os import chmod, makedirs, stat
-from os.path import dirname, isdir, isfile, join, normcase, normpath
+import re
+import shlex
+import shutil
+import stat
+import struct
+import subprocess
+import sys
+import tarfile
+import traceback
+from collections import namedtuple
+from enum import Enum
+from itertools import chain
+from os.path import (abspath, basename, dirname, exists, isdir, isfile, islink, join, normcase,
+                     normpath)
 
-from .base.constants import PREFIX_PLACEHOLDER
-from .common.compat import on_win
-from .gateways.disk.delete import delete_trash, move_path_to_trash, rm_rf
-delete_trash, move_path_to_trash = delete_trash, move_path_to_trash
-from .core.linked_data import is_linked, linked, linked_data  # NOQA
-is_linked, linked, linked_data = is_linked, linked, linked_data
-from .core.package_cache import rm_fetched  # NOQA
-rm_fetched = rm_fetched
+from . import CondaError
+from .base.constants import UTF8
+from .base.context import context
+from .common.disk import exp_backoff_fn, rm_rf
+from .common.url import path_to_url
+from .exceptions import CondaOSError, LinkError, PaddingError, CondaUpgradeError
+from .lock import DirectoryLock, FileLock
+from .models.channel import Channel
+from .utils import on_win
+
+
+# conda-build compatibility
+from .common.disk import delete_trash, move_to_trash, move_path_to_trash  # NOQA
 
 log = logging.getLogger(__name__)
 stdoutlog = logging.getLogger('stdoutlog')
@@ -927,8 +943,7 @@ def link(prefix, dist, linktype=LINK_HARD, index=None):
     info_dir = join(source_dir, 'info')
 
     if not os.path.isfile(join(info_dir, "files")):
-        print("Installing %s requires a minimum conda version of 4.3." % dist, file=sys.stderr)
-        sys.exit(1)
+        raise CondaUpgradeError("Installing %s requires a minimum conda version of 4.3." % dist)
 
     files = list(yield_lines(join(info_dir, 'files')))
     has_prefix_files = read_has_prefix(join(info_dir, 'has_prefix'))
