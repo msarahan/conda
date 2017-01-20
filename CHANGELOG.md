@@ -4,7 +4,15 @@
 * general support for all bourne- and c-based shells #3175
 
 
-## 4.3.6 (unreleased)
+## 4.3.7 (2017-01-20)
+
+### Bug Fixes
+* actually revert json output for leaky plan (#4383)
+* fix not raising on pre/post-link error (#4382)
+* fix find_commands and find_executable for symlinks (#4387)
+
+
+## 4.3.6 (2017-01-18)
 
 ### Bug Fixes
 * fix 'Uncaught backoff with errno 41' warning on windows (#4366)
