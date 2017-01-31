@@ -1,3 +1,291 @@
+## 4.4.0 (unreleased)
+
+### New Features
+* general support for all bourne- and c-based shells #3175
+
+
+## 4.3.9 (2017-01-31)
+
+### Improvements
+* improve repodata caching for performance (#4478, #4488)
+* expand scope of packages included by bad_installed (#4402)
+* silence pre-link warning for old noarch (#4451)
+* add configuration to optionally require noarch repodata (#4450)
+* improve conda subprocessing (#4447)
+* respect info/link.json (#4482)
+
+### Bug Fixes
+* fix #4398 'hard' was used for link type at one point (#4409)
+* fixed "No matches for wildcard '$activate_d/*.fish'" warning (#4415)
+* print correct activate/deactivate message for fish shell (#4423)
+* fix 'Dist' object has no attribute 'fn' (#4424)
+* fix noarch generic and add additional integration test (#4431)
+* fix #4425 unknown encoding (#4433)
+
+### Non-User-Facing Changes
+* fail CI on conda-build fail (#4405)
+* run doctests (#4414)
+* make index record mutable again (#4461)
+* additional test for conda list --json (#4480)
+
+
+## 4.3.8 (2017-01-23)
+
+### Bug Fixes
+* fix #4309 ignore EXDEV error for directory renames (#4392)
+* fix #4393 by force-renaming certain backup files if the path already exists (#4397)
+
+
+## 4.3.7 (2017-01-20)
+
+### Bug Fixes
+* actually revert json output for leaky plan (#4383)
+* fix not raising on pre/post-link error (#4382)
+* fix find_commands and find_executable for symlinks (#4387)
+
+
+## 4.3.6 (2017-01-18)
+
+### Bug Fixes
+* fix 'Uncaught backoff with errno 41' warning on windows (#4366)
+* revert json output for leaky plan (#4349)
+* audit os.environ setting (#4360)
+* fix #4324 using old dist string instead of dist object (#4361)
+* fix #4351 infinite recursion via code in #4120 (#4370)
+* fix #4368 conda -h (#4367)
+* workaround for symlink race conditions on activate (#4346)
+
+
+## 4.3.5 (2017-01-17)
+
+### Improvements
+* add exception message for corrupt repodata (#4315)
+
+### Bug Fixes
+* fix package not being found in cache after download (#4297)
+* fix logic for Content-Length mismatch (#4311, #4326)
+* use unicode_escape after etag regex instead of utf-8 (#4325)
+* fix #4323 central condarc file being ignored (#4327)
+* fix #4316 a bug in deactivate (#4316)
+* pass target_prefix as env_prefix regardless of is_unlink (#4332)
+* pass positional argument 'context' to BasicClobberError (#4335)
+
+### Non-User-Facing Changes
+* additional package pinning tests (#4317)
+
+
+## 4.3.4 (2017-01-13)
+
+### Improvements
+* vendor url parsing from urllib3 (#4289)
+
+### Bug Fixes
+* fix some bugs in windows multi-user support (#4277)
+* fix problems with channels of type <unknown> (#4290)
+* include aliases for first command-line argument (#4279)
+* fix for multi-line FTP status codes (#4276)
+
+### Non-User-Facing Changes
+* make arch in IndexRecord a StringField instead of EnumField
+* improve conda-build compatibility (#4266)
+
+
+## 4.3.3 (2017-01-10)
+
+### Improvements
+* respect Cache-Control max-age header for repodata (#4220)
+* add 'local_repodata_ttl' configurability (#4240)
+* remove questionable "nothing to install" logic (#4237)
+* relax channel noarch requirement for 4.3; warn now, raise in future feature release (#4238)
+* add additional info to setup.py warning message (#4258)
+
+### Bug Fixes
+* remove features properly (#4236)
+* do not use `IFS` to find activate/deactivate scripts to source (#4239)
+* fix #4235 print message to stderr (#4241)
+* fix relative path to python in activate.bat (#4242)
+* fix args.channel references (#4245, #4246)
+* ensure cache_fn_url right pad (#4255)
+* fix #4256 subprocess calls must have env wrapped in str (#4259)
+
+
+## 4.3.2 (2017-01-06)
+
+### Deprecations/Breaking Changes
+* Further refine conda channels specification. To verify if the url of a channel
+  represents a valid conda channel, we check that `noarch/repodata.json` and/or
+  `noarch/repodata.json.bz2` exist, even if empty. (#3739)
+
+### Improvements
+* add new 'path_conflict' and 'clobber' configuration options (#4119)
+* separate fetch/extract pass for explicit URLs (#4125)
+* update conda homepage to conda.io (#4180)
+
+### Bug Fixes
+* fix pre/post unlink/link scripts (#4113)
+* fix package version regex and bug in create_link (#4132)
+* fix history tracking (#4143)
+* fix index creation order (#4131)
+* fix #4152 conda env export failure (#4175)
+* fix #3779 channel UNC path encoding errors on windows (#4190)
+* fix progress bar (#4191)
+* use context.channels instead of args.channel (#4199)
+* don't use local cached repodata for file:// urls (#4209)
+
+### Non-User-Facing Changes
+* xfail anaconda token test if local token is found (#4124)
+* fix open-ended test failures relating to python 3.6 release (#4145)
+* extend timebomb for test_multi_channel_export (#4169)
+* don't unlink dists that aren't in the index (#4130)
+* add python 3.6 and new conda-build test targets (#4194)
+
+
+## 4.3.1 (2016-12-19)
+
+### Improvements
+* additional pre-transaction validation (#4090)
+* export FileMode enum for conda-build (#4080)
+* memoize disk permissions tests (#4091)
+* local caching of repodata without remote server calls; new 'repodata_timeout_secs'
+  configuration parameter (#4094)
+* performance tuning (#4104)
+* add additional fields to dist object serialization (#4102)
+
+### Bug Fixes
+* fix a noarch install bug on windows (#4071)
+* fix a spec mismatch that resulted in python versions getting mixed during packaging (#4079)
+* fix rollback linked record (#4092)
+* fix #4097 keep split in PREFIX_PLACEHOLDER (#4100)
+
+
+## 4.3.0 (2016-12-14)  Safety
+
+### New Features
+* **Unlink and Link Packages in a Single Transaction**: In the past, conda hasn't always been safe
+  and defensive with its disk-mutating actions. It has gleefully clobbered existing files, and
+  mid-operation failures leave environments completely broken. In some of the most severe examples,
+  conda can appear to "uninstall itself." With this release, the unlinking and linking of packages
+  for an executed command is done in a single transaction. If a failure occurs for any reason
+  while conda is mutating files on disk, the environment will be returned its previous state.
+  While we've implemented some pre-transaction checks (verifying package integrity for example),
+  it's impossible to anticipate every failure mechanism. In some circumstances, OS file
+  permissions cannot be fully known until an operation is attempted and fails. And conda itself
+  is not without bugs. Moving forward, unforeseeable failures won't be catastrophic. (#3833, #4030)
+
+* **Progressive Fetch and Extract Transactions**: Like package unlinking and linking, the
+  download and extract phases of package handling have also been given transaction-like behavior.
+  The distinction is the rollback on error is limited to a single package. Rather than rolling back
+  the download and extract operation for all packages, the single-package rollback prevents the
+  need for having to re-download every package if an error is encountered. (#4021, #4030)
+
+* **Generic- and Python-Type Noarch/Universal Packages**: Along with conda-build 2.1.0, a
+  noarch/universal type for python packages is officially supported. These are much like universal
+  python wheels. Files in a python noarch package are linked into a prefix just like any other
+  conda package, with the following additional features
+  1. conda maps the `site-packages` directory to the correct location for the python version
+     in the environment,
+  2. conda maps the python-scripts directory to either $PREFIX/bin or $PREFIX/Scripts depending
+     on platform,
+  3. conda creates the python entry points specified in the conda-build recipe, and
+  4. conda compiles pyc files at install time when prefix write permissions are guaranteed.
+
+  Python noarch packages must be "fully universal."  They cannot have OS- or
+  python version-specific dependencies.  They cannot have OS- or python version-specific "scripts"
+  files. If these features are needed, traditional conda packages must be used. (#3712)
+
+* **Multi-User Package Caches**: While the on-disk package cache structure has been preserved,
+  the core logic implementing package cache handling has had a complete overhaul.  Writable and
+  read-only package caches are fully supported. (#4021)
+
+* **Python API Module**: An oft requested feature is the ability to use conda as a python library,
+  obviating the need to "shell out" to another python process. Conda 4.3 includes a
+  `conda.cli.python_api` module that facilitates this use case. While we maintain the user-facing
+  command-line interface, conda commands can be executed in-process. There is also a
+  `conda.exports` module to facilitate longer-term usage of conda as a library across conda
+  conda releases.  However, conda's python code *is* considered internal and private, subject
+  to change at any time across releases. At the moment, conda will not install itself into
+  environments other than its original install environment. (#4028)
+
+* **Remove All Locks**:  Locking has never been fully effective in conda, and it often created a
+  false sense of security. In this release, multi-user package cache support has been
+  implemented for improved safety by hard-linking packages in read-only caches to the user's
+  primary user package cache. Still, users are cautioned that undefined behavior can result when
+  conda is running in multiple process and operating on the same package caches and/or
+  environments. (#3862)
+
+### Deprecations/Breaking Changes
+* Conda will refuse to clobber existing files that are not within the unlink instructions of
+  the transaction. At the risk of being user-hostile, it's a step forward for conda. We do
+  anticipate some growing pains. For example, conda will not clobber packages that have been
+  installed with pip (or any other package manager). In other instances, conda packages that
+  contain overlapping file paths but are from different package families will not install at
+  the same time. The `--force` command line flag is the escape hatch. Using `--force` will
+  let your operation proceed, but also makes clear that you want conda to do something it
+  considers unsafe.
+* Conda signed packages have been removed in 4.3. Vulnerabilities existed. An illusion of security
+  is worse than not having the feature at all.  We will be incorporating The Update Framework
+  into conda in a future feature release. (#4064)
+* Conda 4.4 will drop support for older versions of conda-build.
+
+### Improvements
+* create a new "trace" log level enabled by `-v -v -v` or `-vvv` (#3833)
+* allow conda to be installed with pip, but only when used as a library/dependecy (#4028)
+* the 'r' channel is now part of defaults (#3677)
+* private environment support for conda (#3988)
+* support v1 info/paths.json file (#3927, #3943)
+* support v1 info/package_metadata.json (#4030)
+* improved solver hint detection, simplified filtering (#3597)
+* cache VersionOrder objects to improve performance (#3596)
+* fix documentation and typos (#3526, #3572, #3627)
+* add multikey configuration validation (#3432)
+* some Fish autocompletions (#2519)
+* reduce priority for packages removed from the index (#3703)
+* add user-agent, uid, gid to conda info (#3671)
+* add conda.exports module (#3429)
+* make http timeouts configurable (#3832)
+* add a pkgs_dirs config parameter (#3691)
+* add an 'always_softlink' option (#3870, #3876)
+* pre-checks for diskspace, etc for fetch and extract #(4007)
+* address #3879 don't print activate message when quiet config is enabled (#3886)
+* add zos-z subdir (#4060)
+* add elapsed time to HTTP errors (#3942)
+
+### Bug Fixes
+* account for the Windows Python 2.7 os.environ unicode aversion (#3363)
+* fix link field in record object (#3424)
+* anaconda api token bug fix; additional tests (#3673)
+* fix #3667 unicode literals and unicode decode (#3682)
+* add conda-env entrypoint (#3743)
+* fix #3807 json dump on conda config --show --json (#3811)
+* fix #3801 location of temporary hard links of index.json (#3813)
+* fix invalid yml example (#3849)
+* add arm platforms back to subdirs (#3852)
+* fix #3771 better error message for assertion errors (#3802)
+* fix #3999 spaces in shebang replacement (#4008)
+* config --show-sources shouldn't show force by default (#3891)
+* fix #3881 don't install conda-env in clones of root (#3899)
+* conda-build dist compatibility (#3909)
+
+### Non-User-Facing Changes
+* remove unnecessary eval (#3428)
+* remove dead install_tar function (#3641)
+* apply PEP-8 to conda-env (#3653)
+* refactor dist into an object (#3616)
+* vendor appdirs; remove conda's dependency on anaconda-client import (#3675)
+* revert boto patch from #2380 (#3676)
+* move and update ROOT_NO_RM (#3697)
+* integration tests for conda clean (#3695, #3699)
+* disable coverage on s3 and ftp requests adapaters (#3696, #3701)
+* github repo hygiene (#3705, #3706)
+* major install refactor (#3712)
+* remove test timebombs (#4012)
+* LinkType refactor (#3882)
+* move CrossPlatformStLink and make available as export (#3887)
+* make Record immutable (#3965)
+* project housekeeping (#3994, #4065)
+* context-dependent setup.py files (#4057)
+
+
 ## 4.2.17 (unreleased)
 
 ## Improvements
