@@ -28,17 +28,8 @@ from itertools import chain
 import json
 import logging
 import os
-from os.path import (abspath, basename, dirname, exists, isdir, isfile, islink, join, normcase,
-                     normpath)
-import re
-import shlex
-import shutil
-import stat
-import struct
-import subprocess
-import sys
-import tarfile
-import traceback
+from os import chmod, makedirs, stat
+from os.path import dirname, isdir, isfile, join, normcase, normpath
 
 from enum import Enum
 
