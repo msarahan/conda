@@ -1,10 +1,39 @@
 ## 4.4.0 (unreleased)
 
 ### New Features
-* general support for all bourne- and c-based shells (#3175)
+* general support for all bourne- and c-based shells #3175
+
+
+## 4.3.9 (2017-01-31)
+
+### Improvements
+* improve repodata caching for performance (#4478, #4488)
+* expand scope of packages included by bad_installed (#4402)
+* silence pre-link warning for old noarch (#4451)
+* add configuration to optionally require noarch repodata (#4450)
+* improve conda subprocessing (#4447)
+* respect info/link.json (#4482)
+
+### Bug Fixes
+* fix #4398 'hard' was used for link type at one point (#4409)
+* fixed "No matches for wildcard '$activate_d/*.fish'" warning (#4415)
+* print correct activate/deactivate message for fish shell (#4423)
+* fix 'Dist' object has no attribute 'fn' (#4424)
+* fix noarch generic and add additional integration test (#4431)
+* fix #4425 unknown encoding (#4433)
 
 ### Non-User-Facing Changes
-* eliminate index modification in Resolve.__init__ (#4333)
+* fail CI on conda-build fail (#4405)
+* run doctests (#4414)
+* make index record mutable again (#4461)
+* additional test for conda list --json (#4480)
+
+
+## 4.3.8 (2017-01-23)
+
+### Bug Fixes
+* fix #4309 ignore EXDEV error for directory renames (#4392)
+* fix #4393 by force-renaming certain backup files if the path already exists (#4397)
 
 
 ## 4.3.7 (2017-01-20)
@@ -200,7 +229,7 @@
 
 ### Improvements
 * create a new "trace" log level enabled by `-v -v -v` or `-vvv` (#3833)
-* allow conda to be installed with pip, but only when used as a library/dependency (#4028)
+* allow conda to be installed with pip, but only when used as a library/dependecy (#4028)
 * the 'r' channel is now part of defaults (#3677)
 * private environment support for conda (#3988)
 * support v1 info/paths.json file (#3927, #3943)
@@ -246,7 +275,7 @@
 * revert boto patch from #2380 (#3676)
 * move and update ROOT_NO_RM (#3697)
 * integration tests for conda clean (#3695, #3699)
-* disable coverage on s3 and ftp requests adapters (#3696, #3701)
+* disable coverage on s3 and ftp requests adapaters (#3696, #3701)
 * github repo hygiene (#3705, #3706)
 * major install refactor (#3712)
 * remove test timebombs (#4012)
@@ -255,6 +284,15 @@
 * make Record immutable (#3965)
 * project housekeeping (#3994, #4065)
 * context-dependent setup.py files (#4057)
+
+
+## 4.2.17 (unreleased)
+
+## Improvements
+* silence pre-link warning for old noarch 4.2.x backport (#4453)
+
+### Non-User-Facing Changes
+* build 4.2.x against conda-build 2.1.2 and enforce passing (#4462)
 
 
 ## 4.2.16 (2017-01-20)
