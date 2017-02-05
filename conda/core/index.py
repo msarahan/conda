@@ -10,7 +10,7 @@ import json
 from logging import DEBUG, getLogger
 from mmap import ACCESS_READ, mmap
 from os import makedirs
-from os.path import getmtime, isfile, join
+from os.path import getmtime, isfile, join, split as path_split, dirname
 import pickle
 import re
 from textwrap import dedent
@@ -27,7 +27,8 @@ from .._vendor.auxlib.entity import EntityEncoder
 from .._vendor.auxlib.logz import stringify
 from ..base.constants import CONDA_HOMEPAGE_URL, MAX_CHANNEL_PRIORITY
 from ..base.context import context
-from ..common.compat import ensure_text_type, ensure_unicode, iteritems, itervalues
+from ..common.compat import (ensure_binary, ensure_text_type, ensure_unicode, iteritems,
+                             itervalues)
 from ..common.url import join_url
 from ..connection import CondaSession
 from ..resolve import MatchSpec
@@ -281,21 +282,29 @@ def fetch_repodata_remote_request(session, url, etag, mod_stamp):
                     If the requested url is in fact a valid conda channel, please request that the
                     channel administrator create `noarch/repodata.json` and associated
                     `noarch/repodata.json.bz2` files, even if `noarch/repodata.json` is empty.
-                    """ % url)
+                    $ mkdir noarch
+                    $ echo '{}' > noarch/repodata.json
+                    $ bzip2 -k noarch/repodata.json
+                    """) % dirname(url)
                     stderrlog.warn(help_message)
                     return None
                 else:
                     help_message = dals("""
-                    The remote server could not find the channel you requested.
+                    The remote server could not find the noarch directory for the
+                    requested channel with url: %s
 
-                    As of conda 4.3, a valid channel *must* contain a `noarch/repodata.json` and
+                    As of conda 4.3, a valid channel must contain a `noarch/repodata.json` and
                     associated `noarch/repodata.json.bz2` file, even if `noarch/repodata.json` is
-                    empty.
+                    empty. please request that the channel administrator create
+                    `noarch/repodata.json` and associated `noarch/repodata.json.bz2` files.
+                    $ mkdir noarch
+                    $ echo '{}' > noarch/repodata.json
+                    $ bzip2 -k noarch/repodata.json
 
                     You will need to adjust your conda configuration to proceed.
                     Use `conda config --show` to view your configuration's current state.
                     Further configuration help can be found at <%s>.
-                    """ % join_url(CONDA_HOMEPAGE_URL, 'docs/config.html'))
+                    """) % (dirname(url), join_url(CONDA_HOMEPAGE_URL, 'docs/config.html'))
 
         elif status_code == 403:
             if not url.endswith('/noarch'):
@@ -312,21 +321,29 @@ def fetch_repodata_remote_request(session, url, etag, mod_stamp):
                     If the requested url is in fact a valid conda channel, please request that the
                     channel administrator create `noarch/repodata.json` and associated
                     `noarch/repodata.json.bz2` files, even if `noarch/repodata.json` is empty.
-                    """ % url)
+                    $ mkdir noarch
+                    $ echo '{}' > noarch/repodata.json
+                    $ bzip2 -k noarch/repodata.json
+                    """) % dirname(url)
                     stderrlog.warn(help_message)
                     return None
                 else:
                     help_message = dals("""
-                    The channel you requested is not available on the remote server.
+                    The remote server could not find the noarch directory for the
+                    requested channel with url: %s
 
-                    As of conda 4.3, a valid channel *must* contain a `noarch/repodata.json` and
+                    As of conda 4.3, a valid channel must contain a `noarch/repodata.json` and
                     associated `noarch/repodata.json.bz2` file, even if `noarch/repodata.json` is
-                    empty.
+                    empty. please request that the channel administrator create
+                    `noarch/repodata.json` and associated `noarch/repodata.json.bz2` files.
+                    $ mkdir noarch
+                    $ echo '{}' > noarch/repodata.json
+                    $ bzip2 -k noarch/repodata.json
 
                     You will need to adjust your conda configuration to proceed.
                     Use `conda config --show` to view your configuration's current state.
                     Further configuration help can be found at <%s>.
-                    """ % join_url(CONDA_HOMEPAGE_URL, 'docs/config.html'))
+                    """) % (dirname(url), join_url(CONDA_HOMEPAGE_URL, 'docs/config.html'))
 
         elif status_code == 401:
             channel = Channel(url)
@@ -392,7 +409,7 @@ def write_pickled_repodata(cache_path, repodata):
     if not repodata.get('packages'):
         return
     try:
-        with open(cache_path + '.q', 'wb') as f:
+        with open(get_pickle_path(cache_path), 'wb') as f:
             pickle.dump(repodata, f)
     except Exception as e:
         import traceback
@@ -400,7 +417,7 @@ def write_pickled_repodata(cache_path, repodata):
 
 
 def read_pickled_repodata(cache_path, channel_url, schannel, priority, etag, mod_stamp):
-    pickle_path = cache_path + '.q'
+    pickle_path = get_pickle_path(cache_path)
     # Don't trust pickled data if there is no accompanying json data
     if not isfile(pickle_path) or not isfile(cache_path):
         return None
@@ -527,9 +544,12 @@ def fetch_repodata(url, schannel, priority,
         touch(cache_path)
         return read_local_repodata(cache_path, url, schannel, priority,
                                    mod_etag_headers.get('_etag'), mod_etag_headers.get('_mod'))
+    if repodata is None:
+        return None
 
     with open(cache_path, 'w') as fo:
         json.dump(repodata, fo, indent=2, sort_keys=True, cls=EntityEncoder)
+
     process_repodata(repodata, url, schannel, priority)
     write_pickled_repodata(cache_path, repodata)
     return repodata
@@ -584,7 +604,7 @@ def fetch_index(channel_urls, use_cache=False, index=None):
     #   this is sorta a lie; actually more primitve types
 
     if index is None:
-        index = dict()
+        index = {}
     for _, repodata in repodatas:
         if repodata:
             index.update(repodata.get('packages', {}))
@@ -600,8 +620,13 @@ def cache_fn_url(url):
         url += '/'
     # subdir = url.rsplit('/', 1)[-1]
     # assert subdir in PLATFORM_DIRECTORIES or context.subdir != context._subdir, subdir
-    md5 = hashlib.md5(url.encode('utf-8')).hexdigest()
+    md5 = hashlib.md5(ensure_binary(url)).hexdigest()
     return '%s.json' % (md5[:8],)
+
+
+def get_pickle_path(cache_path):
+    cache_dir, cache_base = path_split(cache_path)
+    return join(cache_dir, cache_base.replace('.json', '.q'))
 
 
 def add_http_value_to_dict(resp, http_key, d, dict_key):
