@@ -17,6 +17,8 @@ from tempfile import gettempdir
 from unittest import TestCase
 from uuid import uuid4
 
+import shutil
+
 from conda.gateways.anaconda_client import read_binstar_tokens
 import pytest
 import requests
@@ -47,6 +49,7 @@ from conda.core.linked_data import get_python_version_for_prefix, \
     linked as install_linked, linked_data, linked_data_
 from conda.core.package_cache import PackageCache
 from conda.exceptions import CondaHTTPError, DryRunExit, RemoveError, conda_exception_handler
+from conda.gateways.disk.create import mkdir_p
 from conda.gateways.disk.delete import rm_rf
 from conda.gateways.disk.update import touch
 from conda.gateways.logging import TRACE
@@ -428,7 +431,7 @@ class IntegrationTests(TestCase):
                 assert_package_is_installed(clone_prefix, 'conda-forge::python-3.5')
                 assert_package_is_installed(clone_prefix, "decorator")
 
-            # Regression test for 2645
+            # Regression test for #2645
             fn = glob(join(prefix, 'conda-meta', 'python-3.5*.json'))[-1]
             with open(fn) as f:
                 data = json.load(f)
@@ -846,9 +849,12 @@ class IntegrationTests(TestCase):
         assert not glob(join(index_cache_dir, "*.json"))
 
     def test_clean_tarballs_and_packages(self):
+        pkgs_dir = context.pkgs_dirs[0]
+        pkgs_dir_hold = pkgs_dir + '_hold'
+        shutil.move(pkgs_dir, pkgs_dir_hold)
+        mkdir_p(pkgs_dir)
         try:
             with make_temp_env("flask") as prefix:
-                pkgs_dir = context.pkgs_dirs[0]
                 pkgs_dir_contents = [join(pkgs_dir, d) for d in os.listdir(pkgs_dir)]
                 pkgs_dir_dirs = [d for d in pkgs_dir_contents if isdir(d)]
                 pkgs_dir_tarballs = [f for f in pkgs_dir_contents if f.endswith('.tar.bz2')]
@@ -871,6 +877,8 @@ class IntegrationTests(TestCase):
             pkgs_dir_dirs = [d for d in pkgs_dir_contents if isdir(d)]
             assert not any(basename(d).startswith('flask-') for d in pkgs_dir_dirs)
         finally:
+            rm_rf(pkgs_dir)
+            shutil.move(pkgs_dir_hold, pkgs_dir)
             PackageCache.clear()
 
     def test_clean_source_cache(self):
