@@ -24,8 +24,15 @@ main_test() {
     echo $PYTHONHASHSEED
 
     # basic unit tests
-    python -m pytest --cov-report xml --shell=bash --shell=zsh -m "not installed" conda tests
-    python setup.py --version
+    python -m pytest --cov-report xml --shell=bash --shell=zsh -m "not installed" --doctest-modules conda tests
+    python utils/setup-testing.py --version
+}
+
+activate_test() {
+#    local prefix=$(python -c "import sys; print(sys.prefix)")
+#    ln -sf shell/activate $prefix/bin/activate
+#    ln -sf shell/deactivate $prefix/bin/deactivate
+#    make_conda_entrypoint $prefix/bin/conda $prefix/bin/python pwd
 
     python utils/setup-testing.py develop
     hash -r
@@ -48,7 +55,9 @@ conda_build_unit_test() {
     echo
     echo ">>>>>>>>>>>> running conda-build unit tests >>>>>>>>>>>>>>>>>>>>>"
     echo
-    ~/miniconda/bin/python -m pytest --basetemp /tmp/cb tests || echo -e "\n>>>>> conda-build tests exited with code" $? "\n\n\n"
+    ~/miniconda/bin/python -m conda info
+    ~/miniconda/bin/python -m pytest --basetemp /tmp/cb -v --durations=20 -n 0 -m "serial" tests
+    ~/miniconda/bin/python -m pytest --basetemp /tmp/cb -v --durations=20 -n 2 -m "not serial" tests
     popd
 }
 
@@ -60,8 +69,6 @@ if [[ $FLAKE8 == true ]]; then
 elif [[ -n $CONDA_BUILD ]]; then
     conda_build_smoke_test
     conda_build_unit_test
-    # if [[ $CONDA_BUILD == 1.21.11 || $CONDA_BUILD == master ]]; then
-    # fi
 else
     main_test
     if [[ "$(uname -s)" == "Linux" ]]; then
