@@ -1,7 +1,13 @@
 ## 4.4.0 (unreleased)
 
 ### New Features
-* general support for all bourne- and c-based shells #3175
+* general support for all bourne- and c-based shells (#3175)
+
+### Improvements
+* filter out unwritable package caches from conda clean command (#4620)
+
+### Non-User-Facing Changes
+* eliminate index modification in Resolve.__init__ (#4333)
 
 
 ## 4.3.12 (unreleased)
