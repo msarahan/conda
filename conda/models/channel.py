@@ -243,10 +243,6 @@ class Channel(object):
                for c in concatv((context.channel_alias,), context.migrated_channel_aliases)):
             return self.name
 
-        # if self.scheme == 'file' and self.package_filename:
-        #     # at this point, the url isn't included in any known local channel names
-        #     return self.get_channel_from_package_cache(self).canonical_name
-
         # fall back to the equivalent of self.base_url
         # re-defining here because base_url for MultiChannel is None
         if self.scheme:
