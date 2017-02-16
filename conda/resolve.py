@@ -100,12 +100,10 @@ class MatchSpec(object):
 
     def match(self, dist):
         # type: (Dist) -> bool
-        assert isinstance(dist, Dist)
         name, version, build, _ = dist.quad
         if name != self.name:
             return False
         result = self.match_fast(version, build)
-        assert isinstance(result, bool), type(result)
         return result
 
     def to_filename(self):
@@ -140,9 +138,18 @@ class MatchSpec(object):
 class Resolve(object):
 
     def __init__(self, index, sort=False, processed=False):
-        # assertion = lambda d, r: isinstance(d, Dist) and isinstance(r, IndexRecord)
-        # assert all(assertion(d, r) for d, r in iteritems(index))
-        self.index = index
+        self.index = index = index.copy()
+        if not processed:
+            for dist, info in iteritems(index.copy()):
+                if dist.with_features_depends:
+                    continue
+                for fstr in chain(info.get('features', '').split(),
+                                  info.get('track_features', '').split(),
+                                  context.track_features or ()):
+                    self.add_feature(fstr, group=False)
+                for fstr in iterkeys(info.get('with_features_depends', {})):
+                    index[Dist('%s[%s]' % (dist, fstr))] = info
+                    self.add_feature(fstr, group=False)
 
         groups = {}
         trackers = {}
@@ -201,7 +208,6 @@ class Resolve(object):
             return ms.optional or any(v_fkey_(fkey) for fkey in self.find_matches(ms))
 
         def v_fkey_(dist):
-            assert isinstance(dist, Dist)
             val = filter.get(dist)
             if val is None:
                 filter[dist] = True
@@ -237,7 +243,6 @@ class Resolve(object):
             dists = self.find_matches(spec) if isinstance(spec, MatchSpec) else [Dist(spec)]
             found = False
             for dist in dists:
-                assert isinstance(dist, Dist)
                 for m2 in self.ms_depends(dist):
                     for x in chains_(m2, names):
                         found = True
@@ -459,19 +464,16 @@ class Resolve(object):
                 res = self.groups.get(ms.name, [])
             res = [p for p in res if self.match_fast(ms, p)]
             self.find_matches_[ms] = res
-        assert all(isinstance(d, Dist) for d in res)
         return res
 
     def ms_depends(self, dist):
         # type: (Dist) -> List[MatchSpec]
-        assert isinstance(dist, Dist)
         deps = self.ms_depends_.get(dist, None)
         if deps is None:
             rec = self.index[dist]
             deps = [MatchSpec(d) for d in rec.get('depends', [])]
             deps.extend(MatchSpec('@'+feat) for feat in self.features(dist))
             self.ms_depends_[dist] = deps
-        # assert all(isinstance(ms, MatchSpec) for ms in deps)
         return deps
 
     def depends_on(self, spec, target):
@@ -491,7 +493,6 @@ class Resolve(object):
         return depends_on_(MatchSpec(spec))
 
     def version_key(self, dist, vtype=None):
-        assert isinstance(dist, Dist)
         rec = self.index[dist]
         cpri = -rec.get('priority', 1)
         ver = normalized_version(rec.get('version', ''))
@@ -637,8 +638,6 @@ class Resolve(object):
     def dependency_sort(self, must_have):
         # type: (Dict[package_name, Dist]) -> List[Dist]
         assert isinstance(must_have, dict)
-        # assertion = lambda k, v: isinstance(k, string_types) and isinstance(v, Dist)
-        # assert all(assertion(*item) for item in iteritems(must_have))
 
         digraph = {}
         for key, dist in iteritems(must_have):
@@ -652,7 +651,6 @@ class Resolve(object):
         result = [must_have.pop(key) for key in sorted_keys if key in must_have]
         # Take any key that were not sorted
         result.extend(must_have.values())
-        # assert all(isinstance(d, Dist) for d in result)
         return result
 
     def explicit(self, specs):
@@ -838,11 +836,10 @@ class Resolve(object):
             solution, obj7 = C.minimize(eq_optional_c, solution)
             log.debug('Package removal metric: %d', obj7)
 
-            # Requested packages: maximize versions, then builds
+            # Requested packages: maximize versions
             eq_req_v, eq_req_b = r2.generate_version_metrics(C, specr)
             solution, obj3 = C.minimize(eq_req_v, solution)
-            solution, obj4 = C.minimize(eq_req_b, solution)
-            log.debug('Initial package version/build metrics: %d/%d', obj3, obj4)
+            log.debug('Initial package version metric: %d', obj3)
 
             # Track features: minimize feature count
             eq_feature_count = r2.generate_feature_count(C)
@@ -855,7 +852,11 @@ class Resolve(object):
             obj2 = ftotal - obj2
             log.debug('Package feature count: %d', obj2)
 
-            # Dependencies: minimize the number that need upgrading
+            # Requested packages: maximize builds
+            solution, obj4 = C.minimize(eq_req_b, solution)
+            log.debug('Initial package build metric: %d', obj4)
+
+            # Dependencies: minimize the number of packages that need upgrading
             eq_u = r2.generate_update_count(C, speca)
             solution, obj50 = C.minimize(eq_u, solution)
             log.debug('Dependency update count: %d', obj50)

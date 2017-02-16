@@ -10,6 +10,8 @@ from conda.gateways.disk.delete import rm_rf, move_to_trash
 from conda.gateways.disk.update import touch
 from test_permissions import tempdir, _try_open, _make_read_only
 from conda.utils import on_win
+from os.path import join, isdir, lexists, isfile
+from conda.gateways.disk.link import islink
 
 
 def can_not_symlink():
