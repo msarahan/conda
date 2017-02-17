@@ -4,8 +4,8 @@ from __future__ import absolute_import, division, print_function, unicode_litera
 from collections import Sequence
 from logging import getLogger
 import os
-from os.path import (abspath, basename, expanduser, isdir, join, normpath,
-                     split as path_split, isfile)
+from os.path import (abspath, basename, expanduser, isdir, isfile, join, normpath,
+                     split as path_split, dirname)
 from platform import machine
 import sys
 
@@ -530,7 +530,8 @@ def get_prefix(ctx, args, search=True):
         if search:
             return locate_prefix_by_name(ctx, args.name)
         else:
-            return join(ctx.envs_dirs[0], args.name)
+            from ..core.package_cache import PackageCache
+            return join(dirname(PackageCache.first_writable().pkgs_dir), 'envs', args.name)
     elif getattr(args, 'prefix', None):
         return abspath(expanduser(args.prefix))
     else:
