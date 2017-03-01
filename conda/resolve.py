@@ -28,12 +28,128 @@ def dashlist(iter):
     return ''.join('\n  - ' + str(x) for x in iter)
 
 
+class MatchSpec(object):
+    def __new__(cls, spec, target=Ellipsis, optional=Ellipsis, normalize=False):
+        if isinstance(spec, cls):
+            if target is Ellipsis and optional is Ellipsis and not normalize:
+                return spec
+            target = spec.target if target is Ellipsis else target
+            optional = spec.optional if optional is Ellipsis else optional
+            spec = spec.spec
+        self = object.__new__(cls)
+        self.target = None if target is Ellipsis else target
+        self.optional = False if optional is Ellipsis else bool(optional)
+        spec, _, oparts = spec.partition('(')
+        if oparts:
+            if oparts.strip()[-1] != ')':
+                raise CondaValueError("Invalid MatchSpec: %s" % spec)
+            for opart in oparts.strip()[:-1].split(','):
+                if opart == 'optional':
+                    self.optional = True
+                elif opart.startswith('target='):
+                    self.target = opart.split('=')[1].strip()
+                else:
+                    raise CondaValueError("Invalid MatchSpec: %s" % spec)
+        spec = self.spec = spec.strip()
+        parts = spec.split()
+        nparts = len(parts)
+        assert 1 <= nparts <= 3, repr(spec)
+        self.name = parts[0]
+        if nparts == 1:
+            self.match_fast = self._match_any
+            self.strictness = 1
+            return self
+        self.strictness = 2
+        vspec = VersionSpec(parts[1])
+        if vspec.is_exact():
+            if nparts > 2 and '*' not in parts[2]:
+                self.version, self.build = parts[1:]
+                self.match_fast = self._match_exact
+                self.strictness = 3
+                return self
+            if normalize and not parts[1].endswith('*'):
+                parts[1] += '*'
+                vspec = VersionSpec(parts[1])
+                self.spec = ' '.join(parts)
+        self.version = vspec
+        if nparts == 2:
+            self.match_fast = self._match_version
+        else:
+            rx = r'^(?:%s)$' % parts[2].replace('*', r'.*')
+            self.build = re.compile(rx)
+            self.match_fast = self._match_full
+        return self
+
+    def is_exact(self):
+        return self.match_fast == self._match_exact
+
+    def is_simple(self):
+        return self.match_fast == self._match_any
+
+    def _match_any(self, verison, build):
+        return True
+
+    def _match_version(self, version, build):
+        return self.version.match(version)
+
+    def _match_exact(self, version, build):
+        return build == self.build and self.version == version
+
+    def _match_full(self, version, build):
+        return self.build.match(build) and self.version.match(version)
+
+    def match(self, dist):
+        # type: (Dist) -> bool
+        name, version, build, _ = dist.quad
+        if name != self.name:
+            return False
+        result = self.match_fast(version, build)
+        return result
+
+    def to_filename(self):
+        if self.is_exact() and not self.optional:
+            return self.name + '-%s-%s.tar.bz2' % (self.version, self.build)
+        else:
+            return None
+
+    def __eq__(self, other):
+        return (type(other) is MatchSpec and
+                (self.spec, self.optional, self.target) ==
+                (other.spec, other.optional, other.target))
+
+    def __hash__(self):
+        return hash(self.spec)
+
+    def __repr__(self):
+        return "MatchSpec('%s')" % self.__str__()
+
+    def __str__(self):
+        res = self.spec
+        if self.optional or self.target:
+            args = []
+            if self.optional:
+                args.append('optional')
+            if self.target:
+                args.append('target='+self.target)
+            res = '%s (%s)' % (res, ','.join(args))
+        return res
+
+
 class Resolve(object):
 
     def __init__(self, index, sort=False, processed=False):
-        # assertion = lambda d, r: isinstance(d, Dist) and isinstance(r, IndexRecord)
-        # assert all(assertion(d, r) for d, r in iteritems(index))
-        self.index = index
+        self.index = index = index.copy()
+        if not processed:
+            for dist, info in iteritems(index.copy()):
+                if dist.with_features_depends:
+                    continue
+                for fstr in chain(info.get('features', '').split(),
+                                  info.get('track_features', '').split(),
+                                  context.track_features or ()):
+                    self.add_feature(fstr, group=False)
+                for fstr in iterkeys(info.get('with_features_depends', {})):
+                    index[Dist('%s[%s]' % (dist, fstr))] = info
+                    self.add_feature(fstr, group=False)
 
         groups = {}
         trackers = {}
@@ -92,7 +208,6 @@ class Resolve(object):
             return ms.optional or any(v_fkey_(fkey) for fkey in self.find_matches(ms))
 
         def v_fkey_(dist):
-            assert isinstance(dist, Dist)
             val = filter.get(dist)
             if val is None:
                 filter[dist] = True
@@ -128,7 +243,6 @@ class Resolve(object):
             dists = self.find_matches(spec) if isinstance(spec, MatchSpec) else [Dist(spec)]
             found = False
             for dist in dists:
-                assert isinstance(dist, Dist)
                 for m2 in self.ms_depends(dist):
                     for x in chains_(m2, names):
                         found = True
@@ -348,14 +462,12 @@ class Resolve(object):
 
     def ms_depends(self, dist):
         # type: (Dist) -> List[MatchSpec]
-        assert isinstance(dist, Dist)
         deps = self.ms_depends_.get(dist, None)
         if deps is None:
             rec = self.index[dist]
             deps = [MatchSpec(d) for d in rec.get('depends', [])]
             deps.extend(MatchSpec('@'+feat) for feat in self.features(dist))
             self.ms_depends_[dist] = deps
-        # assert all(isinstance(ms, MatchSpec) for ms in deps)
         return deps
 
     def depends_on(self, spec, target):
@@ -375,7 +487,6 @@ class Resolve(object):
         return depends_on_(MatchSpec(spec))
 
     def version_key(self, dist, vtype=None):
-        assert isinstance(dist, Dist)
         rec = self.index[dist]
         cpri = -rec.get('priority', 1)
         ver = normalized_version(rec.get('version', ''))
@@ -521,8 +632,6 @@ class Resolve(object):
     def dependency_sort(self, must_have):
         # type: (Dict[package_name, Dist]) -> List[Dist]
         assert isinstance(must_have, dict)
-        # assertion = lambda k, v: isinstance(k, string_types) and isinstance(v, Dist)
-        # assert all(assertion(*item) for item in iteritems(must_have))
 
         digraph = {}
         for key, dist in iteritems(must_have):
@@ -536,7 +645,6 @@ class Resolve(object):
         result = [must_have.pop(key) for key in sorted_keys if key in must_have]
         # Take any key that were not sorted
         result.extend(must_have.values())
-        # assert all(isinstance(d, Dist) for d in result)
         return result
 
     def explicit(self, specs):
@@ -579,27 +687,18 @@ class Resolve(object):
         log.debug('Checking if the current environment is consistent')
         if not installed:
             return None, []
-        xtra = []  # List[Dist]
         dists = {}  # Dict[Dist, Record]
         specs = []
         for dist in installed:
-            rec = self.index.get(dist)
-            if rec is None:
-                xtra.append(dist)
-            else:
-                dists[dist] = rec
-                specs.append(MatchSpec(' '.join(self.package_quad(dist)[:3])))
-        if xtra:
-            log.debug('Packages missing from index: %s', xtra)
+            dist = Dist(dist)
+            rec = self.index[dist]
+            dists[dist] = rec
+            specs.append(MatchSpec(' '.join(self.package_quad(dist)[:3])))
         r2 = Resolve(dists, True, True)
         C = r2.gen_clauses()
         constraints = r2.generate_spec_constraints(C, specs)
-        try:
-            solution = C.sat(constraints)
-        except TypeError:
-            log.debug('Package set caused an unexpected error, assuming a conflict')
-            solution = None
-        limit = None
+        solution = C.sat(constraints)
+        limit = xtra = None
         if not solution or xtra:
             def get_(name, snames):
                 if name not in snames:
@@ -607,14 +706,21 @@ class Resolve(object):
                     for fn in self.groups.get(name, []):
                         for ms in self.ms_depends(fn):
                             get_(ms.name, snames)
+            # New addition: find the largest set of installed packages that
+            # are consistent with each other, and include those in the
+            # list of packages to maintain consistency with
             snames = set()
+            eq_optional_c = r2.generate_removal_count(C, specs)
+            solution, _ = C.minimize(eq_optional_c, C.sat())
+            snames.update(dists[Dist(q)]['name']
+                          for q in (C.from_index(s) for s in solution)
+                          if q and q[0] != '!' and '@' not in q)
+            # Existing behavior: keep all specs and their dependencies
             for spec in new_specs:
                 get_(MatchSpec(spec).name, snames)
-            xtra = [x for x in xtra if x not in snames]
-            if xtra or not (solution or all(s.name in snames for s in specs)):
-                limit = set(s.name for s in specs if s.name in snames)
-                xtra = [dist for dist in (Dist(fn) for fn in installed)
-                        if self.package_name(dist) not in snames]
+            if len(snames) < len(dists):
+                limit = snames
+                xtra = [dist for dist, rec in iteritems(dists) if rec['name'] not in snames]
                 log.debug('Limiting solver to the following packages: %s', ', '.join(limit))
         if xtra:
             log.debug('Packages to be preserved: %s', xtra)
@@ -725,11 +831,10 @@ class Resolve(object):
             solution, obj7 = C.minimize(eq_optional_c, solution)
             log.debug('Package removal metric: %d', obj7)
 
-            # Requested packages: maximize versions, then builds
+            # Requested packages: maximize versions
             eq_req_v, eq_req_b = r2.generate_version_metrics(C, specr)
             solution, obj3 = C.minimize(eq_req_v, solution)
-            solution, obj4 = C.minimize(eq_req_b, solution)
-            log.debug('Initial package version/build metrics: %d/%d', obj3, obj4)
+            log.debug('Initial package version metric: %d', obj3)
 
             # Track features: minimize feature count
             eq_feature_count = r2.generate_feature_count(C)
@@ -742,7 +847,11 @@ class Resolve(object):
             obj2 = ftotal - obj2
             log.debug('Package feature count: %d', obj2)
 
-            # Dependencies: minimize the number that need upgrading
+            # Requested packages: maximize builds
+            solution, obj4 = C.minimize(eq_req_b, solution)
+            log.debug('Initial package build metric: %d', obj4)
+
+            # Dependencies: minimize the number of packages that need upgrading
             eq_u = r2.generate_update_count(C, speca)
             solution, obj50 = C.minimize(eq_u, solution)
             log.debug('Dependency update count: %d', obj50)
