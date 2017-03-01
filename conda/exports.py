@@ -69,12 +69,11 @@ win_path_to_unix, url_path = win_path_to_unix, url_path
 from .config import sys_rc_path  # NOQA
 sys_rc_path = sys_rc_path
 
-from .version import VersionOrder  # NOQA
+from .models.version import VersionOrder  # NOQA
 VersionOrder = VersionOrder
 
-
 import conda.base.context  # NOQA
-from conda.base.context import get_prefix as context_get_prefix, non_x86_linux_machines  # NOQA
+from .base.context import get_prefix as context_get_prefix, non_x86_linux_machines  # NOQA
 non_x86_linux_machines = non_x86_linux_machines
 
 from .base.constants import DEFAULT_CHANNELS, DEFAULT_CHANNELS_WIN, DEFAULT_CHANNELS_UNIX  # NOQA
