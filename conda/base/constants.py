@@ -86,14 +86,6 @@ UNKNOWN_CHANNEL = "<unknown>"
 
 UNKNOWN_CHANNEL = "<unknown>"
 
-INTERRUPT_SIGNALS = (
-    'SIGABRT',
-    'SIGINT',
-    'SIGTERM',
-    'SIGQUIT',
-    'SIGBREAK',
-)
-
 
 class PathConflict(Enum):
     clobber = 'clobber'
