@@ -1,13 +1,12 @@
 from __future__ import absolute_import, division, print_function, unicode_literals
 
 import collections
-import hashlib
+from functools import partial
 import logging
+from os.path import dirname
 import re
 import sys
 import threading
-from functools import partial
-from os.path import dirname
 
 from .common.compat import on_win
 from .common.url import path_to_url
@@ -90,47 +89,6 @@ def gnu_get_libc_version():
     if hasattr(result, 'decode'):
         result = result.decode('utf-8')
     return result
-
-
-def hashsum_file(path, mode='md5'):
-    h = hashlib.new(mode)
-    with open(path, 'rb') as fi:
-        while True:
-            chunk = fi.read(262144)  # process chunks of 256KB
-            if not chunk:
-                break
-            h.update(chunk)
-    return h.hexdigest()
-
-
-def md5_file(path):
-    return hashsum_file(path, 'md5')
-
-
-def run_in(command, shell, cwd=None, env=None):
-    if hasattr(shell, "keys"):
-        shell = shell["exe"]
-    if shell == 'cmd.exe':
-        cmd_script = tempfile.NamedTemporaryFile(suffix='.bat', mode='wt', delete=False)
-        cmd_script.write(command)
-        cmd_script.close()
-        cmd_bits = [shells[shell]["exe"]] + shells[shell]["shell_args"] + [cmd_script.name]
-        try:
-            p = subprocess.Popen(cmd_bits, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-                                 cwd=cwd, env=env)
-            stdout, stderr = p.communicate()
-        finally:
-            os.unlink(cmd_script.name)
-    elif shell == 'powershell':
-        raise NotImplementedError
-    else:
-        cmd_bits = ([shells[shell]["exe"]] + shells[shell]["shell_args"] +
-                    [translate_stream(command, shells[shell]["path_to"])])
-        p = subprocess.Popen(cmd_bits, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        stdout, stderr = p.communicate()
-    streams = [u"%s" % stream.decode('utf-8').replace('\r\n', '\n').rstrip("\n")
-               for stream in (stdout, stderr)]
-    return streams
 
 
 def path_identity(path):
