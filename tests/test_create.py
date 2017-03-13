@@ -451,7 +451,7 @@ class IntegrationTests(TestCase):
             run_command(Commands.INSTALL, prefix, "decorator")
             assert_package_is_installed(prefix, 'conda-forge::python-3.5')
 
-            with make_temp_env("--clone", prefix) as clone_prefix:
+            with make_temp_env("--clone '%s'" % prefix) as clone_prefix:
                 assert_package_is_installed(clone_prefix, 'conda-forge::python-3.5')
                 assert_package_is_installed(clone_prefix, "decorator")
 
@@ -466,7 +466,7 @@ class IntegrationTests(TestCase):
                 json.dump(data, f)
             linked_data_.clear()
 
-            with make_temp_env("-c conda-forge --clone", prefix) as clone_prefix:
+            with make_temp_env("-c conda-forge --clone '%s'" % prefix) as clone_prefix:
                 assert_package_is_installed(clone_prefix, 'python-3.5')
                 assert_package_is_installed(clone_prefix, 'decorator')
 
@@ -502,7 +502,7 @@ class IntegrationTests(TestCase):
             assert_package_is_installed(prefix, 'flask-0.10.1')
             assert_package_is_installed(prefix, 'python')
 
-            with make_temp_env("--clone", prefix, "--offline") as clone_prefix:
+            with make_temp_env("--clone '%s'" % prefix, "--offline") as clone_prefix:
                 assert context.offline
                 assert_package_is_installed(clone_prefix, 'flask-0.10.1')
                 assert_package_is_installed(clone_prefix, 'python')
@@ -543,7 +543,7 @@ class IntegrationTests(TestCase):
             run_command(Commands.INSTALL, prefix, "-c conda-test flask")
 
             touch(join(prefix, 'test.file'))  # untracked file
-            with make_temp_env("--clone", prefix, "--offline") as clone_prefix:
+            with make_temp_env("--clone '%s'" % prefix, "--offline") as clone_prefix:
                 assert context.offline
                 assert_package_is_installed(clone_prefix, 'python-3.5')
                 assert_package_is_installed(clone_prefix, 'flask-0.11.1-py_0')
