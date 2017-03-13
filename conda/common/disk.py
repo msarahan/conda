@@ -4,7 +4,7 @@ from __future__ import absolute_import, division, print_function, unicode_litera
 from contextlib import contextmanager
 from logging import getLogger
 from os import W_OK, access, chmod, getpid, listdir, lstat, makedirs, rename, unlink, walk
-from os.path import abspath, basename, dirname, isdir, islink, join, lexists
+from os.path import abspath, basename, dirname, isdir, join, lexists
 from shutil import rmtree
 from stat import S_IEXEC, S_IMODE, S_ISDIR, S_ISLNK, S_ISREG, S_IWRITE
 from time import sleep
