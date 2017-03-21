@@ -1225,9 +1225,9 @@ class PrivateEnvIntegrationTests(TestCase):
         run_command(Commands.REMOVE, self.prefix, "uses-spiffy-test-app")
         assert not package_is_installed(self.preferred_env_prefix, "uses-spiffy-test-app")
 
-        # # this part tests that the private environment was fully pruned
-        # assert not package_is_installed(self.preferred_env_prefix, "spiffy-test-app")
-        # assert not isfile(join(self.preferred_env_prefix, get_bin_directory_short_path(), 'spiffy-test-app'))
+        # this part tests that the private environment was fully pruned
+        assert not package_is_installed(self.preferred_env_prefix, "spiffy-test-app")
+        assert not isfile(join(self.preferred_env_prefix, get_bin_directory_short_path(), 'spiffy-test-app'))
 
     @patch.object(Context, 'prefix_specified')
     def test_install_base_1_then_update(self, prefix_specified):
@@ -1330,20 +1330,37 @@ class PrivateEnvIntegrationTests(TestCase):
         assert package_is_installed(self.prefix, "spiffy-test-app-1")
 
     @patch.object(Context, 'prefix_specified')
-    def test_a(self, prefix_specified):
+    def test_a2(self, prefix_specified):
         prefix_specified.__get__ = Mock(return_value=False)
 
         run_command(Commands.INSTALL, self.prefix, "-c conda-test uses-spiffy-test-app")
         assert package_is_installed(self.preferred_env_prefix, "spiffy-test-app-2")
         assert package_is_installed(self.preferred_env_prefix, "uses-spiffy-test-app-2")
-        assert isfile(join(self.prefix, get_bin_directory_short_path(), 'spiffy-test-app'))
-        assert not isfile(join(self.preferred_env_prefix, get_bin_directory_short_path(), 'spiffy-test-app'))
+        assert not isfile(join(self.prefix, get_bin_directory_short_path(), 'spiffy-test-app'))
+        assert isfile(join(self.preferred_env_prefix, get_bin_directory_short_path(), 'spiffy-test-app'))
 
         run_command(Commands.INSTALL, self.prefix, "-c conda-test needs-spiffy-test-app")
         assert package_is_installed(self.preferred_env_prefix, "spiffy-test-app-2")
         assert package_is_installed(self.preferred_env_prefix, "uses-spiffy-test-app-2")
         assert package_is_installed(self.prefix, "needs-spiffy-test-app")
-        assert package_is_installed(self.prefix, "uses-spiffy-test-app-2")
+        assert not package_is_installed(self.prefix, "uses-spiffy-test-app-2")
+        assert isfile(join(self.prefix, get_bin_directory_short_path(), 'spiffy-test-app'))
+        assert isfile(join(self.preferred_env_prefix, get_bin_directory_short_path(), 'spiffy-test-app'))
+
+        run_command(Commands.REMOVE, self.prefix, "uses-spiffy-test-app")
+        # now uses-spiffy-test-app should ideally snap back to private env, but spiffy-test-app is installed in root now, so that's a problem
+        assert not package_is_installed(self.preferred_env_prefix, "spiffy-test-app-2")
+        assert not package_is_installed(self.preferred_env_prefix, "uses-spiffy-test-app-2")
+        assert package_is_installed(self.prefix, "needs-spiffy-test-app")
+        assert not package_is_installed(self.prefix, "uses-spiffy-test-app-2")
+        assert isfile(join(self.prefix, get_bin_directory_short_path(), 'spiffy-test-app'))
+        assert not isfile(join(self.preferred_env_prefix, get_bin_directory_short_path(), 'spiffy-test-app'))
+
+        run_command(Commands.REMOVE, self.prefix, "needs-spiffy-test-app")
+        assert not package_is_installed(self.prefix, "needs-spiffy-test-app")
+        assert package_is_installed(self.prefix, "spiffy-test-app-2")
+        assert isfile(join(self.prefix, get_bin_directory_short_path(), 'spiffy-test-app'))
+
 
     @patch.object(Context, 'prefix_specified')
     def test_b2(self, prefix_specified):
@@ -1355,10 +1372,11 @@ class PrivateEnvIntegrationTests(TestCase):
         assert isfile(join(self.prefix, get_bin_directory_short_path(), 'spiffy-test-app'))
 
         run_command(Commands.INSTALL, self.prefix, "-c conda-test needs-spiffy-test-app")
-        assert package_is_installed(self.preferred_env_prefix, "spiffy-test-app-2")
-        assert package_is_installed(self.preferred_env_prefix, "uses-spiffy-test-app-2")
+        assert not package_is_installed(self.preferred_env_prefix, "spiffy-test-app-2")
+        assert not package_is_installed(self.preferred_env_prefix, "uses-spiffy-test-app-2")
         assert package_is_installed(self.prefix, "needs-spiffy-test-app")
         assert package_is_installed(self.prefix, "spiffy-test-app-2")
+        assert package_is_installed(self.prefix, "uses-spiffy-test-app")
 
     @patch.object(Context, 'prefix_specified')
     def test_c2(self, prefix_specified):
