@@ -116,4 +116,4 @@ platform = context.platform
 
 # put back because of conda build
 default_python = context.default_python
-binstar_upload = context.binstar_upload
+binstar_upload = context.anaconda_upload
