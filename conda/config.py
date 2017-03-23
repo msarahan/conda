@@ -30,6 +30,7 @@ rc_list_keys = [
     'envs_dirs',
     'pkgs_dirs',
     'default_channels',
+    'pinned_packages',
 ]
 
 ADD_BINSTAR_TOKEN = True
