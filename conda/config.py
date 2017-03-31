@@ -28,7 +28,9 @@ rc_list_keys = [
     'create_default_packages',
     'track_features',
     'envs_dirs',
+    'pkgs_dirs',
     'default_channels',
+    'pinned_packages',
 ]
 
 ADD_BINSTAR_TOKEN = True
@@ -115,4 +117,4 @@ platform = context.platform
 
 # put back because of conda build
 default_python = context.default_python
-binstar_upload = context.binstar_upload
+binstar_upload = context.anaconda_upload
