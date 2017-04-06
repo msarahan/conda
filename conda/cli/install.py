@@ -6,12 +6,12 @@
 
 from __future__ import absolute_import, division, print_function, unicode_literals
 
-from difflib import get_close_matches
 import errno
 import logging
 import os
-from os.path import abspath, basename, exists, isdir, join
 import re
+from difflib import get_close_matches
+from os.path import abspath, basename, exists, isdir, join
 
 from . import common
 from .._vendor.auxlib.ish import dals
@@ -364,12 +364,6 @@ def install(args, parser, command='install'):
                             log.debug("Can't write the history file")
                         else:
                             raise CondaIOError("Can't write the history file", e)
-
-            except RuntimeError as e:
-                if len(e.args) > 0 and "LOCKERROR" in e.args[0]:
-                    raise LockError('Already locked: %s' % text_type(e))
-                else:
-                    raise CondaRuntimeError('RuntimeError: %s' % e)
             except SystemExit as e:
                 raise CondaSystemExit('Exiting', e)
 
