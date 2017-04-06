@@ -1,6 +1,8 @@
 import json
 from unittest import TestCase
 
+from conda.common.compat import on_win
+
 from conda import text_type
 from conda._vendor.auxlib.ish import dals
 from conda.base.context import reset_context, context
@@ -310,7 +312,7 @@ class ExceptionTests(TestCase):
                 Groot
                 """).strip()
 
-    def test_CommandNotFoundError(self):
+    def test_CommandNotFoundError_simple(self):
         cmd = "instate"
         exc = CommandNotFoundError(cmd)
 
@@ -331,42 +333,51 @@ class ExceptionTests(TestCase):
         assert not c.stdout
         assert c.stderr.strip() == "CommandNotFoundError: Conda could not find the command: 'instate'"
 
-    def test_BinaryPrefixReplacementError(self):
-        new_data_length = 1104
-        original_data_length = 1404
-        new_prefix = "some/where/on/goodwin.ave"
-        path = "some/where/by/boneyard/creek"
-        placeholder = "save/my/spot/in/374"
-        exc = BinaryPrefixReplacementError(new_data_length, original_data_length, new_prefix,
-                                     path, placeholder)
+    def test_CommandNotFoundError_conda_build(self):
+        cmd = "build"
+        exc = CommandNotFoundError(cmd)
+
         with env_var("CONDA_JSON", "yes", reset_context):
             with captured() as c, replace_log_streams():
                 conda_exception_handler(_raise_helper, exc)
 
         json_obj = json.loads(c.stdout)
         assert not c.stderr
-        assert json_obj['exception_type'] == "<class 'conda.exceptions.BinaryPrefixReplacementError'>"
-        assert json_obj['exception_name'] == 'BinaryPrefixReplacementError'
+        assert json_obj['exception_type'] == "<class 'conda.exceptions.CommandNotFoundError'>"
         assert json_obj['message'] == text_type(exc)
         assert json_obj['error'] == repr(exc)
-        assert json_obj['new_data_length'] == 1104
-        assert json_obj['original_data_length'] == 1404
-        assert json_obj['new_prefix'] == new_prefix
-        assert json_obj['path'] == path
-        assert json_obj['placeholder'] == placeholder
 
         with env_var("CONDA_JSON", "no", reset_context):
             with captured() as c, replace_log_streams():
                 conda_exception_handler(_raise_helper, exc)
 
         assert not c.stdout
-        assert c.stderr.strip() == dals("""
-        BinaryPrefixReplacementError: Refusing to replace data of length '1104' with
-        data of length '1404' for binary file
-        new Data Length: 1104
-        original data Length: 1404
-        path: some/where/by/boneyard/creek
-        new prefix: some/where/on/goodwin.ave
-        placeholder: save/my/spot/in/374
-        """).strip()
+        assert c.stderr.strip() == ("CommandNotFoundError: You need to install conda-build in order to\n" \
+                                    "use the 'conda build' command.")
 
+    def test_CommandNotFoundError_activate(self):
+        cmd = "activate"
+        exc = CommandNotFoundError(cmd)
+
+        with env_var("CONDA_JSON", "yes", reset_context):
+            with captured() as c, replace_log_streams():
+                conda_exception_handler(_raise_helper, exc)
+
+        json_obj = json.loads(c.stdout)
+        assert not c.stderr
+        assert json_obj['exception_type'] == "<class 'conda.exceptions.CommandNotFoundError'>"
+        assert json_obj['message'] == text_type(exc)
+        assert json_obj['error'] == repr(exc)
+
+        with env_var("CONDA_JSON", "no", reset_context):
+            with captured() as c, replace_log_streams():
+                conda_exception_handler(_raise_helper, exc)
+
+        assert not c.stdout
+
+        if on_win:
+            message = "CommandNotFoundError: Conda could not find the command: 'activate'"
+        else:
+            message = ("CommandNotFoundError: 'activate is not a conda command.\n"
+                       "Did you mean 'source activate'?")
+        assert c.stderr.strip() == message

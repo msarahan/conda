@@ -12,15 +12,11 @@ import re
 import sys
 
 from .. import console
-from .._vendor.auxlib.entity import EntityEncoder
-from ..base.constants import ROOT_ENV_NAME
-from ..base.context import context, get_prefix as context_get_prefix
-from ..common.compat import iteritems
-from ..common.constants import NULL
-from ..common.path import is_private_env, prefix_to_env_name
-from ..core.linked_data import linked_data
-from ..exceptions import (CondaFileIOError, CondaSystemExit, CondaValueError,
-                          DryRunExit)
+from ..base.constants import ROOT_ENV_NAME, NULL
+from ..base.context import context
+from ..exceptions import (DryRunExit, CondaSystemExit,
+                          CondaValueError, CondaFileIOError)
+from ..install import dist2quad
 from ..resolve import MatchSpec
 from ..utils import memoize
 
@@ -388,16 +384,6 @@ def add_parser_show_channel_urls(p):
         action="store_false",
         dest="show_channel_urls",
         help="Don't show channel urls.",
-    )
-
-
-def add_parser_create_install_update(p):
-    p.add_argument(
-        "--clobber",
-        action="store_true",
-        default=NULL,
-        help="Allow clobbering of overlapping file paths within packages, "
-             "and suppress related warnings.",
     )
 
 
