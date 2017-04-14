@@ -1,17 +1,17 @@
 from __future__ import absolute_import, division, print_function, unicode_literals
 
 import logging
-import re
 
 from .base.constants import DEFAULTS_CHANNEL_NAME, MAX_CHANNEL_PRIORITY
 from .base.context import context
 from .common.compat import iteritems, iterkeys, itervalues, string_types
 from .console import setup_handlers
-from .exceptions import CondaValueError, NoPackagesFoundError, UnsatisfiableError
+from .exceptions import NoPackagesFoundError, UnsatisfiableError
 from .logic import Clauses, minimal_unsatisfiable_subset
 from .models.dist import Dist
+from .models.match_spec import MatchSpec
+from .models.version import normalized_version
 from .toposort import toposort
-from .version import VersionSpec, normalized_version
 
 log = logging.getLogger(__name__)
 dotlog = logging.getLogger('dotupdate')
@@ -437,21 +437,14 @@ class Resolve(object):
                             slist.append(ms)
         return reduced_index
 
-    def match_any(self, mss, fkey):
-        rec = self.index[fkey]
-        n, v, b = rec['name'], rec['version'], rec['build']
-        return any(n == ms.name and ms.match_fast(v, b) for ms in mss)
+    def match_any(self, mss, dist):
+        rec = self.index[dist]
+        return any(ms.match(rec) for ms in mss)
 
     def match(self, ms, fkey):
         # type: (MatchSpec, Dist) -> bool
         rec = self.index[fkey]
-        ms = MatchSpec(ms)
-        return (ms.name == rec['name'] and
-                ms.match_fast(rec['version'], rec['build']))
-
-    def match_fast(self, ms, fkey):
-        rec = self.index[fkey]
-        return ms.match_fast(rec['version'], rec['build'])
+        return MatchSpec(ms).match(rec)
 
     def find_matches(self, ms):
         # type: (MatchSpec) -> List[Dist]
@@ -462,7 +455,8 @@ class Resolve(object):
                 res = self.trackers.get(ms.name[1:], [])
             else:
                 res = self.groups.get(ms.name, [])
-            res = [p for p in res if self.match_fast(ms, p)]
+                res = [p for p in res if self.match(ms, p)]
+            assert all(isinstance(d, Dist) for d in res)
             self.find_matches_[ms] = res
         return res
 
@@ -544,7 +538,7 @@ class Resolve(object):
         tgroup = libs = (self.trackers.get(ms.name[1:], []) if ms.name[0] == '@'
                          else self.groups.get(ms.name, []))
         if not ms.is_simple():
-            libs = [fkey for fkey in tgroup if self.match_fast(ms, fkey)]
+            libs = [fkey for fkey in tgroup if self.match(ms, fkey)]
         if len(libs) == len(tgroup):
             if ms.optional:
                 m = True
@@ -752,9 +746,10 @@ class Resolve(object):
             # the solver can minimize the version change. If update_deps=False,
             # fix the version and build so that no change is possible.
             if update_deps:
-                spec = MatchSpec('%s (target=%s)' % (name, pkg))
+                spec = MatchSpec(name=name, target=pkg.full_name)
             else:
-                spec = MatchSpec('%s %s %s' % (name, version, build))
+                spec = MatchSpec(name=name, version=version,
+                                 build=build, schannel=schannel)
             specs.append(spec)
         return specs, preserve
 
@@ -778,11 +773,11 @@ class Resolve(object):
                 continue
             elif limit is not None:
                 preserve.append(dist)
-            elif ver:
-                specs.append(MatchSpec('%s >=%s' % (nm, ver), optional=True,
-                                       target=dist.full_name))
             else:
-                specs.append(MatchSpec(nm, optional=True, target=dist.full_name))
+                specs.append(MatchSpec(name=nm,
+                                       version='>='+ver if ver else None,
+                                       optional=True,
+                                       target=dist.full_name))
         return specs, preserve
 
     def remove(self, specs, installed):
