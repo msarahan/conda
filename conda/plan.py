@@ -18,9 +18,11 @@ import sys
 from ._vendor.boltons.setutils import IndexedSet
 from .base.constants import DEFAULTS_CHANNEL_NAME, UNKNOWN_CHANNEL
 from .base.context import context
-from .common.compat import iteritems, iterkeys, itervalues, odict, on_win, text_type
-from .common.path import ensure_pad, is_private_env_path
-from .core.envs_manager import EnvsDirectory
+from .cli import common
+from .cli.common import pkg_if_in_private_env, prefix_if_in_private_env
+from .common.compat import iterkeys, odict, on_win
+from .common.path import (is_private_env, preferred_env_matches_prefix,
+                          preferred_env_to_prefix, prefix_to_env_name)
 from .core.index import _supplement_index_with_prefix
 from .core.link import UnlinkLinkTransaction, UnlinkLinkTransactionSetup
 from .core.linked_data import is_linked, linked_data
@@ -36,9 +38,9 @@ from .instructions import (ACTION_CODES, CHECK_EXTRACT, CHECK_FETCH, EXTRACT, FE
 from .models.channel import Channel
 from .models.dist import Dist
 from .models.enums import LinkType
+from .models.version import normalized_version
 from .resolve import MatchSpec, Resolve
 from .utils import human_bytes
-from .version import normalized_version
 
 try:
     from cytoolz.itertoolz import concat, concatv, groupby, remove
@@ -419,7 +421,7 @@ def add_defaults_to_specs(r, linked, specs, update=False, prefix=None):
             log.debug('H2A %s' % name)
             continue
 
-        if any(s.is_exact() for s in depends_on):
+        if any(s.exact_field('build') for s in depends_on):
             # If something depends on Python/Numpy, but the spec is very
             # explicit, we also don't need to add the default spec
             log.debug('H2B %s' % name)
@@ -631,11 +633,42 @@ def install_actions_list(prefix, index, spec_strs, force=False, only_names=None,
         txn = UnlinkLinkTransaction(*txn_args)
         return txn
 
-    else:
-        # disregard any requested preferred env
-        return install_transaction(prefix, index, spec_strs, force, only_names, always_copy,
-                                   pinned, minimal_hint, update_deps, prune,
-                                   channel_priority_map, is_update)
+    # Need to add unlink actions if updating a private env from root
+    if is_update and prefix == context.root_prefix:
+        add_unlink_options_for_update(actions, required_solves, index)
+
+    return actions
+
+
+def add_unlink_options_for_update(actions, required_solves, index):
+    # type: (Dict[weird], List[SpecsForPrefix], List[weird]) -> ()
+    get_action_for_prefix = lambda prfx: tuple(actn for actn in actions if actn["PREFIX"] == prfx)
+    linked_in_prefix = linked_data(context.root_prefix)
+    spec_in_root = lambda spc: tuple(
+        mtch for mtch in iterkeys(linked_in_prefix) if MatchSpec(spc).match(index[mtch]))
+    for solved in required_solves:
+        # If the solved prefix is private
+        if is_private_env(prefix_to_env_name(solved.prefix, context.root_prefix)):
+            for spec in solved.specs:
+                matched_in_root = spec_in_root(spec)
+                if matched_in_root:
+                    aug_action = get_action_for_prefix(context.root_prefix)
+                    if len(aug_action) > 0:
+                        add_unlink(aug_action[0], matched_in_root[0])
+                    else:
+                        actions.append(remove_actions(context.root_prefix, matched_in_root, index))
+        # If the solved prefix is root
+        elif preferred_env_matches_prefix(None, solved.prefix, context.root_prefix):
+            for spec in solved.specs:
+                spec_in_private_env = prefix_if_in_private_env(spec)
+                if spec_in_private_env:
+                    # remove pkg from private env and install in root
+                    aug_action = get_action_for_prefix(spec_in_private_env)
+                    if len(aug_action) > 0:
+                        add_unlink(aug_action[0], Dist(pkg_if_in_private_env(spec)))
+                    else:
+                        actions.append(remove_spec_action_from_prefix(
+                            spec_in_private_env, Dist(pkg_if_in_private_env(spec))))
 
 
 def get_resolve_object(index, prefix):

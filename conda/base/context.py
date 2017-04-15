@@ -125,6 +125,8 @@ class Context(Configuration):
     _custom_multichannels = MapParameter(list, aliases=('custom_multichannels',))
 
     # command line
+    default_python = PrimitiveParameter(default_python_default(),
+                                        validation=default_python_validation)
     always_softlink = PrimitiveParameter(False, aliases=('softlink',))
     always_copy = PrimitiveParameter(False, aliases=('copy',))
     always_yes = PrimitiveParameter(False, aliases=('yes',))

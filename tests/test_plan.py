@@ -1,4 +1,21 @@
-from collections import defaultdict, namedtuple
+import os
+
+from conda.gateways.disk.create import mkdir_p
+
+from conda.common.io import env_var
+
+from conda._vendor.boltons.setutils import IndexedSet
+
+from conda.cli import common
+from conda.cli.python_api import run_command, Commands
+from conda.core import linked_data
+from conda.core.package_cache import ProgressiveFetchExtract
+from conda.exceptions import NoPackagesFoundError, InstallError
+from conda.models.channel import prioritize_channels
+from conda.models.dist import Dist
+from conda.models.index_record import IndexRecord
+from conda.common.io import env_var
+
 from contextlib import contextmanager
 import json
 import os
@@ -115,18 +132,20 @@ class TestAddDeaultsToSpec(unittest.TestCase):
 
     def test_4(self):
         self.linked = []
-        ps = ['python 2.7*'] if context.default_python == '2.7' else []
-        for specs, added in [
-            (['python'], ps),
-            (['numpy'], ps),
-            (['scipy'], ps),
-            (['anaconda'], ps),
-            (['anaconda 1.5.0 np17py27_0'], []),
-            (['sympy 0.7.2 py27_0'], []),
-            (['scipy 0.12.0 np16py27_0'], []),
-            (['anaconda', 'python 3*'], []),
-            ]:
-            self.check(specs, added)
+        for dp in ('2.7', '3.5'):
+            with env_var('CONDA_DEFAULT_PYTHON', dp, reset_context):
+                ps = ['python 2.7*'] if context.default_python == '2.7' else []
+                for specs, added in [
+                    (['python'], ps),
+                    (['numpy'], ps),
+                    (['scipy'], ps),
+                    (['anaconda'], ps),
+                    (['anaconda 1.5.0 np17py27_0'], []),
+                    (['sympy 0.7.2 py27_0'], []),
+                    (['scipy 0.12.0 np16py27_0'], []),
+                    (['anaconda', 'python 3*'], []),
+                    ]:
+                    self.check(specs, added)
 
 
 def test_display_actions_0():
@@ -1189,96 +1208,77 @@ def generate_remove_action(prefix, unlink):
     return action
 
 
-# class TestAddUnlinkOptionsForUpdate(unittest.TestCase):
-#     def setUp(self):
-#         pkgs = [
-#             (None, "test1", "default", "1.0.1"),
-#             ("env", "test1", "default", "2.1.4"),
-#             ("env", "test2", "default", "1.1.1"),
-#             (None, "test3", "default", "1.2.0"),
-#             (None, "test4", "default", "1.2.1")]
-#         self.res = generate_mocked_resolve(pkgs)
-#
-#     # @patch("conda.plan.remove_actions", return_value=generate_remove_action(
-#     #     "root/prefix", [Dist("test1-2.1.4-1")]))
-#     def test_update_in_private_env_add_remove_action(self):  # remove_actions
-#         with tempdir() as root_prefix:
-#             mkdir_p(join(root_prefix, 'conda-meta'))
-#             touch(join(root_prefix, 'conda-meta', 'history'))
-#             with env_var("CONDA_ROOT_PREFIX", root_prefix, reset_context):
-#                 with env_var("CONDA_ENVS_DIRS", join(root_prefix, 'envs'), reset_context):
-#                     with patch("conda.plan.remove_actions",
-#                                return_value=generate_remove_action(root_prefix, [Dist("test1-2.1.4-1")])):
-#                         preferred_env_prefix = join(root_prefix, 'envs', '_env_')
-#                         required_solves = [plan.SpecsForPrefix(prefix=preferred_env_prefix,
-#                                                                specs=["test1", "test2"], r=self.res),
-#                                            plan.SpecsForPrefix(prefix=context.root_prefix,
-#                                                                specs=["test3"],
-#                                                                r=self.res)]
-#
-#                         action = defaultdict(list)
-#                         action["PREFIX"] = preferred_env_prefix
-#                         action["LINK"] = [Dist("test1-2.1.4-1"), Dist("test2-1.1.1-8")]
-#                         actions = [action]
-#
-#                         test_link_data = {root_prefix: {Dist("test1-2.1.4-1"): True}}
-#                         with patch("conda.core.linked_data.linked_data_", test_link_data):
-#                             plan.add_unlink_options_for_update(actions, required_solves,
-#                                                                self.res.index)
-#
-#                         expected_output = [action, generate_remove_action(root_prefix,
-#                                                                           [Dist("test1-2.1.4-1")])]
-#                         self.assertEquals(actions, expected_output)
-#
-#     @patch("conda.plan.remove_actions", return_value=generate_remove_action(
-#         "root/prefix", [Dist("test1-2.1.4-1")]))
-#     def test_update_in_private_env_append_unlink(self, remove_actions):
-#         required_solves = [plan.SpecsForPrefix(prefix="root/prefix/envs/_env_",
-#                                                specs=["test1", "test2"], r=self.res),
-#                            plan.SpecsForPrefix(prefix=context.root_prefix, specs=["whatevs"],
-#                                                r=self.res)]
-#
-#         action = defaultdict(list)
-#         action["PREFIX"] = "root/prefix/envs/_env_"
-#         action["LINK"] = [Dist("test1-2.1.4-1"), Dist("test2-1.1.1-8")]
-#         action_root = defaultdict(list)
-#         action_root["PREFIX"] = context.root_prefix
-#         action_root["LINK"] = [Dist("whatevs-54-54")]
-#         actions = [action, action_root]
-#
-#         test_link_data = {context.root_prefix: {Dist("test1-2.1.4-1"): True}}
-#         with patch("conda.core.linked_data.linked_data_", test_link_data):
-#             plan.add_unlink_options_for_update(actions, required_solves, self.res.index)
-#
-#         aug_action_root = defaultdict(list)
-#         aug_action_root["PREFIX"] = context.root_prefix
-#         aug_action_root["LINK"] = [Dist("whatevs-54-54")]
-#         aug_action_root["UNLINK"] = [Dist("test1-2.1.4-1")]
-#         expected_output = [action, aug_action_root]
-#         self.assertEquals(actions, expected_output)
-#
-#     def test_update_in_root_env(self):
-#         with tempdir() as root_prefix:
-#             mkdir_p(join(root_prefix, 'conda-meta'))
-#             touch(join(root_prefix, 'conda-meta', 'history'))
-#             with env_var("CONDA_ROOT_PREFIX", root_prefix, reset_context):
-#                 with env_var("CONDA_ENVS_DIRS", join(root_prefix, 'envs'), reset_context):
-#                     env_path = join(root_prefix, 'envs', '_env_')
-#                     ed = EnvsDirectory(join(root_prefix, 'envs'))
-#                     ed.add_preferred_env_package('_env_', 'test3', join(env_path, "conda-meta", "test3-1.2.0.json"), "test3")
-#                     ed.add_preferred_env_package('_env_', 'test4', join(env_path, "conda-meta", "test4-2.1.0-22.json"), "test4")
-#                     required_solves = [plan.SpecsForPrefix(prefix=context.root_prefix,
-#                                                            specs=["test3", "test4"],
-#                                                            r=self.res)]
-#
-#                     action = defaultdict(list)
-#                     action["PREFIX"] = root_prefix
-#                     action["LINK"] = [Dist("test3-1.2.0"), Dist("test4-1.2.1")]
-#                     actions = [action]
-#                     plan.add_unlink_options_for_update(actions, required_solves, self.res.index)
-#                     expected_output = [action, generate_remove_action(env_path, [Dist("test3-1.2.0"), Dist("test4-2.1.0-22")])]
-#                     self.assertEquals(actions, expected_output)
+class TestAddUnlinkOptionsForUpdate(unittest.TestCase):
+    def setUp(self):
+        pkgs = [
+            (None, "test1", "default", "1.0.1"),
+            ("env", "test1", "rando_chnl", "2.1.4"),
+            ("env", "test2", "default", "1.1.1"),
+            (None, "test3", "default", "1.2.0"),
+            (None, "test4", "default", "1.2.1")]
+        self.res = generate_mocked_resolve(pkgs)
 
+    @patch("conda.plan.remove_actions", return_value=generate_remove_action(
+        "root/prefix", [Dist("rando_chnl::test1-2.1.4-0")]))
+    def test_update_in_private_env_add_remove_action(self, remove_actions):
+        required_solves = [plan.SpecsForPrefix(prefix="root/prefix/envs/_env_",
+                                               specs=["test1", "test2"], r=self.res),
+                           plan.SpecsForPrefix(prefix=context.root_dir, specs=["test3"],
+                                               r=self.res)]
+
+        action = defaultdict(list)
+        action["PREFIX"] = "root/prefix/envs/_env_"
+        action["LINK"] = [Dist("rando_chnl::test1-2.1.4-0"), Dist("test2-1.1.1-0")]
+        actions = [action]
+
+        test_link_data = {context.root_prefix: {Dist("rando_chnl::test1-2.1.4-0"): True}}
+        with patch("conda.core.linked_data.linked_data_", test_link_data):
+            plan.add_unlink_options_for_update(actions, required_solves, self.res.index)
+
+        expected_output = [action, generate_remove_action("root/prefix", [Dist("rando_chnl::test1-2.1.4-0")])]
+        self.assertEquals(actions, expected_output)
+
+    @patch("conda.plan.remove_actions", return_value=generate_remove_action(
+        "root/prefix", [Dist("rando_chnl::test1-2.1.4-0")]))
+    def test_update_in_private_env_append_unlink(self, remove_actions):
+        required_solves = [plan.SpecsForPrefix(prefix="root/prefix/envs/_env_",
+                                               specs=["test1", "test2"], r=self.res),
+                           plan.SpecsForPrefix(prefix=context.root_prefix, specs=["whatevs"],
+                                               r=self.res)]
+
+        action = defaultdict(list)
+        action["PREFIX"] = "root/prefix/envs/_env_"
+        action["LINK"] = [Dist("rando_chnl::test1-2.1.4-0"), Dist("test2-1.1.1-8")]
+        action_root = defaultdict(list)
+        action_root["PREFIX"] = context.root_prefix
+        action_root["LINK"] = [Dist("whatevs-54-54")]
+        actions = [action, action_root]
+
+        test_link_data = {context.root_prefix: {Dist("rando_chnl::test1-2.1.4-0"): True}}
+        with patch("conda.core.linked_data.linked_data_", test_link_data):
+            plan.add_unlink_options_for_update(actions, required_solves, self.res.index)
+
+        aug_action_root = defaultdict(list)
+        aug_action_root["PREFIX"] = context.root_prefix
+        aug_action_root["LINK"] = [Dist("whatevs-54-54")]
+        aug_action_root["UNLINK"] = [Dist("rando_chnl::test1-2.1.4-0")]
+        expected_output = [action, aug_action_root]
+        self.assertEquals(actions, expected_output)
+
+    @patch("conda.cli.common.get_private_envs_json", return_value=
+        {"test3-1.2.0": "some/prefix/envs/_env_", "test4-2.1.0-22": "some/prefix/envs/_env_"})
+    def test_update_in_root_env(self, prefix_if_in_private_env):
+        required_solves = [plan.SpecsForPrefix(prefix=context.root_dir, specs=["test3", "test4"],
+                                               r=self.res)]
+
+        action = defaultdict(list)
+        action["PREFIX"] = "root/prefix"
+        action["LINK"] = [Dist("test3-1.2.0"), Dist("test4-1.2.1")]
+        actions = [action]
+        plan.add_unlink_options_for_update(actions, required_solves, self.res.index)
+        expected_output = [action, generate_remove_action(
+            "some/prefix/envs/_env_", [Dist("test3-1.2.0"), Dist("test4-2.1.0-22")])]
+        self.assertEquals(actions, expected_output)
 
 
 def test_pinned_specs():
