@@ -34,7 +34,8 @@ from conda.common.compat import iteritems
 from conda.common.io import env_var
 from conda.core.envs_manager import EnvsDirectory
 from conda.core.package_cache import ProgressiveFetchExtract
-from conda.exceptions import InstallError, NoPackagesFoundError
+import conda.core.solve
+from conda.exceptions import NoPackagesFoundError
 from conda.gateways.disk.create import mkdir_p
 from conda.gateways.disk.delete import rm_rf
 from conda.gateways.disk.update import touch
@@ -1284,7 +1285,7 @@ class TestAddUnlinkOptionsForUpdate(unittest.TestCase):
 def test_pinned_specs():
     specs_1 = ("numpy 1.11", "python >3")
     with env_var('CONDA_PINNED_PACKAGES', '/'.join(specs_1), reset_context):
-        pinned = plan.get_pinned_specs("/none")
+        pinned = conda.core.solve.get_pinned_specs("/none")
         assert pinned == specs_1
 
     specs_2 = ("scipy ==0.14.2", "openjdk >=8")
@@ -1293,7 +1294,7 @@ def test_pinned_specs():
         with open(join(td, 'conda-meta', 'pinned'), 'w') as fh:
             fh.write("\n".join(specs_2))
             fh.write("\n")
-        pinned = plan.get_pinned_specs(td)
+        pinned = conda.core.solve.get_pinned_specs(td)
         assert pinned == specs_2
 
     with tempdir() as td:
@@ -1305,7 +1306,7 @@ def test_pinned_specs():
         with env_var('CONDA_PREFIX', td, reset_context):
             run_command(Commands.CONFIG, "--env --add pinned_packages requests=2.13")
             with env_var('CONDA_PINNED_PACKAGES', '/'.join(specs_2), reset_context):
-                pinned = plan.get_pinned_specs(td)
+                pinned = conda.core.solve.get_pinned_specs(td)
                 assert pinned == specs_2 + ("requests 2.13",) + specs_1
 
 
