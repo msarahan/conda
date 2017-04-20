@@ -17,7 +17,7 @@ from ..models.index_record import EMPTY_LINK, IndexRecord
 
 try:
     from cytoolz.itertoolz import take
-except ImportError:
+except ImportError:  # pragma: no cover
     from .._vendor.toolz.itertoolz import take  # NOQA
 
 log = getLogger(__name__)

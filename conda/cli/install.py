@@ -238,7 +238,7 @@ def install(args, parser, command='install'):
             except OSError:
                 raise CondaOSError("Error: could not create directory: %s" % prefix)
         else:
-            raise CondaEnvironmentNotFoundError(prefix)
+            raise EnvironmentLocationNotFound(prefix)
 
     try:
         if isinstall and args.revision:
