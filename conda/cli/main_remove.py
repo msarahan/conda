@@ -104,22 +104,11 @@ def configure_parser(sub_parsers, name='remove'):
 
 
 def execute(args, parser):
-    from .install import check_write
     from ..core.linked_data import linked_data
-    from ..base.constants import ROOT_NO_RM
-    from ..base.context import context
-    from ..common.compat import iteritems, iterkeys
-    from ..common.path import is_private_env_path
-    from ..console import json_progress_bars
-    from ..core.index import get_index
-    from ..exceptions import CondaEnvironmentError, CondaValueError, PackageNotFoundError
-    from ..gateways.disk.delete import delete_trash, rm_rf
+    from ..gateways.disk.delete import rm_rf
     from ..instructions import PREFIX
-    from ..plan import (add_unlink, display_actions, execute_actions, get_blank_actions,
+    from ..plan import (add_unlink, display_actions, execute_actions, is_root_prefix,
                         nothing_to_do, remove_actions)
-    from ..core.solve import get_resolve_object
-    from ..core.solve import solve_for_actions
-    from ..resolve import MatchSpec
 
     if not (args.all or args.package_names):
         raise CondaValueError('no package names supplied,\n'
@@ -144,23 +133,17 @@ def execute(args, parser):
     specs = None
     if args.features:
         specs = ['@' + f for f in set(args.package_names)]
-        actions = remove_actions(prefix, specs, index, pinned=context.respect_pinned)
-        actions['ACTION'] = 'REMOVE_FEATURE'
-        action_groups = (actions, index),
+        actions = remove_actions(prefix, specs, index, pinned=args.pinned)
+        action_groups = actions,
     elif args.all:
-        if prefix == context.root_prefix:
+        if is_root_prefix(prefix):
             raise CondaEnvironmentError('cannot remove root environment,\n'
                                         '       add -n NAME or -p PREFIX option')
-        actions = defaultdict(list)
-        actions[PREFIX] = prefix
+        actions = {PREFIX: prefix}
         for dist in sorted(iterkeys(index)):
             add_unlink(actions, dist)
-        actions['ACTION'] = 'REMOVE_ALL'
-        action_groups = (actions, index),
-    elif prefix == context.root_prefix and not context.prefix_specified:
-        from ..core.envs_manager import EnvsDirectory
-        ed = EnvsDirectory(join(context.root_prefix, 'envs'))
-        get_env = lambda s: ed.get_registered_preferred_env(MatchSpec(s).name)
+        action_groups = actions,
+    else:
         specs = specs_from_args(args.package_names)
         env_spec_map = groupby(get_env, specs)
         action_groups = []
@@ -181,16 +164,20 @@ def execute(args, parser):
             action_groups.append((actions, r.index))
         action_groups = tuple(action_groups)
 
-    else:
-        specs = specs_from_args(args.package_names)
-        if sys.prefix == abspath(prefix) and names_in_specs(ROOT_NO_RM, specs) and not args.force:
+        if (context.conda_in_root and is_root_prefix(prefix) and names_in_specs(
+                ROOT_NO_RM, specs) and not args.force):
             raise CondaEnvironmentError('cannot remove %s from root environment' %
                                         ', '.join(ROOT_NO_RM))
-        action_groups = (remove_actions(prefix, list(specs), index=index, force=args.force,
-                                        pinned=context.respect_pinned), index),
+        actions = []
+        for prfx, spcs in iteritems(prefix_spec_map):
+            index = linked_data(prfx)
+            index = {dist: info for dist, info in iteritems(index)}
+            actions.append(remove_actions(prfx, list(spcs), index=index, force=args.force,
+                                          pinned=args.pinned))
+        action_groups = tuple(actions)
 
     delete_trash()
-    if any(nothing_to_do(x[0]) for x in action_groups):
+    if any(nothing_to_do(actions) for actions in action_groups):
         if args.all:
             print("\nRemove all packages in environment %s:\n" % prefix, file=sys.stderr)
             if not args.json:
@@ -208,15 +195,16 @@ def execute(args, parser):
     if not context.json:
         for actions, ndx in action_groups:
             print()
-            print("Package plan for package removal in environment %s:" % actions["PREFIX"])
-            display_actions(actions, ndx)
-    elif context.json and args.dry_run:
-        stdout_json({
-            'success': True,
-            'dry_run': True,
-            'actions': tuple(x[0] for x in action_groups),
-        })
-        return
+            print("Package plan for package removal in environment %s:" % action["PREFIX"])
+            display_actions(action, index)
+
+        if context.json and args.dry_run:
+            stdout_json({
+                'success': True,
+                'dry_run': True,
+                'actions': action_groups
+            })
+            return
 
     if not context.json:
         confirm_yn(args)
@@ -224,9 +212,18 @@ def execute(args, parser):
     for actions, ndx in action_groups:
         if context.json and not context.quiet:
             with json_progress_bars():
-                execute_actions(actions, ndx, verbose=not context.quiet)
+                execute_actions(actions, index, verbose=not context.quiet)
         else:
-            execute_actions(actions, ndx, verbose=not context.quiet)
+            execute_actions(actions, index, verbose=not context.quiet)
+            if specs:
+                try:
+                    with open(join(prefix, 'conda-meta', 'history'), 'a') as f:
+                        f.write('# remove specs: %s\n' % ','.join(specs))
+                except IOError as e:
+                    if e.errno == errno.EACCES:
+                        log.debug("Can't write the history file")
+                    else:
+                        raise
 
         target_prefix = actions["PREFIX"]
         if is_private_env_path(target_prefix) and linked_data(target_prefix) == {}:

@@ -6,11 +6,12 @@
 
 from __future__ import absolute_import, division, print_function, unicode_literals
 
-from difflib import get_close_matches
+import errno
 import logging
 import os
-from os.path import abspath, basename, exists, isdir, join
 import re
+from difflib import get_close_matches
+from os.path import abspath, basename, exists, isdir, join
 
 from . import common
 from .._vendor.auxlib.ish import dals
@@ -53,7 +54,7 @@ def clone(src_arg, dst_prefix, json=False, quiet=False, index_args=None):
     if os.sep in src_arg:
         src_prefix = abspath(src_arg)
         if not isdir(src_prefix):
-            raise DirectoryNotFoundError(src_arg, 'no such directory: %s' % src_arg, json)
+            raise DirectoryNotFoundError(src_arg)
     else:
         src_prefix = context.clone_src
 
@@ -304,7 +305,7 @@ def install(args, parser, command='install'):
             if pinned_specs:
                 path = join(prefix, 'conda-meta', 'pinned')
                 error_message.append("\n\nNote that you have pinned specs in %s:" % path)
-                error_message.append("\n\n    %r" % pinned_specs)
+                error_message.append("\n\n    %r" % (pinned_specs,))
 
             error_message = ''.join(error_message)
             raise PackageNotFoundError(error_message)
@@ -349,11 +350,26 @@ def install(args, parser, command='install'):
         except SystemExit as e:
             raise CondaSystemExit('Exiting', e)
 
-    if newenv:
-        append_env(prefix)
-        touch_nonadmin(prefix)
-        if not context.json:
-            print(print_activate(args.name if args.name else prefix))
+        with common.json_progress_bars(json=context.json and not context.quiet):
+            try:
+                execute_actions(actions, index, verbose=not context.quiet)
+                if not (command == 'update' and args.all):
+                    try:
+                        with open(join(prefix, 'conda-meta', 'history'), 'a') as f:
+                            f.write('# %s specs: %s\n' % (command, ','.join(specs)))
+                    except IOError as e:
+                        if e.errno == errno.EACCES:
+                            log.debug("Can't write the history file")
+                        else:
+                            raise CondaIOError("Can't write the history file", e)
+            except SystemExit as e:
+                raise CondaSystemExit('Exiting', e)
+
+        if newenv:
+            append_env(prefix)
+            touch_nonadmin(prefix)
+            if not context.json:
+                print(print_activate(args.name if args.name else prefix))
 
     if context.json:
         actions = unlink_link_transaction.make_legacy_action_groups(progressive_fetch_extract)[0]
@@ -362,7 +378,7 @@ def install(args, parser, command='install'):
 
 def check_write(command, prefix, json=False):
     if inroot_notwritable(prefix):
-        from conda.cli.help import root_read_only
+        from .help import root_read_only
         root_read_only(command, prefix, json=json)
 
 
