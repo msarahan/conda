@@ -79,7 +79,7 @@ VersionOrder = VersionOrder
 
 
 import conda.base.context  # NOQA
-from conda.base.context import get_prefix as context_get_prefix, non_x86_linux_machines  # NOQA
+from .base.context import get_prefix as context_get_prefix, non_x86_linux_machines  # NOQA
 non_x86_linux_machines = non_x86_linux_machines
 
 from .base.constants import DEFAULT_CHANNELS, DEFAULT_CHANNELS_WIN, DEFAULT_CHANNELS_UNIX  # NOQA
