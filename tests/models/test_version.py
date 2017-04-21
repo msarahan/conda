@@ -2,7 +2,8 @@ from __future__ import absolute_import, print_function
 
 import unittest
 
-from conda.models.version import VersionOrder, VersionSpec, normalized_version, ver_eval
+from conda.exceptions import  InvalidSpecError
+from conda.version import ver_eval, VersionSpec, VersionOrder, normalized_version
 
 
 class TestVersionSpec(unittest.TestCase):
@@ -158,9 +159,9 @@ class TestVersionSpec(unittest.TestCase):
         self.assertEqual(ver_eval('1.2.3+4.5.6', '1.2.4+5*'), False)
 
     def test_ver_eval_errors(self):
-        self.assertRaises(RuntimeError, ver_eval, '3.0.0', '><2.4.5')
-        self.assertRaises(RuntimeError, ver_eval, '3.0.0', '!!2.4.5')
-        self.assertRaises(RuntimeError, ver_eval, '3.0.0', '!')
+        self.assertRaises(InvalidSpecError, ver_eval, '3.0.0', '><2.4.5')
+        self.assertRaises(InvalidSpecError, ver_eval, '3.0.0', '!!2.4.5')
+        self.assertRaises(InvalidSpecError, ver_eval, '3.0.0', '!')
 
     def test_version_spec(self):
         v1 = VersionSpec('1.7.1')

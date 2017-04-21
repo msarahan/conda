@@ -1,5 +1,8 @@
 from __future__ import absolute_import
 
+from conda.cli import common
+from conda import plan
+from conda.exceptions import LockError, CondaSystemExit, CondaHTTPError
 from conda.api import get_index
 from conda.cli import common
 from conda.core.solve import get_install_transaction
@@ -30,6 +33,13 @@ def install(prefix, specs, args, env, prune=False):
                                                       channel_priority_map=_channel_priority_map)
 
     with common.json_progress_bars(json=args.json and not args.quiet):
-        pfe = unlink_link_transaction.get_pfe()
-        pfe.execute()
-        unlink_link_transaction.execute()
+        for actions in action_set:
+            try:
+                plan.execute_actions(actions, index, verbose=not args.quiet)
+            except RuntimeError as e:
+                if len(e.args) > 0 and "LOCKERROR" in e.args[0]:
+                    raise LockError('Already locked: %s' % text_type(e))
+                else:
+                    raise CondaHTTPError('CondaHTTPError: %s' % e)
+            except SystemExit as e:
+                raise CondaSystemExit('Exiting', e)
