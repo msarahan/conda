@@ -12,11 +12,14 @@ import re
 import sys
 
 from .. import console
-from ..base.constants import ROOT_ENV_NAME, NULL
-from ..base.context import context
-from ..exceptions import (DryRunExit, CondaSystemExit,
-                          CondaValueError, CondaFileIOError)
-from ..install import dist2quad
+from .._vendor.auxlib.entity import EntityEncoder
+from ..base.constants import ROOT_ENV_NAME, CONDA_TARBALL_EXTENSION
+from ..base.context import context, get_prefix as context_get_prefix
+from ..common.compat import iteritems
+from ..common.constants import NULL
+from ..common.path import is_private_env, prefix_to_env_name
+from ..core.linked_data import linked_data
+from ..exceptions import CondaFileIOError, CondaSystemExit, CondaValueError, DryRunExit
 from ..resolve import MatchSpec
 from ..utils import memoize
 
@@ -466,7 +469,12 @@ def name_prefix(prefix):
 
 def arg2spec(arg, json=False, update=False):
     try:
-        spec = MatchSpec(spec_from_line(arg), normalize=True)
+        # spec_from_line can return None, especially for the case of a .tar.bz2 extension and
+        #   a space in the path
+        _arg = spec_from_line(arg)
+        if _arg is None and _arg.endswith(CONDA_TARBALL_EXTENSION):
+            _arg = arg
+        spec = MatchSpec(_arg, normalize=True)
     except:
         raise CondaValueError('invalid package specification: %s' % arg)
 
