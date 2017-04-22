@@ -1,17 +1,15 @@
 from __future__ import absolute_import, division, print_function, unicode_literals
 
-from itertools import chain
 import logging
 import re
 
-from .base.constants import DEFAULTS_CHANNEL_NAME, MAX_CHANNEL_PRIORITY
+from .base.constants import DEFAULTS_CHANNEL_NAME, MAX_CHANNEL_PRIORITY, CONDA_TARBALL_EXTENSION
 from .base.context import context
 from .common.compat import iteritems, iterkeys, itervalues, string_types
 from .console import setup_handlers
 from .exceptions import CondaValueError, NoPackagesFoundError, UnsatisfiableError
 from .logic import Clauses, minimal_unsatisfiable_subset
 from .models.dist import Dist
-from .models.index_record import IndexRecord
 from .toposort import toposort
 from .version import VersionSpec, normalized_version
 
@@ -53,7 +51,7 @@ class MatchSpec(object):
                 else:
                     raise CondaValueError("Invalid MatchSpec: %s" % spec)
         spec = self.spec = spec.strip()
-        parts = spec.split()
+        parts = (spec,) if spec.endswith(CONDA_TARBALL_EXTENSION) else spec.split()
         nparts = len(parts)
         assert 1 <= nparts <= 3, repr(spec)
         self.name = parts[0]
@@ -88,7 +86,7 @@ class MatchSpec(object):
     def is_simple(self):
         return self.match_fast == self._match_any
 
-    def _match_any(self, verison, build):
+    def _match_any(self, version, build):
         return True
 
     def _match_version(self, version, build):
@@ -102,12 +100,10 @@ class MatchSpec(object):
 
     def match(self, dist):
         # type: (Dist) -> bool
-        assert isinstance(dist, Dist)
         name, version, build, _ = dist.quad
         if name != self.name:
             return False
         result = self.match_fast(version, build)
-        assert isinstance(result, bool), type(result)
         return result
 
     def to_filename(self):
@@ -142,8 +138,6 @@ class MatchSpec(object):
 class Resolve(object):
 
     def __init__(self, index, sort=False, processed=False):
-        # assertion = lambda d, r: isinstance(d, Dist) and isinstance(r, IndexRecord)
-        # assert all(assertion(d, r) for d, r in iteritems(index))
         self.index = index = index.copy()
         if not processed:
             for dist, info in iteritems(index.copy()):
@@ -179,30 +173,9 @@ class Resolve(object):
         # type: () -> Set[Dist]
         installed = set()
         for dist, info in iteritems(self.index):
-            if 'link' in info and not dist.with_features_depends:
+            if 'link' in info:
                 installed.add(dist)
         return installed
-
-    def add_feature(self, feature_name, group=True):
-        feature_dist = Dist(feature_name + '@')
-        if feature_dist in self.index:
-            return
-        info = {
-            'name': feature_dist.dist_name,
-            'channel': '@',
-            'priority': 0,
-            'version': '0',
-            'build_number': 0,
-            'fn': feature_dist.to_filename(),
-            'build': '0',
-            'depends': [],
-            'track_features': feature_name,
-        }
-
-        self.index[feature_dist] = IndexRecord(**info)
-        if group:
-            self.groups[feature_dist.dist_name] = [feature_dist]
-            self.trackers[feature_name] = [feature_dist]
 
     def default_filter(self, features=None, filter=None):
         if filter is None:
@@ -235,7 +208,6 @@ class Resolve(object):
             return ms.optional or any(v_fkey_(fkey) for fkey in self.find_matches(ms))
 
         def v_fkey_(dist):
-            assert isinstance(dist, Dist)
             val = filter.get(dist)
             if val is None:
                 filter[dist] = True
@@ -271,7 +243,6 @@ class Resolve(object):
             dists = self.find_matches(spec) if isinstance(spec, MatchSpec) else [Dist(spec)]
             found = False
             for dist in dists:
-                assert isinstance(dist, Dist)
                 for m2 in self.ms_depends(dist):
                     for x in chains_(m2, names):
                         found = True
@@ -297,7 +268,6 @@ class Resolve(object):
         for s in specs:
             ms = MatchSpec(s)
             if ms.name[-1] == '@':
-                self.add_feature(ms.name[:-1])
                 feats.add(ms.name[:-1])
             else:
                 spec2.append(ms)
@@ -494,28 +464,16 @@ class Resolve(object):
                 res = self.groups.get(ms.name, [])
             res = [p for p in res if self.match_fast(ms, p)]
             self.find_matches_[ms] = res
-        assert all(isinstance(d, Dist) for d in res)
         return res
 
     def ms_depends(self, dist):
         # type: (Dist) -> List[MatchSpec]
-        assert isinstance(dist, Dist)
         deps = self.ms_depends_.get(dist, None)
         if deps is None:
             rec = self.index[dist]
-            if dist.with_features_depends:
-                f2, fstr = (Dist.from_string(dist.dist_name, channel_override=dist.channel),
-                            dist.with_features_depends)
-                fdeps = {d.name: d for d in self.ms_depends(f2)}
-                for dep in rec['with_features_depends'][fstr]:
-                    dep = MatchSpec(dep)
-                    fdeps[dep.name] = dep
-                deps = list(fdeps.values())
-            else:
-                deps = [MatchSpec(d) for d in rec.get('depends', [])]
+            deps = [MatchSpec(d) for d in rec.get('depends', [])]
             deps.extend(MatchSpec('@'+feat) for feat in self.features(dist))
             self.ms_depends_[dist] = deps
-        # assert all(isinstance(ms, MatchSpec) for ms in deps)
         return deps
 
     def depends_on(self, spec, target):
@@ -535,14 +493,14 @@ class Resolve(object):
         return depends_on_(MatchSpec(spec))
 
     def version_key(self, dist, vtype=None):
-        assert isinstance(dist, Dist)
         rec = self.index[dist]
         cpri = -rec.get('priority', 1)
         ver = normalized_version(rec.get('version', ''))
         bld = rec.get('build_number', 0)
         bs = rec.get('build_string')
-        return ((valid, -cpri, ver, bld, bs) if context.channel_priority else
-                (valid, ver, -cpri, bld, bs))
+        ts = rec.get('timestamp', 0)
+        return ((valid, -cpri, ver, bld, bs, ts) if context.channel_priority else
+                (valid, ver, -cpri, bld, bs, ts))
 
     def features(self, dist):
         return set(self.index[dist].get('features', '').split())
@@ -661,16 +619,25 @@ class Resolve(object):
         for name, targets in iteritems(sdict):
             pkgs = [(self.version_key(p), p) for p in self.groups.get(name, [])]
             pkey = None
+            # keep in mind that pkgs is already sorted according to version_key (a tuple,
+            #    so composite sort key).  Later entries in the list are, by definition,
+            #    greater in some way, so simply comparing with != suffices.
             for version_key, dist in pkgs:
                 if targets and any(dist == t for t in targets):
                     continue
                 if pkey is None:
                     iv = ib = 0
-                elif pkey[0] != version_key[0] or pkey[1] != version_key[1]:
+                # any version number mismatch (each character compared one by one)
+                elif any(pk != vk for pk, vk in zip(pkey[:3], version_key[:3])):
                     iv += 1
                     ib = 0
-                elif pkey[2] != version_key[2]:
+                # build number
+                elif pkey[3] != version_key[3]:
                     ib += 1
+                # last field is timestamp. Use it as differentiator when build numbers are similar
+                elif pkey[5] != version_key[5]:
+                    ib += 1
+
                 if iv or include0:
                     eqv[npkg] = iv
                 if ib or include0:
@@ -681,8 +648,6 @@ class Resolve(object):
     def dependency_sort(self, must_have):
         # type: (Dict[package_name, Dist]) -> List[Dist]
         assert isinstance(must_have, dict)
-        # assertion = lambda k, v: isinstance(k, string_types) and isinstance(v, Dist)
-        # assert all(assertion(*item) for item in iteritems(must_have))
 
         digraph = {}
         for key, dist in iteritems(must_have):
@@ -696,7 +661,6 @@ class Resolve(object):
         result = [must_have.pop(key) for key in sorted_keys if key in must_have]
         # Take any key that were not sorted
         result.extend(must_have.values())
-        # assert all(isinstance(d, Dist) for d in result)
         return result
 
     def explicit(self, specs):
@@ -739,27 +703,18 @@ class Resolve(object):
         log.debug('Checking if the current environment is consistent')
         if not installed:
             return None, []
-        xtra = []  # List[Dist]
         dists = {}  # Dict[Dist, Record]
         specs = []
         for dist in installed:
-            rec = self.index.get(dist)
-            if rec is None:
-                xtra.append(dist)
-            else:
-                dists[dist] = rec
-                specs.append(MatchSpec(' '.join(self.package_quad(dist)[:3])))
-        if xtra:
-            log.debug('Packages missing from index: %s', xtra)
+            dist = Dist(dist)
+            rec = self.index[dist]
+            dists[dist] = rec
+            specs.append(MatchSpec(' '.join(self.package_quad(dist)[:3])))
         r2 = Resolve(dists, True, True)
         C = r2.gen_clauses()
         constraints = r2.generate_spec_constraints(C, specs)
-        try:
-            solution = C.sat(constraints)
-        except TypeError:
-            log.debug('Package set caused an unexpected error, assuming a conflict')
-            solution = None
-        limit = None
+        solution = C.sat(constraints)
+        limit = xtra = None
         if not solution or xtra:
             def get_(name, snames):
                 if name not in snames:
@@ -767,14 +722,21 @@ class Resolve(object):
                     for fn in self.groups.get(name, []):
                         for ms in self.ms_depends(fn):
                             get_(ms.name, snames)
+            # New addition: find the largest set of installed packages that
+            # are consistent with each other, and include those in the
+            # list of packages to maintain consistency with
             snames = set()
+            eq_optional_c = r2.generate_removal_count(C, specs)
+            solution, _ = C.minimize(eq_optional_c, C.sat())
+            snames.update(dists[Dist(q)]['name']
+                          for q in (C.from_index(s) for s in solution)
+                          if q and q[0] != '!' and '@' not in q)
+            # Existing behavior: keep all specs and their dependencies
             for spec in new_specs:
                 get_(MatchSpec(spec).name, snames)
-            xtra = [x for x in xtra if x not in snames]
-            if xtra or not (solution or all(s.name in snames for s in specs)):
-                limit = set(s.name for s in specs if s.name in snames)
-                xtra = [dist for dist in (Dist(fn) for fn in installed)
-                        if self.package_name(dist) not in snames]
+            if len(snames) < len(dists):
+                limit = snames
+                xtra = [dist for dist, rec in iteritems(dists) if rec['name'] not in snames]
                 log.debug('Limiting solver to the following packages: %s', ', '.join(limit))
         if xtra:
             log.debug('Packages to be preserved: %s', xtra)
@@ -884,11 +846,10 @@ class Resolve(object):
             solution, obj7 = C.minimize(eq_optional_c, solution)
             log.debug('Package removal metric: %d', obj7)
 
-            # Requested packages: maximize versions, then builds
+            # Requested packages: maximize versions
             eq_req_v, eq_req_b = r2.generate_version_metrics(C, specr)
             solution, obj3 = C.minimize(eq_req_v, solution)
-            solution, obj4 = C.minimize(eq_req_b, solution)
-            log.debug('Initial package version/build metrics: %d/%d', obj3, obj4)
+            log.debug('Initial package version metric: %d', obj3)
 
             # Track features: minimize feature count
             eq_feature_count = r2.generate_feature_count(C)
@@ -901,7 +862,11 @@ class Resolve(object):
             obj2 = ftotal - obj2
             log.debug('Package feature count: %d', obj2)
 
-            # Dependencies: minimize the number that need upgrading
+            # Requested packages: maximize builds
+            solution, obj4 = C.minimize(eq_req_b, solution)
+            log.debug('Initial package build metric: %d', obj4)
+
+            # Dependencies: minimize the number of packages that need upgrading
             eq_u = r2.generate_update_count(C, speca)
             solution, obj50 = C.minimize(eq_u, solution)
             log.debug('Dependency update count: %d', obj50)
