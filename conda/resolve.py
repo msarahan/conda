@@ -3,7 +3,7 @@ from __future__ import absolute_import, division, print_function, unicode_litera
 import logging
 import re
 
-from .base.constants import DEFAULTS_CHANNEL_NAME, MAX_CHANNEL_PRIORITY
+from .base.constants import DEFAULTS_CHANNEL_NAME, MAX_CHANNEL_PRIORITY, CONDA_TARBALL_EXTENSION
 from .base.context import context
 from .common.compat import iteritems, iterkeys, itervalues, string_types
 from .console import setup_handlers
@@ -51,7 +51,7 @@ class MatchSpec(object):
                 else:
                     raise CondaValueError("Invalid MatchSpec: %s" % spec)
         spec = self.spec = spec.strip()
-        parts = spec.split()
+        parts = (spec,) if spec.endswith(CONDA_TARBALL_EXTENSION) else spec.split()
         nparts = len(parts)
         assert 1 <= nparts <= 3, repr(spec)
         self.name = parts[0]
