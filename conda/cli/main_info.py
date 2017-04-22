@@ -15,8 +15,9 @@ from os.path import exists, expanduser, join
 import re
 import sys
 
-from .common import add_parser_json, add_parser_offline, arg2spec, handle_envs_list, stdout_json
-from ..common.compat import itervalues, on_win, iteritems
+from .common import arg2spec, handle_envs_list, stdout_json
+from .conda_argparse import add_parser_json, add_parser_offline
+from ..common.compat import iteritems, itervalues, on_win
 
 log = getLogger(__name__)
 
