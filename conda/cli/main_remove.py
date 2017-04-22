@@ -12,12 +12,10 @@ import logging
 from os.path import abspath, join
 import sys
 
-from .common import (InstalledPackages, add_parser_channels, add_parser_help, add_parser_json,
-                     add_parser_no_pin, add_parser_no_use_index_cache, add_parser_offline,
-                     add_parser_prefix, add_parser_pscheck, add_parser_quiet,
-                     add_parser_use_index_cache, add_parser_use_local, add_parser_yes, confirm_yn,
-                     ensure_override_channels_requires_channel, ensure_use_local, names_in_specs,
-                     specs_from_args, stdout_json)
+from .conda_argparse import (add_parser_channels, add_parser_help, add_parser_json,
+                             add_parser_no_pin, add_parser_no_use_index_cache, add_parser_offline,
+                             add_parser_prefix, add_parser_pscheck, add_parser_quiet,
+                             add_parser_use_index_cache, add_parser_use_local, add_parser_yes)
 
 try:
     from cytoolz.itertoolz import groupby
@@ -99,11 +97,26 @@ def configure_parser(sub_parsers, name='remove'):
         action="store",
         nargs='*',
         help="Package names to %s from the environment." % name,
-    ).completer = InstalledPackages
+    )
     p.set_defaults(func=execute)
 
 
 def execute(args, parser):
+    from .common import (confirm_yn, ensure_override_channels_requires_channel, ensure_use_local,
+                         names_in_specs, specs_from_args, stdout_json)
+    from .install import check_write
+    from ..base.constants import ROOT_NO_RM
+    from ..base.context import context
+    from ..common.compat import iteritems, iterkeys
+    from ..common.path import is_private_env_path
+    from ..console import json_progress_bars
+    from ..core.index import get_index
+    from ..exceptions import CondaEnvironmentError, CondaValueError, PackageNotFoundError
+    from ..gateways.disk.delete import delete_trash
+    from ..plan import (get_blank_actions)
+    from ..core.solve import get_resolve_object
+    from ..core.solve import solve_for_actions
+    from ..resolve import MatchSpec
     from ..core.linked_data import linked_data
     from ..gateways.disk.delete import rm_rf
     from ..instructions import PREFIX
