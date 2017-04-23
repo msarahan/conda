@@ -145,9 +145,10 @@ def execute(args, parser):
                           prefix=prefix)
     specs = None
     if args.features:
-        specs = ['@' + f for f in set(args.package_names)]
-        actions = remove_actions(prefix, specs, index, pinned=args.pinned)
-        action_groups = actions,
+        specs = [MatchSpec(track_features=f) for f in set(args.package_names)]
+        actions = remove_actions(prefix, specs, index, pinned=context.respect_pinned)
+        actions['ACTION'] = 'REMOVE_FEATURE'
+        action_groups = (actions, index),
     elif args.all:
         if is_root_prefix(prefix):
             raise CondaEnvironmentError('cannot remove root environment,\n'
