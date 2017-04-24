@@ -4,6 +4,7 @@ from __future__ import absolute_import, division, print_function, unicode_litera
 from functools import total_ordering
 
 from .enums import LinkType, NoarchType, Platform
+from .leased_path_entry import LeasedPathEntry
 from .._vendor.auxlib.entity import (BooleanField, ComposableField, DictSafeMixin, Entity,
                                      EnumField, Field, IntegerField, ListField, StringField)
 from ..common.compat import itervalues, string_types
@@ -113,6 +114,9 @@ class IndexRecord(DictSafeMixin, Entity):
     link = ComposableField(Link, required=False)
 
     preferred_env = StringField(default=None, required=False, nullable=True)
+
+    # this is only for LinkedPackageRecord
+    leased_paths = ListField(LeasedPathEntry, required=False)
 
     @property
     def combined_depends(self):
