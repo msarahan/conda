@@ -5,8 +5,7 @@ from abc import ABCMeta, abstractmethod, abstractproperty
 from errno import EXDEV
 import json
 from logging import getLogger
-import os
-from os.path import dirname, join, splitext
+from os.path import dirname, join
 from random import random
 import re
 from time import sleep
@@ -18,10 +17,10 @@ from .._vendor.auxlib.ish import dals
 from ..base.constants import PREFIX_MAGIC_FILE
 from ..base.context import context
 from ..common.compat import iteritems, on_win, range
-from ..common.path import (ensure_pad, get_bin_directory_short_path, get_leaf_directories,
+from ..common.path import (get_bin_directory_short_path, get_leaf_directories,
                            get_python_noarch_target_path, get_python_short_path,
-                           is_private_env_path, parse_entry_point_def,
-                           preferred_env_matches_prefix, pyc_path, url_to_path, win_path_ok)
+                           parse_entry_point_def, preferred_env_to_prefix, pyc_path, url_to_path,
+                           win_path_ok)
 from ..common.url import path_to_url, unquote
 from ..exceptions import CondaUpgradeError, CondaVerificationError, PaddingError
 from ..gateways.disk.create import (compile_pyc, copy, create_application_entry_point,
@@ -290,8 +289,7 @@ class LinkPathAction(CreateInPrefixPathAction):
 
             # with max_retries = 2, max total time ~= 0.4 sec
             # with max_retries = 6, max total time ~= 6.5 sec
-            count = self.transaction_context.get('_verify_backoff_count', 0)
-            max_retries = 2 if count < 2 else 6
+            max_retries = 2 if LinkPathAction._verify_max_backoff_reached else 6
             for n in range(max_retries):
                 sleep_time = ((2 ** n) + random()) * 0.1
                 log.trace("retrying lexists(%s) in %g sec", self.source_full_path, sleep_time)
@@ -300,7 +298,7 @@ class LinkPathAction(CreateInPrefixPathAction):
                     break
             else:
                 # only run the 6.5 second backoff time once
-                self.transaction_context['_verify_backoff_count'] = count + 1
+                LinkPathAction._verify_max_backoff_reached = True
                 return CondaVerificationError(dals("""
                 The package for %s located at %s
                 appears to be corrupted. The path '%s'

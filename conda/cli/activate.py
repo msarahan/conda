@@ -6,8 +6,8 @@ import re as regex
 import sys
 
 from ..common.compat import on_win, text_type
-from ..exceptions import (ArgumentError, CondaSystemExit, CondaValueError, TooFewArgumentsError,
-                          TooManyArgumentsError)
+from ..exceptions import (ArgumentError, CondaEnvironmentError, CondaSystemExit, CondaValueError,
+                          TooFewArgumentsError, TooManyArgumentsError)
 from ..utils import shells
 
 
@@ -158,7 +158,7 @@ def main():
 
         # this should throw an error and exit if the env or path can't be found.
         try:
-            prefix_from_arg(sys.argv[3], shell)
+            prefix = prefix_from_arg(sys.argv[3], shell)
         except ValueError as e:
             raise CondaValueError(text_type(e))
 

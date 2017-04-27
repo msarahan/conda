@@ -6,10 +6,18 @@ from os.path import abspath, basename
 import re
 import sys
 
-from ..base.constants import CONDA_TARBALL_EXTENSION, ROOT_ENV_NAME
+from .. import console
+from .._vendor.auxlib.entity import EntityEncoder
+from ..base.constants import ROOT_ENV_NAME, CONDA_TARBALL_EXTENSION
 from ..base.context import context, get_prefix as context_get_prefix
-from ..common.compat import itervalues
-from ..models.match_spec import MatchSpec
+from ..common.compat import iteritems
+from ..common.constants import NULL
+from ..common.path import is_private_env, prefix_to_env_name
+from ..core.linked_data import linked_data
+from ..exceptions import CondaFileIOError, CondaSystemExit, CondaValueError, DryRunExit
+from ..resolve import MatchSpec
+from ..utils import memoize
+
 
 get_prefix = partial(context_get_prefix, context)
 
@@ -101,12 +109,8 @@ def arg2spec(arg, json=False, update=False):
         # spec_from_line can return None, especially for the case of a .tar.bz2 extension and
         #   a space in the path
         _arg = spec_from_line(arg)
-        if _arg is None:
-            if arg.endswith(CONDA_TARBALL_EXTENSION):
-                _arg = arg
-            else:
-                from ..exceptions import CondaValueError
-                raise CondaValueError("Cannot construct MatchSpec from: %r" % None)
+        if _arg is None and arg.endswith(CONDA_TARBALL_EXTENSION):
+            _arg = arg
         spec = MatchSpec(_arg, normalize=True)
     except:
         from ..exceptions import CondaValueError
