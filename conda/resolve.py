@@ -51,7 +51,7 @@ class MatchSpec(object):
                 else:
                     raise CondaValueError("Invalid MatchSpec: %s" % spec)
         spec = self.spec = spec.strip()
-        parts = spec.split()
+        parts = (spec,) if spec.endswith(CONDA_TARBALL_EXTENSION) else spec.split()
         nparts = len(parts)
         assert 1 <= nparts <= 3, repr(spec)
         self.name = parts[0]

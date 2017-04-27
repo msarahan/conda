@@ -960,145 +960,138 @@ def generate_mocked_record(dist_name):
 
 
 def generate_mocked_context(prefix, root_prefix, envs_dirs):
-    mocked_context = namedtuple("Context", ["prefix", "root_prefix", "envs_dirs", "prefix_specified"])
-    return mocked_context(prefix=prefix, root_prefix=root_prefix, envs_dirs=envs_dirs, prefix_specified=False)
+    mocked_context = namedtuple("Context", ["prefix", "root_prefix", "envs_dirs"])
+    return mocked_context(prefix=prefix, root_prefix=root_prefix, envs_dirs=envs_dirs)
 
 
-# class TestDetermineAllEnvs(unittest.TestCase):
-#     def setUp(self):
-#         self.res = generate_mocked_resolve([
-#             ("ranenv", "test-spec", "rando_chnl", "1"),
-#             (None, "test-spec", "defaults", "5"),
-#             ("test1", "test-spec2", "defaults", "1")
-#         ])
-#         self.specs = [MatchSpec("test-spec"), MatchSpec("test-spec2")]
-#
-#     def test_determine_all_envs(self):
-#         specs_for_envs = plan.determine_all_envs(self.res, self.specs)
-#         expected_output = (plan.SpecForEnv(env=None, spec="test-spec"),
-#                            plan.SpecForEnv(env="_test1_", spec="test-spec2"))
-#         self.assertEquals(specs_for_envs, expected_output)
-#
-#     def test_determine_all_envs_with_channel_priority(self):
-#         self.res = generate_mocked_resolve([
-#             (None, "test-spec", "defaults", "5"),
-#             ("ranenv", "test-spec", "rando_chnl", "1"),
-#             ("test1", "test-spec2", "defaults", "1")
-#         ])
-#         prioritized_channel_map = prioritize_channels(tuple(["rando_chnl", "defaults"]))
-#         specs_for_envs_w_channel_priority = plan.determine_all_envs(
-#             self.res, self.specs, prioritized_channel_map)
-#         expected_output = (plan.SpecForEnv(env="_ranenv_", spec="test-spec"),
-#                            plan.SpecForEnv(env="_test1_", spec="test-spec2"))
-#         self.assertEquals(specs_for_envs_w_channel_priority, expected_output)
-#
-#     def test_determine_all_envs_no_package(self):
-#         specs = [MatchSpec("no-exist")]
-#         with pytest.raises(NoPackagesFoundError) as err:
-#             plan.determine_all_envs(self.res, specs)
-#             assert "no-exist package not found" in str(err)
+class TestDetermineAllEnvs(unittest.TestCase):
+    def setUp(self):
+        self.res = generate_mocked_resolve([
+            ("ranenv", "test-spec", "rando_chnl", "1"),
+            (None, "test-spec", "defaults", "5"),
+            ("test1", "test-spec2", "defaults", "1")
+        ])
+        self.specs = [MatchSpec("test-spec"), MatchSpec("test-spec2")]
+
+    def test_determine_all_envs(self):
+        specs_for_envs = plan.determine_all_envs(self.res, self.specs)
+        expected_output = (plan.SpecForEnv(env=None, spec="test-spec"),
+                           plan.SpecForEnv(env="test1", spec="test-spec2"))
+        self.assertEquals(specs_for_envs, expected_output)
+
+    def test_determine_all_envs_with_channel_priority(self):
+        self.res = generate_mocked_resolve([
+            (None, "test-spec", "defaults", "5"),
+            ("ranenv", "test-spec", "rando_chnl", "1"),
+            ("test1", "test-spec2", "defaults", "1")
+        ])
+        prioritized_channel_map = prioritize_channels(tuple(["rando_chnl", "defaults"]))
+        specs_for_envs_w_channel_priority = plan.determine_all_envs(
+            self.res, self.specs, prioritized_channel_map)
+        expected_output = (plan.SpecForEnv(env="ranenv", spec="test-spec"),
+                           plan.SpecForEnv(env="test1", spec="test-spec2"))
+        self.assertEquals(specs_for_envs_w_channel_priority, expected_output)
+
+    def test_determine_all_envs_no_package(self):
+        specs = [MatchSpec("no-exist")]
+        with pytest.raises(NoPackagesFoundError) as err:
+            plan.determine_all_envs(self.res, specs)
+            assert "no-exist package not found" in str(err)
 
 
-# class TestEnsurePackageNotDuplicatedInPrivateEnvRoot(unittest.TestCase):
-#     def setUp(self):
-#         self.linked_in_root = {
-#             Dist("test1-1.2.3-bs_7"): generate_mocked_record("test1-1.2.3-bs_7")
-#         }
-#
-#     def test_try_install_duplicate_package_in_root(self):
-#         dists_for_envs = [plan.SpecForEnv(env="_env_", spec="test1"),
-#                           plan.SpecForEnv(env=None, spec="something")]
-#         with pytest.raises(InstallError) as err:
-#             plan.ensure_package_not_duplicated_in_private_env_root(
-#                 dists_for_envs, self.linked_in_root)
-#             assert "Package test1 is already installed" in str(err)
-#             assert "Can't install in private environment _env_" in str(err)
-#
-#     def test_try_install_duplicate_package_in_private_env(self):
-#         dists_for_envs = [plan.SpecForEnv(env="_env_", spec="test2"),
-#                           plan.SpecForEnv(env=None, spec="test3")]
-#         with patch.object(EnvsDirectory, "prefix_if_in_private_env") as mock_prefix:
-#             mock_prefix.return_value = "some/prefix"
-#             with pytest.raises(InstallError) as err:
-#                 plan.ensure_package_not_duplicated_in_private_env_root(
-#                     dists_for_envs, self.linked_in_root)
-#                 assert "Package test3 is already installed" in str(err)
-#                 assert "private_env some/prefix" in str(err)
-#
-#     def test_try_install_no_duplicate(self):
-#         dists_for_envs = [plan.SpecForEnv(env="_env_", spec="test2"),
-#                           plan.SpecForEnv(env=None, spec="test3")]
-#         plan.ensure_package_not_duplicated_in_private_env_root(dists_for_envs, self.linked_in_root)
+class TestEnsurePackageNotDuplicatedInPrivateEnvRoot(unittest.TestCase):
+    def setUp(self):
+        self.linked_in_root = {
+            Dist("test1-1.2.3-bs_7"): generate_mocked_record("test1-1.2.3-bs_7")
+        }
+
+    def test_try_install_duplicate_package_in_root(self):
+        dists_for_envs = [plan.SpecForEnv(env="_env_", spec="test1"),
+                          plan.SpecForEnv(env=None, spec="something")]
+        with pytest.raises(InstallError) as err:
+            plan.ensure_packge_not_duplicated_in_private_env_root(
+                dists_for_envs, self.linked_in_root)
+            assert "Package test1 is already installed" in str(err)
+            assert "Can't install in private environment _env_" in str(err)
+
+    def test_try_install_duplicate_package_in_private_env(self):
+        dists_for_envs = [plan.SpecForEnv(env="_env_", spec="test2"),
+                          plan.SpecForEnv(env=None, spec="test3")]
+        with patch.object(common, "prefix_if_in_private_env") as mock_prefix:
+            mock_prefix.return_value = "some/prefix"
+            with pytest.raises(InstallError) as err:
+                plan.ensure_packge_not_duplicated_in_private_env_root(
+                    dists_for_envs, self.linked_in_root)
+                assert "Package test3 is already installed" in str(err)
+                assert "private_env some/prefix" in str(err)
+
+    def test_try_install_no_duplicate(self):
+        dists_for_envs = [plan.SpecForEnv(env="_env_", spec="test2"),
+                          plan.SpecForEnv(env=None, spec="test3")]
+        plan.ensure_packge_not_duplicated_in_private_env_root(dists_for_envs, self.linked_in_root)
 
 
-# # Includes testing for determine_dists_per_prefix and match_to_original_specs
-# class TestGroupDistsForPrefix(unittest.TestCase):
-#     def setUp(self):
-#         pkgs = [
-#             (None, "test-spec", "default", "1"),
-#             ("ranenv", "test-spec", "default", "5"),
-#             ("test1", "test-spec2", "default", "1")]
-#         self.res = generate_mocked_resolve(pkgs)
-#         self.specs = [MatchSpec("test-spec"), MatchSpec("test-spec2")]
-#
-#         self.root_prefix = root_prefix = create_temp_location()
-#         mkdir_p(join(root_prefix, 'conda-meta'))
-#         touch(join(root_prefix, 'conda-meta', 'history'))
-#
-#         self.context = generate_mocked_context(root_prefix, root_prefix,
-#                                                [join(root_prefix, 'envs'),
-#                                                 join(root_prefix, 'envs', '_pre_')])
-#
-#     def tearDown(self):
-#         rm_rf(self.root_prefix)
-#
-#     def test_determine_dists_per_prefix_1(self):
-#         with patch.object(plan, "get_resolve_object") as get_resolve_object:
-#             get_resolve_object.return_value = self.res
-#             preferred_envs_with_specs = {None: ["test-spec", "test-spec2"]}
-#             specs_for_prefix = plan.determine_dists_per_prefix(
-#                 self.root_prefix, self.res.index, preferred_envs_with_specs, self.context)
-#         expected_output = [plan.SpecsForPrefix(
-#             prefix=self.root_prefix, r=self.res, specs={"test-spec", "test-spec2"})]
-#         self.assertEquals(specs_for_prefix, expected_output)
-#
-#     def test_determine_dists_per_prefix_2(self):  # not_requires
-#         root_prefix = self.root_prefix
-#         with env_var("CONDA_ROOT_PREFIX", root_prefix, reset_context):
-#             with env_var("CONDA_ENVS_DIRS", join(root_prefix, 'envs'), reset_context):
-#                 with patch.object(plan, "get_resolve_object") as gen_resolve_object_mock:
-#                     gen_resolve_object_mock.return_value = self.res
-#                     preferred_envs_with_specs = {None: ['test-spec', 'test-spec2'], 'ranenv': ['test']}
-#                     specs_for_prefix = plan.determine_dists_per_prefix(
-#                         root_prefix, self.res.index, preferred_envs_with_specs, self.context)
-#                     expected_output = [
-#                         plan.SpecsForPrefix(prefix=join(root_prefix, 'envs', '_ranenv_'),
-#                                             r=gen_resolve_object_mock(),
-#                                             specs={"test"}),
-#                         plan.SpecsForPrefix(prefix=root_prefix, r=self.res,
-#                                             specs=IndexedSet(("test-spec", "test-spec2")))
-#                     ]
-#                 self.assertEquals(expected_output, specs_for_prefix)
-#
-#     def test_match_to_original_specs(self):
-#         str_specs = ["test 1.2.0", "test-spec 1.1*", "test-spec2 <4.3"]
-#         test_r = self.res
-#         grouped_specs = [
-#             plan.SpecsForPrefix(prefix="some/prefix/envs/_ranenv_",
-#                                 r=test_r,
-#                                 specs=IndexedSet(("test",))),
-#             plan.SpecsForPrefix(prefix="some/prefix", r=self.res,
-#                                 specs=IndexedSet(("test-spec", "test-spec2")))]
-#         matched = plan.match_to_original_specs(str_specs, grouped_specs)
-#         expected_output = [
-#             plan.SpecsForPrefix(prefix="some/prefix/envs/_ranenv_",
-#                                 r=test_r,
-#                                 specs=["test 1.2.0"]),
-#             plan.SpecsForPrefix(prefix="some/prefix", r=self.res,
-#                                 specs=["test-spec 1.1*", "test-spec2 <4.3"])]
-#
-#         assert len(matched) == len(expected_output)
-#         assert matched == expected_output
+# Includes testing for determine_dists_per_prefix and match_to_original_specs
+class TestGroupDistsForPrefix(unittest.TestCase):
+    def setUp(self):
+        pkgs = [
+            (None, "test-spec", "default", "1"),
+            ("ranenv", "test-spec", "default", "5"),
+            ("test1", "test-spec2", "default", "1")]
+        self.res = generate_mocked_resolve(pkgs)
+        self.specs = [MatchSpec("test-spec"), MatchSpec("test-spec2")]
+        self.context = generate_mocked_context(
+            "some/prefix", "some/prefix", ["some/prefix/envs", "some/prefix/envs/_pre_"])
+
+    def test_not_requires_private_env(self):
+        with patch.object(plan, "not_requires_private_env") as not_requires:
+            not_requires.return_value = True
+            dists_for_envs = [plan.SpecForEnv(env=None, spec="test-spec"),
+                              plan.SpecForEnv(env=None, spec="test-spec2")]
+            specs_for_prefix = plan.determine_dists_per_prefix(
+                self.res, "some/envs/prefix", self.res.index, "prefix", dists_for_envs, self.context)
+        expected_output = [plan.SpecsForPrefix(
+            prefix="some/envs/prefix", r=self.res, specs={"test-spec", "test-spec2"})]
+        self.assertEquals(specs_for_prefix, expected_output)
+
+    @patch.object(plan, "not_requires_private_env", return_value=False)
+    def test_determine_dists_per_prefix(self, not_requires):
+        with patch.object(plan, "get_resolve_object") as gen_resolve_object_mock:
+            gen_resolve_object_mock.return_value = self.res
+            dists_for_envs = [plan.SpecForEnv(env=None, spec="test-spec"),
+                              plan.SpecForEnv(env=None, spec="test-spec2"),
+                              plan.SpecForEnv(env="ranenv", spec="test")]
+            specs_for_prefix = plan.determine_dists_per_prefix(
+                self.res, "some/prefix", self.res.index, ["ranenv", None], dists_for_envs, self.context)
+            expected_output = [
+                plan.SpecsForPrefix(prefix="some/prefix/envs/_ranenv_",
+                                    r=gen_resolve_object_mock(),
+                                    specs={"test"}),
+                plan.SpecsForPrefix(prefix="some/prefix", r=self.res,
+                                    specs=IndexedSet(("test-spec", "test-spec2")))
+            ]
+        self.assertEquals(expected_output, specs_for_prefix)
+
+    def test_match_to_original_specs(self):
+        str_specs = ["test 1.2.0", "test-spec 1.1*", "test-spec2 <4.3"]
+        test_r = self.res
+        grouped_specs = [
+            plan.SpecsForPrefix(prefix="some/prefix/envs/_ranenv_",
+                                r=test_r,
+                                specs=IndexedSet(("test",))),
+            plan.SpecsForPrefix(prefix="some/prefix", r=self.res,
+                                specs=IndexedSet(("test-spec", "test-spec2")))]
+        matched = plan.match_to_original_specs(tuple(MatchSpec(s) for s in str_specs),
+                                               grouped_specs)
+        expected_output = [
+            plan.SpecsForPrefix(prefix="some/prefix/envs/_ranenv_",
+                                r=test_r,
+                                specs=[MatchSpec("test 1.2.0")]),
+            plan.SpecsForPrefix(prefix="some/prefix", r=self.res,
+                                specs=[MatchSpec("test-spec 1.1*"), MatchSpec("test-spec2 <4.3")])]
+
+        assert len(matched) == len(expected_output)
+        assert matched == expected_output
 
 
 class TestGetActionsForDist(unittest.TestCase):

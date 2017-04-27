@@ -5,7 +5,7 @@ from abc import ABCMeta, abstractmethod, abstractproperty
 from errno import EXDEV
 import json
 from logging import getLogger
-from os.path import dirname, join, splitext
+from os.path import dirname, join
 from random import random
 import re
 from time import sleep
@@ -17,16 +17,16 @@ from .._vendor.auxlib.ish import dals
 from ..base.constants import PREFIX_MAGIC_FILE
 from ..base.context import context
 from ..common.compat import iteritems, on_win, range
-from ..common.path import (ensure_pad, get_bin_directory_short_path, get_leaf_directories,
+from ..common.path import (get_bin_directory_short_path, get_leaf_directories,
                            get_python_noarch_target_path, get_python_short_path,
-                           is_private_env_path, parse_entry_point_def,
-                           preferred_env_matches_prefix, pyc_path, url_to_path, win_path_ok)
+                           parse_entry_point_def, preferred_env_to_prefix, pyc_path, url_to_path,
+                           win_path_ok)
 from ..common.url import path_to_url, unquote
 from ..exceptions import CondaUpgradeError, CondaVerificationError, PaddingError
 from ..gateways.disk.create import (compile_pyc, copy, create_application_entry_point,
                                     create_fake_executable_softlink, create_hard_link_or_copy,
                                     create_link, create_python_entry_point, extract_tarball,
-                                    make_menu, write_linked_package_record)
+                                    make_menu, write_linked_package_record, write_as_json_to_file)
 from ..gateways.disk.delete import rm_rf, try_rmdir_all_empty
 from ..gateways.disk.link import symlink
 from ..gateways.disk.read import compute_md5sum, isfile, islink, lexists
@@ -289,8 +289,7 @@ class LinkPathAction(CreateInPrefixPathAction):
 
             # with max_retries = 2, max total time ~= 0.4 sec
             # with max_retries = 6, max total time ~= 6.5 sec
-            count = self.transaction_context.get('_verify_backoff_count', 0)
-            max_retries = 2 if count < 2 else 6
+            max_retries = 2 if LinkPathAction._verify_max_backoff_reached else 6
             for n in range(max_retries):
                 sleep_time = ((2 ** n) + random()) * 0.1
                 log.trace("retrying lexists(%s) in %g sec", self.source_full_path, sleep_time)
@@ -299,7 +298,7 @@ class LinkPathAction(CreateInPrefixPathAction):
                     break
             else:
                 # only run the 6.5 second backoff time once
-                self.transaction_context['_verify_backoff_count'] = count + 1
+                LinkPathAction._verify_max_backoff_reached = True
                 return CondaVerificationError(dals("""
                 The package for %s located at %s
                 appears to be corrupted. The path '%s'
@@ -630,14 +629,25 @@ class CreateApplicationSoftlinkAction(CreateLeasedPathAction):
             softlink_supported_test_file = join(target_prefix, PREFIX_MAGIC_FILE)
 
             def make_softlink_exe_axn(softlink_short_path):
-                if on_win and not softlink_supported(softlink_supported_test_file, root_prefix):
-                    root_short_path = splitext(softlink_short_path)[0] + '.bat'
-                    fake_softlink = True
-                else:
+                if not on_win:  # pragma: win no cover
                     root_short_path = softlink_short_path
-                    fake_softlink = False
+                    softlink_method = 'softlink'
+                else:  # pragma: unix no cover
+                    windows_pathext = os.getenv('PATHEXT', '').lower().split(';')
+                    path_root, path_ext = splitext(softlink_short_path)
+
+                    if softlink_supported(softlink_supported_test_file, root_prefix):
+                        root_short_path = softlink_short_path
+                        softlink_method = 'softlink'
+                    elif path_ext.lower() in windows_pathext:
+                        root_short_path = splitext(softlink_short_path)[0] + '.bat'
+                        softlink_method = 'fake_exe_softlink'
+                    else:
+                        root_short_path = softlink_short_path
+                        softlink_method = 'softlink_or_fail_ok'
+
                 return cls(transaction_context, package_info, target_prefix, softlink_short_path,
-                           root_prefix, root_short_path, fake_softlink)
+                           root_prefix, root_short_path, softlink_method)
 
             return tuple(make_softlink_exe_axn(softlink_short_path)
                          for softlink_short_path in softlink_paths)
@@ -646,23 +656,30 @@ class CreateApplicationSoftlinkAction(CreateLeasedPathAction):
             return ()
 
     def __init__(self, transaction_context, package_info, source_prefix, source_short_path,
-                 target_prefix, target_short_path, fake_softlink):
+                 target_prefix, target_short_path, softlink_method):
         super(CreateApplicationSoftlinkAction, self).__init__(transaction_context, package_info,
                                                               source_prefix, source_short_path,
                                                               target_prefix, target_short_path)
-        self.fake_softlink = fake_softlink
+        self.softlink_method = softlink_method
 
     def execute(self):
-        log.trace("creating application softlink %s => %s",
-                  self.source_full_path, self.target_full_path)
-
-        if self.fake_softlink:
-            create_fake_executable_softlink(self.source_full_path, self.target_full_path)
-        else:
-            symlink(self.source_full_path, self.target_full_path)
-            assert islink(self.target_full_path)
-
+        log.trace("creating application softlink via %s %s => %s",
+                  self.softlink_method, self.source_full_path, self.target_full_path)
+        getattr(self, self.softlink_method)()
         self._execute_successful = True
+
+    def softlink(self):
+        symlink(self.source_full_path, self.target_full_path)
+        assert islink(self.target_full_path)
+
+    def fake_exe_softlink(self):  # pragma: unix no cover
+        create_fake_executable_softlink(self.source_full_path, self.target_full_path)
+
+    def softlink_or_fail_ok(self):  # pragma: unix no cover
+        try:
+            symlink(self.source_full_path, self.target_full_path)
+        except (IOError, OSError) as e:
+            log.trace('%r', e)
 
     @property
     def leased_path_type(self):
@@ -1093,11 +1110,13 @@ class CacheUrlAction(PathAction):
 
 class ExtractPackageAction(PathAction):
 
-    def __init__(self, source_full_path, target_pkgs_dir, target_extracted_dirname):
+    def __init__(self, source_full_path, target_pkgs_dir, target_extracted_dirname,
+                 record):
         self.source_full_path = source_full_path
         self.target_pkgs_dir = target_pkgs_dir
         self.target_extracted_dirname = target_extracted_dirname
         self.hold_path = self.target_full_path + '.c~'
+        self.record = record
 
     def verify(self):
         self._verified = True
@@ -1124,6 +1143,8 @@ class ExtractPackageAction(PathAction):
                 else:
                     raise
         extract_tarball(self.source_full_path, self.target_full_path)
+        meta = join(self.target_full_path, 'info', 'repodata_record.json')
+        write_as_json_to_file(meta, self.record)
 
         target_package_cache = PackageCache(self.target_pkgs_dir)
 
