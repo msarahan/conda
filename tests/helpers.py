@@ -11,6 +11,13 @@ import json
 from conda.gateways import initialize_logging
 from shlex import split
 
+from os.path import join
+from tempfile import gettempdir
+from uuid import uuid4
+
+from conda.gateways.disk.delete import rm_rf
+from conda.gateways.disk.read import lexists
+
 from conda.base.context import reset_context
 from conda.common.io import captured, argv, replace_log_streams
 from conda.gateways.logging import initialize_logging
@@ -44,17 +51,6 @@ def raises(exception, func, string=None):
         return True
     raise Exception("did not raise, gave %s" % a)
 
-
-def run_conda_command(*args):
-    # used in tests_config (31 times) and test_info (6 times)
-    # anything that uses this function is an integration test
-    env = {str(k): str(v) for k, v in iteritems(os.environ)}
-    p = subprocess.Popen((sys.executable, "-m", "conda") + args, stdout=subprocess.PIPE,
-                         stderr=subprocess.PIPE, env=env)
-    stdout, stderr = p.communicate()
-    return (stdout.decode('utf-8').replace('\r\n', '\n'),
-        stderr.decode('utf-8').replace('\r\n', '\n').replace(
-        "Using Anaconda API: https://api.anaconda.org\n", ""))
 
 class CapturedText(object):
     pass
@@ -98,9 +94,7 @@ def captured(disallow_stderr=True):
         "Using Anaconda API: https://api.anaconda.org\n", "")
 
 
-def capture_json_with_argv(*argv, **kwargs):
-    # used in test_config (6 times), test_info (2 times), test_list (5 times), and test_search (10 times)
-    # anything that uses this function is an integration test
+def capture_json_with_argv(command, **kwargs):
     stdout, stderr, exit_code = run_inprocess_conda_command(command)
     if kwargs.get('relaxed'):
         match = re.match('\A.*?({.*})', stdout, re.DOTALL)
@@ -140,3 +134,16 @@ def run_inprocess_conda_command(command):
     print(c.stderr, file=sys.stderr)
     print(c.stdout)
     return c.stdout, c.stderr, exit_code
+
+
+@contextmanager
+def tempdir():
+    tempdirdir = gettempdir()
+    dirname = str(uuid4())[:8]
+    prefix = join(tempdirdir, dirname)
+    try:
+        os.makedirs(prefix)
+        yield prefix
+    finally:
+        if lexists(prefix):
+            rm_rf(prefix)

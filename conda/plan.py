@@ -9,24 +9,19 @@ NOTE:
 """
 from __future__ import absolute_import, division, print_function, unicode_literals
 
-from collections import defaultdict, namedtuple
+from collections import defaultdict
 from logging import getLogger
-from os.path import abspath, basename, exists, join
+from os.path import abspath
 import sys
 
-from . import instructions as inst
-from ._vendor.boltons.setutils import IndexedSet
 from .base.constants import DEFAULTS_CHANNEL_NAME, UNKNOWN_CHANNEL
 from .base.context import context
-from .cli import common
-from .cli.common import pkg_if_in_private_env, prefix_if_in_private_env
-from .common.compat import odict, on_win
-from .common.path import (is_private_env, preferred_env_matches_prefix,
-                          preferred_env_to_prefix, prefix_to_env_name)
-from .core.index import _supplement_index_with_prefix
+from .common.compat import on_win
+from .common.path import is_private_env_path
+from .core.link import PrefixSetup, UnlinkLinkTransaction
 from .core.linked_data import is_linked, linked_data
 from .core.package_cache import ProgressiveFetchExtract
-from .exceptions import (ArgumentError, CondaIndexError, CondaRuntimeError,
+from .exceptions import (ArgumentError, CondaIndexError,
                          InstallError, RemoveError)
 from .history import History
 from .instructions import (ACTION_CODES, CHECK_EXTRACT, CHECK_FETCH, EXTRACT, FETCH, LINK, PREFIX,
@@ -36,14 +31,14 @@ from .instructions import (ACTION_CODES, CHECK_EXTRACT, CHECK_FETCH, EXTRACT, FE
 from .models.channel import Channel
 from .models.dist import Dist
 from .models.enums import LinkType
+from .models.version import normalized_version
 from .resolve import MatchSpec, Resolve
 from .utils import human_bytes
-from .version import normalized_version
 
 try:
-    from cytoolz.itertoolz import concatv, groupby
+    from cytoolz.itertoolz import concat, concatv, groupby, remove
 except ImportError:
-    from ._vendor.toolz.itertoolz import concatv, groupby  # NOQA
+    from ._vendor.toolz.itertoolz import concat, concatv, groupby, remove  # NOQA
 
 log = getLogger(__name__)
 
@@ -61,6 +56,10 @@ def print_dists(dists_extras):
 
 
 def display_actions(actions, index, show_channel_urls=None):
+    prefix = actions.get("PREFIX")
+    if prefix:
+        print("Package plan for environment '%s':" % prefix)
+
     if show_channel_urls is None:
         show_channel_urls = context.show_channel_urls
 
@@ -230,7 +229,7 @@ def display_actions(actions, index, show_channel_urls=None):
             print(format(oldfmt[pkg] + arrow + newfmt[pkg], pkg))
 
     if channeled:
-        print("\nThe following packages will be SUPERCEDED by a higher-priority channel:\n")
+        print("\nThe following packages will be SUPERSEDED by a higher-priority channel:\n")
         for pkg in sorted(channeled):
             print(format(oldfmt[pkg] + arrow + newfmt[pkg], pkg))
 
@@ -258,24 +257,6 @@ def add_unlink(actions, dist):
     if UNLINK not in actions:
         actions[UNLINK] = []
     actions[UNLINK].append(dist)
-
-
-def add_checks(actions):
-    """
-    Adds appropriate checks to a given dict of actions. For example, if arg 'actions'
-    has a LINK action, add a CHECK_LINK, which will check if permissions are
-    suitable for linking.
-
-    Args:
-        actions: a defaultdict(list) of actions that are to be performed, e.g. FETCH
-
-    Returns:
-        the actions dict with the appropriate checks added
-    """
-    if FETCH in actions:
-        actions.setdefault(CHECK_FETCH, [True])
-    if EXTRACT in actions:
-        actions.setdefault(CHECK_EXTRACT, [True])
 
 
 def handle_menuinst(unlink_dists, link_dists):
@@ -306,7 +287,7 @@ def handle_menuinst(unlink_dists, link_dists):
     return unlink_dists, link_dists
 
 
-def inject_UNLINKLINKTRANSACTION(plan, index, prefix):
+def inject_UNLINKLINKTRANSACTION(plan, index, prefix, axn, specs):
     # TODO: we really shouldn't be mutating the plan list here; turn plan into a tuple
     first_unlink_link_idx = next((q for q, p in enumerate(plan) if p[0] in (UNLINK, LINK)), -1)
     if first_unlink_link_idx >= 0:
@@ -319,8 +300,11 @@ def inject_UNLINKLINKTRANSACTION(plan, index, prefix):
         pfe = ProgressiveFetchExtract(index, link_dists)
         pfe.prepare()
 
-        plan.insert(first_unlink_link_idx, (UNLINKLINKTRANSACTION, (unlink_dists, link_dists)))
+        stp = PrefixSetup(index, prefix, unlink_dists, link_dists, axn, specs)
+        plan.insert(first_unlink_link_idx, (UNLINKLINKTRANSACTION, UnlinkLinkTransaction(stp)))
         plan.insert(first_unlink_link_idx, (PROGRESSIVEFETCHEXTRACT, pfe))
+    elif axn in ('INSTALL', 'CREATE'):
+        plan.insert(0, (UNLINKLINKTRANSACTION, (prefix, (), (), axn, specs)))
 
     return plan
 
@@ -333,7 +317,19 @@ def plan_from_actions(actions, index):
 
     assert PREFIX in actions and actions[PREFIX]
     prefix = actions[PREFIX]
-    plan = [('PREFIX', '%s' % actions[PREFIX])]
+    plan = [('PREFIX', '%s' % prefix)]
+
+    unlink_link_transaction = actions.get('UNLINKLINKTRANSACTION')
+    if unlink_link_transaction:
+        raise RuntimeError()
+        # progressive_fetch_extract = actions.get('PROGRESSIVEFETCHEXTRACT')
+        # if progressive_fetch_extract:
+        #     plan.append((PROGRESSIVEFETCHEXTRACT, progressive_fetch_extract))
+        # plan.append((UNLINKLINKTRANSACTION, unlink_link_transaction))
+        # return plan
+
+    axn = actions.get('ACTION') or None
+    specs = actions.get('SPECS', [])
 
     log.debug("Adding plans for operations: {0}".format(op_order))
     for op in op_order:
@@ -353,7 +349,7 @@ def plan_from_actions(actions, index):
             log.debug("appending value {0} for action {1}".format(arg, op))
             plan.append((op, arg))
 
-    plan = inject_UNLINKLINKTRANSACTION(plan, index, prefix)
+    plan = inject_UNLINKLINKTRANSACTION(plan, index, prefix, axn, specs)
 
     return plan
 
@@ -375,16 +371,22 @@ def ensure_linked_actions(dists, prefix, index=None, force=False,
         actions[LINK].append(dist)
     return actions
 
+
+def get_blank_actions(prefix):
+    actions = defaultdict(list)
+    actions[PREFIX] = prefix
+    actions['op_order'] = (CHECK_FETCH, RM_FETCHED, FETCH, CHECK_EXTRACT,
+                           RM_EXTRACTED, EXTRACT,
+                           UNLINK, LINK, SYMLINK_CONDA)
+    return actions
+
+
 # -------------------------------------------------------------------
-
-
-def is_root_prefix(prefix):
-    return abspath(prefix) == abspath(context.root_prefix)
 
 
 def add_defaults_to_specs(r, linked, specs, update=False, prefix=None):
     # TODO: This should use the pinning mechanism. But don't change the API because cas uses it
-    if r.explicit(specs) or is_private_env(prefix):
+    if r.explicit(specs) or is_private_env_path(prefix):
         return
     log.debug('H0 specs=%r' % specs)
     names_linked = {r.package_name(d): d for d in linked if d in r.index}
@@ -409,7 +411,7 @@ def add_defaults_to_specs(r, linked, specs, update=False, prefix=None):
             log.debug('H2A %s' % name)
             continue
 
-        if any(s.is_exact() for s in depends_on):
+        if any(s.exact_field('build') for s in depends_on):
             # If something depends on Python/Numpy, but the spec is very
             # explicit, we also don't need to add the default spec
             log.debug('H2B %s' % name)
@@ -436,11 +438,22 @@ def add_defaults_to_specs(r, linked, specs, update=False, prefix=None):
 
 
 def get_pinned_specs(prefix):
+    """Find pinned specs from file and return a tuple of MatchSpec."""
     pinfile = join(prefix, 'conda-meta', 'pinned')
-    if not exists(pinfile):
-        return []
-    with open(pinfile) as f:
-        return [i for i in f.read().strip().splitlines() if i and not i.strip().startswith('#')]
+    if exists(pinfile):
+        with open(pinfile) as f:
+            from_file = (i for i in f.read().strip().splitlines()
+                         if i and not i.strip().startswith('#'))
+    else:
+        from_file = ()
+
+    from .cli.common import spec_from_line
+
+    def munge_spec(s):
+        return s if ' ' in s else spec_from_line(s)
+
+    return tuple(MatchSpec(munge_spec(s), optional=True) for s in
+                 concatv(context.pinned_packages, from_file))
 
 
 # Has one spec (string) for each env
@@ -451,60 +464,15 @@ SpecsForPrefix = namedtuple('DistsForPrefix', ['prefix', 'specs', 'r'])
 
 def install_actions(prefix, index, specs, force=False, only_names=None, always_copy=False,
                     pinned=True, minimal_hint=False, update_deps=True, prune=False,
-                    channel_priority_map=None, is_update=False):
-    # type: (str, Dict[Dist, Record], List[str], bool, Option[List[str]], bool, bool, bool,
-    #        bool, bool, bool, Dict[str, Sequence[str, int]]) -> Dict[weird]
-    str_specs = specs
-    specs = [MatchSpec(spec) for spec in specs]
-    r = get_resolve_object(index.copy(), prefix)
-
-    linked_in_root = linked_data(context.root_prefix)
-
-    # Ensure that there is only on prefix to install into
-    dists_for_envs = determine_all_envs(r, specs)
-    ensure_packge_not_duplicated_in_private_env_root(dists_for_envs, linked_in_root)
-    preferred_envs = set(d.env for d in dists_for_envs)
-    assert len(preferred_envs) == 1
-
-    specs_for_prefix = SpecsForPrefix(
-        prefix=prefix, specs=tuple(str_specs), r=r
-    )
-    actions = get_actions_for_dists(specs_for_prefix, only_names, index, force, always_copy, prune,
-                                    update_deps, pinned)
-    return actions
-
-
-def install_actions_list(prefix, index, specs, force=False, only_names=None, always_copy=False,
-                         pinned=True, minimal_hint=False, update_deps=True, prune=False,
-                         channel_priority_map=None, is_update=False):
-    # type: (str, Dict[Dist, Record], List[str], bool, Option[List[str]], bool, bool, bool,
-    #        bool, bool, bool, Dict[str, Sequence[str, int]]) -> List[Dict[weird]]
-    str_specs = specs
-    specs = [MatchSpec(spec) for spec in specs]
-    r = get_resolve_object(index.copy(), prefix)
-
-    linked_in_root = linked_data(context.root_prefix)
-
-    dists_for_envs = determine_all_envs(r, specs, channel_priority_map=channel_priority_map)
-    ensure_packge_not_duplicated_in_private_env_root(dists_for_envs, linked_in_root)
-    preferred_envs = set(d.env for d in dists_for_envs)
-
-    # Group specs by prefix
-    grouped_specs = determine_dists_per_prefix(r, prefix, index, preferred_envs,
-                                               dists_for_envs, context)
-
-    # Replace SpecsForPrefix specs with specs that were passed in in order to retain
-    #   version information
-    required_solves = match_to_original_specs(str_specs, grouped_specs)
-
-    actions = [get_actions_for_dists(dists_by_prefix, only_names, index, force,
-                                     always_copy, prune, update_deps, pinned)
-               for dists_by_prefix in required_solves]
-
-    # Need to add unlink actions if updating a private env from root
-    if is_update and prefix == context.root_prefix:
-        add_unlink_options_for_update(actions, required_solves, index)
-
+                    channel_priority_map=None, is_update=False):  # pragma: no cover
+    # this is for conda-build
+    txn = get_install_transaction_single(prefix, index, specs, force, only_names, always_copy,
+                                         pinned, minimal_hint, update_deps, prune,
+                                         channel_priority_map, is_update)
+    prefix_setup = txn.prefix_setups[prefix]
+    actions = get_blank_actions(prefix)
+    actions['UNLINK'].extend(prefix_setup.unlink_dists)
+    actions['LINK'].extend(prefix_setup.link_dists)
     return actions
 
 
@@ -703,33 +671,54 @@ These packages need to be removed before conda can proceed.""" % (' '.join(linke
 
 
 def augment_specs(prefix, specs, pinned=True):
-    # get conda-meta/pinned
+    """
+    Include additional specs for conda and (optionally) pinned packages.
+
+    Parameters
+    ----------
+    prefix : str
+        Environment prefix.
+    specs : list of MatchSpec
+        List of package specifications to augment.
+    pinned : bool, optional
+        Optionally include pinned specs for the current environment.
+
+    Returns
+    -------
+    augmented_specs : list of MatchSpec
+       List of augmented package specifications.
+    """
+    specs = list(specs)
+
+    # Get conda-meta/pinned
     if pinned:
         pinned_specs = get_pinned_specs(prefix)
-        log.debug("Pinned specs=%s" % pinned_specs)
-        specs += [MatchSpec(spec) for spec in pinned_specs]
+        log.debug("Pinned specs=%s", pinned_specs)
+        specs.extend(pinned_specs)
 
-    # support aggressive auto-update conda
+    # Support aggressive auto-update conda
     #   Only add a conda spec if conda and conda-env are not in the specs.
     #   Also skip this step if we're offline.
-    root_only = ('conda', 'conda-env')
-    mss = [MatchSpec(s) for s in specs if s.name.startswith(root_only)]
-    mss = [ms for ms in mss if ms.name in root_only]
+    root_only_specs_str = ('conda', 'conda-env')
+    conda_in_specs_str = any(spec for spec in specs if spec.name in root_only_specs_str)
+
     if is_root_prefix(prefix):
-        if context.auto_update_conda and not context.offline and not mss:
+        if context.auto_update_conda and not context.offline and not conda_in_specs_str:
             specs.append(MatchSpec('conda'))
             specs.append(MatchSpec('conda-env'))
     elif basename(prefix).startswith('_'):
-        # anything (including conda) can be installed into environments
+        # Anything (including conda) can be installed into environments
         # starting with '_', mainly to allow conda-build to build conda
         pass
-    elif mss:
-        raise InstallError("Error: 'conda' can only be installed into the root environment")
+    elif conda_in_specs_str:
+        raise InstallError("Error: 'conda' can only be installed into the "
+                           "root environment")
 
-    # support track_features config parameter
+    # Support track_features config parameter
     if context.track_features:
         specs.extend(x + '@' for x in context.track_features)
-    return specs
+
+    return tuple(specs)
 
 
 def remove_actions(prefix, specs, index, force=False, pinned=True):
@@ -749,7 +738,7 @@ def remove_actions(prefix, specs, index, force=False, pinned=True):
 
     if pinned:
         pinned_specs = get_pinned_specs(prefix)
-        log.debug("Pinned specs=%s" % pinned_specs)
+        log.debug("Pinned specs=%s", pinned_specs)
 
     linked = {r.package_name(dist): dist for dist in linked_dists}
 
@@ -761,7 +750,7 @@ def remove_actions(prefix, specs, index, force=False, pinned=True):
             continue
         if pinned and any(r.match(ms, old_dist) for ms in pinned_specs):
             msg = "Cannot remove %s because it is pinned. Use --no-pin to override."
-            raise CondaRuntimeError(msg % old_dist.to_filename())
+            raise RemoveError(msg % old_dist.to_filename())
         if context.conda_in_root and name == 'conda' and name not in nlinked and not context.force:
             if any(s.split(' ', 1)[0] == 'conda' for s in specs):
                 raise RemoveError("'conda' cannot be removed from the root environment")
@@ -769,19 +758,27 @@ def remove_actions(prefix, specs, index, force=False, pinned=True):
                 raise RemoveError("Error: this 'remove' command cannot be executed because it\n"
                                   "would require removing 'conda' dependencies")
         add_unlink(actions, old_dist)
-
+    actions['SPECS'].extend(specs)
+    actions['ACTION'] = 'REMOVE'
     return actions
 
 
-def remove_spec_action_from_prefix(prefix, dist):
-    actions = defaultdict(list)
-    actions[inst.PREFIX] = prefix
-    actions['op_order'] = (inst.CHECK_FETCH, inst.RM_FETCHED, inst.FETCH, inst.CHECK_EXTRACT,
-                           inst.RM_EXTRACTED, inst.EXTRACT,
-                           inst.UNLINK, inst.LINK, inst.SYMLINK_CONDA)
-
-    add_unlink(actions, dist)
-    return actions
+def remove_actions(prefix, specs, index, force=False, pinned=True):
+    return _remove_actions(prefix, specs, index, force, pinned)
+    # TODO: can't do this yet because   py.test tests/test_create.py -k test_remove_features
+    # if force:
+    #     return _remove_actions(prefix, specs, index, force, pinned)
+    # else:
+    #     specs = set(MatchSpec(s) for s in specs)
+    #     unlink_dists, link_dists = solve_for_actions(prefix, get_resolve_object(index.copy(), prefix),  # NOQA
+    #                                                  specs_to_remove=specs)
+    #
+    #     actions = get_blank_actions(prefix)
+    #     actions['UNLINK'].extend(unlink_dists)
+    #     actions['LINK'].extend(link_dists)
+    #     actions['SPECS'].extend(specs)
+    #     actions['ACTION'] = 'REMOVE'
+    #     return actions
 
 
 def revert_actions(prefix, revision=-1, index=None):
@@ -789,6 +786,8 @@ def revert_actions(prefix, revision=-1, index=None):
     # change
     h = History(prefix)
     h.update()
+    user_requested_specs_and_dists = h.get_requested_specs()
+    user_requested_specs = tuple(x[0] for x in user_requested_specs_and_dists)
     try:
         state = h.get_state(revision)
     except IndexError:
@@ -796,31 +795,38 @@ def revert_actions(prefix, revision=-1, index=None):
 
     curr = h.get_state()
     if state == curr:
-        return {}
+        return {}  # TODO: return txn with nothing_to_do
 
-    dists = (Dist(s) for s in state)
-    actions = ensure_linked_actions(dists, prefix)
-    for dist in curr - state:
-        add_unlink(actions, Dist(dist))
+    r = get_resolve_object(index, prefix)
+    state = r.dependency_sort({d.name: d for d in (Dist(s) for s in state)})
+    curr = set(Dist(s) for s in curr)
+
+    link_dists = tuple(d for d in state if not is_linked(prefix, d))
+    unlink_dists = set(curr) - set(state)
+
+    # dists = (Dist(s) for s in state)
+    # actions = ensure_linked_actions(dists, prefix)
+    # for dist in curr - state:
+    #     add_unlink(actions, Dist(dist))
 
     # check whether it is a safe revision
-    from .instructions import LINK, UNLINK, FETCH
-    from .exceptions import CondaRevisionError
-    for arg in set(actions.get(LINK, []) + actions.get(UNLINK, []) + actions.get(FETCH, [])):
-        dist = Dist(arg)
+    for dist in concatv(link_dists, unlink_dists):
         if dist not in index:
+            from .exceptions import CondaRevisionError
             msg = "Cannot revert to {}, since {} is not in repodata".format(revision, dist)
             raise CondaRevisionError(msg)
 
-    return actions
+    stp = PrefixSetup(index, prefix, unlink_dists, link_dists, 'INSTALL',
+                      user_requested_specs)
+    txn = UnlinkLinkTransaction(stp)
+    return txn
 
 
 # ---------------------------- EXECUTION --------------------------
 
 def execute_actions(actions, index, verbose=False):
     plan = plan_from_actions(actions, index)
-    with History(actions[PREFIX]):
-        execute_instructions(plan, index, verbose)
+    execute_instructions(plan, index, verbose)
 
 
 def update_old_plan(old_plan):
