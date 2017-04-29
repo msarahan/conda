@@ -1060,7 +1060,6 @@ class IntegrationTests(TestCase):
 
             assert_package_is_installed(prefix, 'numpy')
 
-
     def test_conda_list_json(self):
         def pkg_info(s):
             # function from nb_conda/envmanager.py
