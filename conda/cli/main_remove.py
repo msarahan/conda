@@ -151,7 +151,8 @@ def execute(args, parser):
         if is_root_prefix(prefix):
             raise CondaEnvironmentError('cannot remove root environment,\n'
                                         '       add -n NAME or -p PREFIX option')
-        actions = {PREFIX: prefix}
+        actions = defaultdict(list)
+        actions[PREFIX] = prefix
         for dist in sorted(iterkeys(index)):
             add_unlink(actions, dist)
         action_groups = actions,
