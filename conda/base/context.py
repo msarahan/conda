@@ -360,7 +360,7 @@ class Context(Configuration):
 
     @property
     def conda_prefix(self):
-        return sys.prefix
+        return normpath(sys.prefix)
 
     @memoizedproperty
     def channel_alias(self):
