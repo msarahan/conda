@@ -41,6 +41,7 @@ _platform_map = {
 non_x86_linux_machines = {
     'armv6l',
     'armv7l',
+    'aarch64',
     'ppc64le',
 }
 _arch_names = {
@@ -134,6 +135,7 @@ class Context(Configuration):
     always_yes = PrimitiveParameter(False, aliases=('yes',))
     channel_priority = PrimitiveParameter(True)
     debug = PrimitiveParameter(False)
+    dry_run = PrimitiveParameter(False)
     force = PrimitiveParameter(False)
     json = PrimitiveParameter(False)
     offline = PrimitiveParameter(False)
@@ -201,6 +203,10 @@ class Context(Configuration):
             return expand('~/conda-bld')
 
     @property
+    def local_build_root(self):
+        return self.croot
+
+    @property
     def src_cache(self):
         path = join(self.croot, 'src_cache')
         conda_bld_ensure_dir(path)
@@ -258,15 +264,6 @@ class Context(Configuration):
             return 32
         else:
             return 8 * tuple.__itemsize__
-
-    @property
-    def local_build_root(self):
-        if self.bld_path:
-            return expand(self.bld_path)
-        elif self.root_writable:
-            return join(self.conda_prefix, 'conda-bld')
-        else:
-            return expand('~/conda-bld')
 
     @property
     def root_dir(self):
@@ -458,7 +455,7 @@ class Context(Configuration):
             'croot',
             'debug',
             'default_python',
-            'enable_private_envs',
+            'dry_run',
             'force_32bit',
             'max_shlvl',
             'migrated_custom_channels',
