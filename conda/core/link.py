@@ -420,8 +420,28 @@ class UnlinkLinkTransaction(object):
         ) if exc)
         return exceptions
 
-    @classmethod
-    def _execute(cls, all_action_groups):
+        if exceptions:
+            maybe_raise(CondaMultiError(exceptions), context)
+        else:
+            log.info(exceptions)
+
+        self._verified = True
+
+    def execute(self):
+        if not self._verified:
+            self.verify()
+
+        assert not context.dry_run
+        # make sure prefix directory exists
+        if not isdir(self.target_prefix):
+            try:
+                mkdir_p(self.target_prefix)
+            except (IOError, OSError) as e:
+                log.debug(repr(e))
+                raise CondaError("Unable to create prefix directory '%s'.\n"
+                                 "Check that you have sufficient permissions."
+                                 "" % self.target_prefix)
+
         with signal_handler(conda_signal_handler):
             pkg_idx = 0
             try:

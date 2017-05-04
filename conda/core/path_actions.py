@@ -291,7 +291,7 @@ class LinkPathAction(CreateInPrefixPathAction):
             # with max_retries = 3, max total time ~= 0.8 sec
             # with max_retries = 6, max total time ~= 6.5 sec
             count = self.transaction_context.get('_verify_backoff_count', 0)
-            max_retries = 6 if count < 4 else 3
+            max_retries = 6 if count < 2 else 2
             for n in range(max_retries):
                 sleep_time = ((2 ** n) + random()) * 0.1
                 log.trace("retrying lexists(%s) in %g sec", self.source_full_path, sleep_time)
@@ -300,7 +300,7 @@ class LinkPathAction(CreateInPrefixPathAction):
                     break
             else:
                 # only run the 6.5 second backoff time once
-                LinkPathAction._verify_max_backoff_reached = True
+                self.transaction_context['_verify_backoff_count'] = count + 1
                 return CondaVerificationError(dals("""
                 The package for %s located at %s
                 appears to be corrupted. The path '%s'
