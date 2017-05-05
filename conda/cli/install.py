@@ -9,8 +9,6 @@ from __future__ import absolute_import, division, print_function, unicode_litera
 import errno
 import logging
 import os
-import re
-from difflib import get_close_matches
 from os.path import abspath, basename, exists, isdir, join
 
 from . import common
