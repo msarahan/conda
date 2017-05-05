@@ -9,8 +9,6 @@ from __future__ import absolute_import, division, print_function, unicode_litera
 import errno
 import logging
 import os
-import re
-from difflib import get_close_matches
 from os.path import abspath, basename, exists, isdir, join
 
 from . import common
@@ -317,19 +315,15 @@ def install(args, parser, command='install'):
         if e.args and 'could not import' in e.args[0]:
             raise CondaImportError(text_type(e))
         raise
+
+    if unlink_link_transaction.nothing_to_do and not newenv:
+        if context.json:
+            common.stdout_json_success(message='All requested packages already installed.')
+        else:
+            print('\n# All requested packages already installed.\n')
+        return
+
     if not context.json:
-        if unlink_link_transaction.nothing_to_do and not newenv:
-            from .main_list import print_packages
-
-            if not context.json:
-                spec_regex = r'^(%s)$' % re.escape('|'.join(s.split()[0] for s in ospecs))
-                print('\n# All requested packages already installed.')
-                print_packages(prefix, spec_regex)
-            else:
-                common.stdout_json_success(
-                    message='All requested packages already installed.')
-            return
-
         unlink_link_transaction.display_actions(progressive_fetch_extract)
         common.confirm_yn(args)
 
