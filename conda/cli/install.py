@@ -316,15 +316,25 @@ def install(args, parser, command='install'):
             raise CondaImportError(text_type(e))
         raise
 
-    if unlink_link_transaction.nothing_to_do and not newenv:
-        if context.json:
-            common.stdout_json_success(message='All requested packages already installed.')
+    if any(nothing_to_do(actions) for actions in action_set) and not newenv:
+        if not context.json:
+            from .main_list import print_packages
+
+            spec_regex = r'^(%s)$' % '|'.join(re.escape(s.split()[0]) for s in ospecs)
+            print('\n# All requested packages already installed.')
+            for action in action_set:
+                print_packages(action["PREFIX"], spec_regex)
         else:
-            print('\n# All requested packages already installed.\n')
+            common.stdout_json_success(
+                message='All requested packages already installed.')
         return
 
     if not context.json:
-        unlink_link_transaction.display_actions(progressive_fetch_extract)
+        for actions in action_set:
+            print()
+            print("Package plan for installation in environment %s:" % actions["PREFIX"])
+            display_actions(actions, index, show_channel_urls=context.show_channel_urls)
+            # TODO: this is where the transactions should be instantiated
         common.confirm_yn(args)
 
     elif args.dry_run:
