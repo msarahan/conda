@@ -94,41 +94,30 @@ def make_unlink_actions(transaction_context, target_prefix, linked_package_data)
     ))
 
 
-def match_specs_to_dists(packages_info_to_link, specs):
-    matched_specs = [None for _ in range(len(packages_info_to_link))]
-    for spec in specs or ():
-        spec = MatchSpec(spec)
-        idx = next((q for q, pkg_info in enumerate(packages_info_to_link)
-                    if pkg_info.index_json_record.name == spec.name),
-                   None)
-        if idx is not None:
-            matched_specs[idx] = spec
-    return tuple(matched_specs)
+class UnlinkLinkTransaction(object):
 
+    @classmethod
+    def create_from_dists(cls, index, target_prefix, unlink_dists, link_dists):
+        # This constructor method helps to patch into the 'plan' framework
+        lnkd_pkg_data = (load_meta(target_prefix, dist) for dist in unlink_dists)
+        # TODO: figure out if this filter shouldn't be an assert not None
+        linked_packages_data_to_unlink = tuple(lpd for lpd in lnkd_pkg_data if lpd)
 
-PrefixSetup = namedtuple('PrefixSetup', (
-    'index',
-    'target_prefix',
-    'unlink_dists',
-    'link_dists',
-    'command_action',
-    'requested_specs',
-))
+        log.debug("instantiating UnlinkLinkTransaction with\n"
+                  "  target_prefix: %s\n"
+                  "  unlink_dists:\n"
+                  "    %s\n"
+                  "  link_dists:\n"
+                  "    %s\n",
+                  target_prefix,
+                  '\n    '.join(text_type(d) for d in unlink_dists),
+                  '\n    '.join(text_type(d) for d in link_dists))
 
-PrefixActionGroup = namedtuple('PrefixActionGroup', (
-    'unlink_action_groups',
-    'unregister_action_groups',
-    'link_action_groups',
-    'register_action_groups',
-))
-
-# each PrefixGroup item is a sequence of ActionGroups
-ActionGroup = namedtuple('ActionGroup', (
-    'type',
-    'pkg_data',
-    'actions',
-    'target_prefix',
-))
+        pkg_dirs_to_link = tuple(PackageCache.get_entry_to_link(dist).extracted_package_dir
+                                 for dist in link_dists)
+        assert all(pkg_dirs_to_link)
+        packages_info_to_link = tuple(read_package_info(index[dist], pkg_dir)
+                                      for dist, pkg_dir in zip(link_dists, pkg_dirs_to_link))
 
 
 class UnlinkLinkTransaction(object):
