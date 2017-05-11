@@ -9,18 +9,26 @@ from __future__ import absolute_import, division, print_function, unicode_litera
 from argparse import RawDescriptionHelpFormatter
 from collections import defaultdict
 import logging
-from os.path import abspath, join
+from os.path import abspath, join, isdir
 import sys
 
-from .conda_argparse import (add_parser_channels, add_parser_help, add_parser_json,
-                             add_parser_no_pin, add_parser_no_use_index_cache, add_parser_offline,
-                             add_parser_prefix, add_parser_pscheck, add_parser_quiet,
-                             add_parser_use_index_cache, add_parser_use_local, add_parser_yes)
-
-try:
-    from cytoolz.itertoolz import groupby
-except ImportError:
-    from .._vendor.toolz.itertoolz import groupby
+from .common import (InstalledPackages, add_parser_channels, add_parser_help, add_parser_json,
+                     add_parser_no_pin, add_parser_no_use_index_cache, add_parser_offline,
+                     add_parser_prefix, add_parser_pscheck, add_parser_quiet,
+                     add_parser_use_index_cache, add_parser_use_local, add_parser_yes, confirm_yn,
+                     create_prefix_spec_map_with_deps, ensure_override_channels_requires_channel,
+                     ensure_use_local, names_in_specs, specs_from_args, stdout_json,
+                     add_parser_insecure)
+from .install import check_write
+from ..base.constants import ROOT_NO_RM
+from ..base.context import context
+from ..common.compat import iteritems, iterkeys
+from ..common.path import is_private_env, prefix_to_env_name
+from ..console import json_progress_bars
+from ..core.index import get_index
+from ..exceptions import CondaEnvironmentError, CondaValueError, PackageNotFoundError
+from ..gateways.disk.delete import delete_trash
+from ..resolve import Resolve
 
 help = "%s a list of packages from a specified conda environment."
 descr = help + """
@@ -91,6 +99,7 @@ def configure_parser(sub_parsers, name='remove'):
     add_parser_use_local(p)
     add_parser_offline(p)
     add_parser_pscheck(p)
+    add_parser_insecure(p)
     p.add_argument(
         'package_names',
         metavar='package_name',
@@ -130,6 +139,10 @@ def execute(args, parser):
     if args.all and prefix == context.default_prefix:
         msg = "cannot remove current environment. deactivate and run conda remove again"
         raise CondaEnvironmentError(msg)
+    if args.all and not isdir(prefix):
+        # full environment removal was requested, but environment doesn't exist anyway
+        return 0
+
     ensure_use_local(args)
     ensure_override_channels_requires_channel(args)
     if not args.features and args.all:
@@ -203,10 +216,15 @@ def execute(args, parser):
                     'actions': tuple(x[0] for x in action_groups)
                 })
             return
-        error_message = 'no packages found to remove from environment: %s' % prefix
+
+        pkg = str(args.package_names).replace("['", "")
+        pkg = pkg.replace("']", "")
+
+        error_message = "No packages named '%s' found to remove from environment." % pkg
         raise PackageNotFoundError(error_message)
-    if not context.json:
-        for actions, ndx in action_groups:
+
+    for action in action_groups:
+        if not context.json:
             print()
             print("Package plan for package removal in environment %s:" % action["PREFIX"])
             display_actions(action, index)

@@ -94,41 +94,30 @@ def make_unlink_actions(transaction_context, target_prefix, linked_package_data)
     ))
 
 
-def match_specs_to_dists(packages_info_to_link, specs):
-    matched_specs = [None for _ in range(len(packages_info_to_link))]
-    for spec in specs or ():
-        spec = MatchSpec(spec)
-        idx = next((q for q, pkg_info in enumerate(packages_info_to_link)
-                    if pkg_info.index_json_record.name == spec.name),
-                   None)
-        if idx is not None:
-            matched_specs[idx] = spec
-    return tuple(matched_specs)
+class UnlinkLinkTransaction(object):
 
+    @classmethod
+    def create_from_dists(cls, index, target_prefix, unlink_dists, link_dists):
+        # This constructor method helps to patch into the 'plan' framework
+        lnkd_pkg_data = (load_meta(target_prefix, dist) for dist in unlink_dists)
+        # TODO: figure out if this filter shouldn't be an assert not None
+        linked_packages_data_to_unlink = tuple(lpd for lpd in lnkd_pkg_data if lpd)
 
-PrefixSetup = namedtuple('PrefixSetup', (
-    'index',
-    'target_prefix',
-    'unlink_dists',
-    'link_dists',
-    'command_action',
-    'requested_specs',
-))
+        log.debug("instantiating UnlinkLinkTransaction with\n"
+                  "  target_prefix: %s\n"
+                  "  unlink_dists:\n"
+                  "    %s\n"
+                  "  link_dists:\n"
+                  "    %s\n",
+                  target_prefix,
+                  '\n    '.join(text_type(d) for d in unlink_dists),
+                  '\n    '.join(text_type(d) for d in link_dists))
 
-PrefixActionGroup = namedtuple('PrefixActionGroup', (
-    'unlink_action_groups',
-    'unregister_action_groups',
-    'link_action_groups',
-    'register_action_groups',
-))
-
-# each PrefixGroup item is a sequence of ActionGroups
-ActionGroup = namedtuple('ActionGroup', (
-    'type',
-    'pkg_data',
-    'actions',
-    'target_prefix',
-))
+        pkg_dirs_to_link = tuple(PackageCache.get_entry_to_link(dist).extracted_package_dir
+                                 for dist in link_dists)
+        assert all(pkg_dirs_to_link)
+        packages_info_to_link = tuple(read_package_info(index[dist], pkg_dir)
+                                      for dist, pkg_dir in zip(link_dists, pkg_dirs_to_link))
 
 
 class UnlinkLinkTransaction(object):
@@ -420,8 +409,28 @@ class UnlinkLinkTransaction(object):
         ) if exc)
         return exceptions
 
-    @classmethod
-    def _execute(cls, all_action_groups):
+        if exceptions:
+            maybe_raise(CondaMultiError(exceptions), context)
+        else:
+            log.info(exceptions)
+
+        self._verified = True
+
+    def execute(self):
+        if not self._verified:
+            self.verify()
+
+        assert not context.dry_run
+        # make sure prefix directory exists
+        if not isdir(self.target_prefix):
+            try:
+                mkdir_p(self.target_prefix)
+            except (IOError, OSError) as e:
+                log.debug(repr(e))
+                raise CondaError("Unable to create prefix directory '%s'.\n"
+                                 "Check that you have sufficient permissions."
+                                 "" % self.target_prefix)
+
         with signal_handler(conda_signal_handler):
             pkg_idx = 0
             try:
@@ -690,7 +699,7 @@ def run_script(prefix, dist, action='post-link', env_prefix=None):
             log.info("failed to run %s for %s due to COMSPEC KeyError", action, dist)
             return False
     else:
-        shell_path = '/bin/sh' if 'bsd' in sys.platform else '/bin/bash'
+        shell_path = 'sh' if 'bsd' in sys.platform else 'bash'
         command_args = [shell_path, "-x", path]
 
     env['ROOT_PREFIX'] = context.root_prefix

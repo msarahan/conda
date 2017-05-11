@@ -41,6 +41,7 @@ _platform_map = {
 non_x86_linux_machines = {
     'armv6l',
     'armv7l',
+    'aarch64',
     'ppc64le',
 }
 _arch_names = {
@@ -99,6 +100,7 @@ class Context(Configuration):
 
     # remote connection details
     ssl_verify = PrimitiveParameter(True, element_type=string_types + (bool,),
+                                    aliases=('insecure',),
                                     validation=ssl_verify_validation)
     client_ssl_cert = PrimitiveParameter(None, aliases=('client_cert',),
                                          element_type=string_types + (NoneType,))
@@ -134,9 +136,12 @@ class Context(Configuration):
     always_yes = PrimitiveParameter(False, aliases=('yes',))
     channel_priority = PrimitiveParameter(True)
     debug = PrimitiveParameter(False)
+    dry_run = PrimitiveParameter(False)
     force = PrimitiveParameter(False)
     json = PrimitiveParameter(False)
+    no_dependencies = PrimitiveParameter(False, aliases=('no_deps',))
     offline = PrimitiveParameter(False)
+    only_dependencies = PrimitiveParameter(False, aliases=('only_deps',))
     quiet = PrimitiveParameter(False)
     prune = PrimitiveParameter(False)
     respect_pinned = PrimitiveParameter(True)
@@ -453,10 +458,12 @@ class Context(Configuration):
             'croot',
             'debug',
             'default_python',
-            'enable_private_envs',
+            'dry_run',
             'force_32bit',
             'max_shlvl',
             'migrated_custom_channels',
+            'no_dependencies',
+            'only_dependencies',
             'prune',
             'respect_pinned',
             'root_prefix',

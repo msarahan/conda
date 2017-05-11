@@ -8,7 +8,7 @@ from logging import getLogger
 import os
 from os import X_OK, access, makedirs
 from os.path import basename, dirname, isdir, isfile, join, splitext
-import shutil
+from shutil import copy as shutil_copy, copystat
 import sys
 import tarfile
 import traceback
@@ -25,7 +25,7 @@ from ..._vendor.auxlib.ish import dals
 from ...base.constants import ENVS_DIR_MAGIC_FILE, PACKAGE_CACHE_MAGIC_FILE
 from ...base.context import context
 from ...common.compat import ensure_binary, on_win
-from ...common.path import ensure_pad, win_path_double_escape, win_path_ok
+from ...common.path import win_path_ok
 from ...core.portability import replace_long_shebang
 from ...exceptions import BasicClobberError, CondaOSError, maybe_raise
 from ...models.dist import Dist
@@ -200,7 +200,7 @@ def create_hard_link_or_copy(src, dst):
         link(src, dst)
     except (IOError, OSError):
         log.info('hard link failed, so copying %s => %s', src, dst)
-        shutil.copy2(src, dst)
+        _do_copy(src, dst)
 
 
 def _is_unix_executable_using_ORIGIN(path):
@@ -218,18 +218,8 @@ def _do_softlink(src, dst):
         # A future optimization will be to copy code from @mingwandroid's virtualenv patch.
         copy(src, dst)
     else:
+        log.trace("soft linking %s => %s", src, dst)
         symlink(src, dst)
-
-
-def create_fake_executable_softlink(src, dst):
-    assert on_win
-    src_root, _ = splitext(src)
-    # TODO: this open will clobber, consider raising
-    with open(dst, 'w') as f:
-        f.write("@echo off\n"
-                "call \"%s\" %%*\n"
-                "" % src_root)
-    return dst
 
 
 def copy(src, dst):
@@ -238,9 +228,21 @@ def copy(src, dst):
         src_points_to = readlink(src)
         if not src_points_to.startswith('/'):
             # copy relative symlinks as symlinks
+            log.trace("soft linking %s => %s", src, dst)
             symlink(src_points_to, dst)
             return
-    shutil.copy2(src, dst)
+    _do_copy(src, dst)
+
+
+def _do_copy(src, dst):
+    log.trace("copying %s => %s", src, dst)
+    shutil_copy(src, dst)
+    try:
+        copystat(src, dst)
+    except (IOError, OSError) as e:  # pragma: no cover
+        # shutil.copystat gives a permission denied when using the os.setxattr function
+        # on the security.selinux property.
+        log.debug('%r', e)
 
 
 def create_link(src, dst, link_type=LinkType.hardlink, force=False):
@@ -268,13 +270,14 @@ def create_link(src, dst, link_type=LinkType.hardlink, force=False):
         if isdir(src):
             raise CondaError("Cannot hard link a directory. %s" % src)
         try:
+            log.trace("hard linking %s => %s", src, dst)
             link(src, dst)
         except (IOError, OSError) as e:
             log.debug("hard-link failed. falling back to copy\n"
                       "  error: %r\n"
                       "  src: %s\n"
                       "  dst: %s", e, src, dst)
-            _do_copy(src, dst)
+            copy(src, dst)
     elif link_type == LinkType.softlink:
         _do_softlink(src, dst)
     elif link_type == LinkType.copy:

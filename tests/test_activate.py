@@ -12,357 +12,280 @@ from uuid import uuid4
 from conda import CONDA_PACKAGE_ROOT
 import pytest
 
-from conda._vendor.auxlib.ish import dals
-from conda._vendor.toolz.itertoolz import concatv
-from conda.activate import Activator, main as activate_main, native_path_to_unix
-from conda.base.context import context, reset_context
-from conda.common.compat import iteritems, on_win, string_types
-from conda.common.io import captured, env_var, env_vars
-from conda.exceptions import EnvironmentLocationNotFound, EnvironmentNameNotFound
-from conda.gateways.disk.create import mkdir_p
-from conda.gateways.disk.delete import rm_rf
-from conda.gateways.disk.update import touch
-from tests.helpers import tempdir
-
-try:
-    from unittest.mock import patch
-except ImportError:
-    from mock import patch
-
-log = getLogger(__name__)
-
-
-class ActivatorUnitTests(TestCase):
-
-    def test_activate_environment_not_found(self):
-        activator = Activator('posix')
-
-        with tempdir() as td:
-            with pytest.raises(EnvironmentLocationNotFound):
-                activator.build_activate(td)
-
-        with pytest.raises(EnvironmentLocationNotFound):
-            activator.build_activate('/not/an/environment')
-
-        with pytest.raises(EnvironmentNameNotFound):
-            activator.build_activate('wontfindmeIdontexist_abc123')
-
-    def test_wrong_args(self):
-        pass
-
-    def test_activate_help(self):
-        pass
-
-    def test_PS1(self):
-        with env_var("CONDA_CHANGEPS1", "yes", reset_context):
-            activator = Activator('posix')
-            assert activator._prompt_modifier('root') == '(root) '
-
-            instructions = activator.build_activate("root")
-            assert instructions['set_vars']['CONDA_PROMPT_MODIFIER'] == '(root) '
-
-    def test_PS1_no_changeps1(self):
-        with env_var("CONDA_CHANGEPS1", "no", reset_context):
-            activator = Activator('posix')
-            assert activator._prompt_modifier('root') == ''
-
-            instructions = activator.build_activate("root")
-            assert instructions['set_vars']['CONDA_PROMPT_MODIFIER'] == ''
-
-    def test_add_prefix_to_path(self):
-        activator = Activator('posix')
-
-        path_dirs = activator.path_conversion(['/path1/bin', '/path2/bin', '/usr/local/bin', '/usr/bin', '/bin'])
-        assert len(path_dirs) == 5
-        test_prefix = '/usr/mytest/prefix'
-        added_paths = activator.path_conversion(activator._get_path_dirs(test_prefix))
-        if isinstance(added_paths, string_types):
-            added_paths = added_paths,
-
-        new_path = activator._add_prefix_to_path(test_prefix, path_dirs)
-        assert new_path == added_paths + path_dirs
-
-    def test_remove_prefix_from_path_1(self):
-        activator = Activator('posix')
-        original_path = tuple(activator._get_starting_path_list())
-        keep_path = activator.path_conversion('/keep/this/path')
-        final_path = (keep_path,) + original_path
-        final_path = activator.path_conversion(final_path)
-
-        test_prefix = join(os.getcwd(), 'mytestpath')
-        new_paths = tuple(activator._get_path_dirs(test_prefix))
-        prefix_added_path = (keep_path,) + new_paths + original_path
-        new_path = activator._remove_prefix_from_path(test_prefix, prefix_added_path)
-        assert final_path == new_path
-
-    def test_remove_prefix_from_path_2(self):
-        # this time prefix doesn't actually exist in path
-        activator = Activator('posix')
-        original_path = tuple(activator._get_starting_path_list())
-        keep_path = activator.path_conversion('/keep/this/path')
-        final_path = (keep_path,) + original_path
-        final_path = activator.path_conversion(final_path)
-
-        test_prefix = join(os.getcwd(), 'mytestpath')
-        prefix_added_path = (keep_path,) + original_path
-        new_path = activator._remove_prefix_from_path(test_prefix, prefix_added_path)
-
-        assert final_path == new_path
-
-    def test_replace_prefix_in_path_1(self):
-        activator = Activator('posix')
-        original_path = tuple(activator._get_starting_path_list())
-        new_prefix = join(os.getcwd(), 'mytestpath-new')
-        new_paths = activator.path_conversion(activator._get_path_dirs(new_prefix))
-        if isinstance(new_paths, string_types):
-            new_paths = new_paths,
-        keep_path = activator.path_conversion('/keep/this/path')
-        final_path = (keep_path,) + new_paths + original_path
-        final_path = activator.path_conversion(final_path)
-
-        replace_prefix = join(os.getcwd(), 'mytestpath')
-        replace_paths = tuple(activator._get_path_dirs(replace_prefix))
-        prefix_added_path = (keep_path,) + replace_paths + original_path
-        new_path = activator._replace_prefix_in_path(replace_prefix, new_prefix, prefix_added_path)
-
-        assert final_path == new_path
-
-    def test_default_env(self):
-        activator = Activator('posix')
-        assert 'root' == activator._default_env(context.root_prefix)
-
-        with tempdir() as td:
-            assert td == activator._default_env(td)
-
-            p = mkdir_p(join(td, 'envs', 'named-env'))
-            assert 'named-env' == activator._default_env(p)
-
-    def test_build_activate_shlvl_0(self):
-        with tempdir() as td:
-            mkdir_p(join(td, 'conda-meta'))
-            activate_d_dir = mkdir_p(join(td, 'etc', 'conda', 'activate.d'))
-            activate_d_1 = join(activate_d_dir, 'see-me.sh')
-            activate_d_2 = join(activate_d_dir, 'dont-see-me.bat')
-            touch(join(activate_d_1))
-            touch(join(activate_d_2))
-
-            with env_var('CONDA_SHLVL', '0'):
-                with env_var('CONDA_PREFIX', ''):
-                    activator = Activator('posix')
-                    builder = activator.build_activate(td)
-                    new_path = activator.pathsep_join(activator._add_prefix_to_path(td))
-
-                    assert builder['unset_vars'] == ()
-
-                    set_vars = {
-                        'CONDA_PYTHON_EXE': activator.path_conversion(sys.executable),
-                        'PATH': new_path,
-                        'CONDA_PREFIX': activator.path_conversion(td),
-                        'CONDA_SHLVL': 1,
-                        'CONDA_DEFAULT_ENV': td,
-                        'CONDA_PROMPT_MODIFIER': "(%s) " % td,
-                    }
-                    assert builder['set_vars'] == set_vars
-                    assert builder['activate_scripts'] == (activator.path_conversion(activate_d_1),)
-                    assert builder['deactivate_scripts'] == ()
-
-    def test_build_activate_shlvl_1(self):
-        with tempdir() as td:
-            mkdir_p(join(td, 'conda-meta'))
-            activate_d_dir = mkdir_p(join(td, 'etc', 'conda', 'activate.d'))
-            activate_d_1 = join(activate_d_dir, 'see-me.sh')
-            activate_d_2 = join(activate_d_dir, 'dont-see-me.bat')
-            touch(join(activate_d_1))
-            touch(join(activate_d_2))
-
-            old_prefix = '/old/prefix'
-            with env_var('CONDA_SHLVL', '1'):
-                with env_var('CONDA_PREFIX', old_prefix):
-                    activator = Activator('posix')
-                    builder = activator.build_activate(td)
-                    new_path = activator.pathsep_join(activator._add_prefix_to_path(td))
-
-                    assert builder['unset_vars'] == ()
-
-                    set_vars = {
-                        'PATH': new_path,
-                        'CONDA_PREFIX': activator.path_conversion(td),
-                        'CONDA_PREFIX_1': old_prefix,
-                        'CONDA_SHLVL': 2,
-                        'CONDA_DEFAULT_ENV': td,
-                        'CONDA_PROMPT_MODIFIER': "(%s) " % td,
-                    }
-                    assert builder['set_vars'] == set_vars
-                    assert builder['activate_scripts'] == (activator.path_conversion(activate_d_1),)
-                    assert builder['deactivate_scripts'] == ()
-
-    def test_build_activate_shlvl_2(self):
-        with tempdir() as td:
-            mkdir_p(join(td, 'conda-meta'))
-            activate_d_dir = mkdir_p(join(td, 'etc', 'conda', 'activate.d'))
-            activate_d_1 = join(activate_d_dir, 'see-me.sh')
-            activate_d_2 = join(activate_d_dir, 'dont-see-me.bat')
-            touch(join(activate_d_1))
-            touch(join(activate_d_2))
-
-            old_prefix = join(td, 'old')
-            deactivate_d_dir = mkdir_p(join(old_prefix, 'etc', 'conda', 'deactivate.d'))
-            deactivate_d_1 = join(deactivate_d_dir, 'see-me.sh')
-            deactivate_d_2 = join(deactivate_d_dir, 'dont-see-me.bat')
-            touch(join(deactivate_d_1))
-            touch(join(deactivate_d_2))
-
-            with env_var('CONDA_SHLVL', '2'):
-                with env_var('CONDA_PREFIX', old_prefix):
-                    activator = Activator('posix')
-                    builder = activator.build_activate(td)
-                    new_path = activator.pathsep_join(activator._add_prefix_to_path(td))
-
-                    assert builder['unset_vars'] == ()
-
-                    set_vars = {
-                        'PATH': new_path,
-                        'CONDA_PREFIX': activator.path_conversion(td),
-                        'CONDA_DEFAULT_ENV': td,
-                        'CONDA_PROMPT_MODIFIER': "(%s) " % td,
-                    }
-                    assert builder['set_vars'] == set_vars
-                    assert builder['activate_scripts'] == (activator.path_conversion(activate_d_1),)
-                    assert builder['deactivate_scripts'] == (activator.path_conversion(deactivate_d_1),)
-
-    def test_activate_same_environment(self):
-        with tempdir() as td:
-            mkdir_p(join(td, 'conda-meta'))
-            activate_d_dir = mkdir_p(join(td, 'etc', 'conda', 'activate.d'))
-            activate_d_1 = join(activate_d_dir, 'see-me.sh')
-            activate_d_2 = join(activate_d_dir, 'dont-see-me.bat')
-            touch(join(activate_d_1))
-            touch(join(activate_d_2))
-
-            old_prefix = td
-            deactivate_d_dir = mkdir_p(join(old_prefix, 'etc', 'conda', 'deactivate.d'))
-            deactivate_d_1 = join(deactivate_d_dir, 'see-me.sh')
-            deactivate_d_2 = join(deactivate_d_dir, 'dont-see-me.bat')
-            touch(join(deactivate_d_1))
-            touch(join(deactivate_d_2))
-
-            with env_var('CONDA_SHLVL', '2'):
-                with env_var('CONDA_PREFIX', old_prefix):
-                    activator = Activator('posix')
-                    builder = activator.build_activate(td)
-
-                    assert builder['unset_vars'] == ()
-                    assert builder['set_vars'] == {}
-                    assert builder['activate_scripts'] == (activator.path_conversion(activate_d_1),)
-                    assert builder['deactivate_scripts'] == (activator.path_conversion(deactivate_d_1),)
-
-    def test_build_deactivate_shlvl_2(self):
-        with tempdir() as td:
-            mkdir_p(join(td, 'conda-meta'))
-            deactivate_d_dir = mkdir_p(join(td, 'etc', 'conda', 'deactivate.d'))
-            deactivate_d_1 = join(deactivate_d_dir, 'see-me-deactivate.sh')
-            deactivate_d_2 = join(deactivate_d_dir, 'dont-see-me.bat')
-            touch(join(deactivate_d_1))
-            touch(join(deactivate_d_2))
-
-            old_prefix = join(td, 'old')
-            activate_d_dir = mkdir_p(join(old_prefix, 'etc', 'conda', 'activate.d'))
-            activate_d_1 = join(activate_d_dir, 'see-me-activate.sh')
-            activate_d_2 = join(activate_d_dir, 'dont-see-me.bat')
-            touch(join(activate_d_1))
-            touch(join(activate_d_2))
-
-            with env_var('CONDA_SHLVL', '2'):
-                with env_var('CONDA_PREFIX_1', old_prefix):
-                    with env_var('CONDA_PREFIX', td):
-                        activator = Activator('posix')
-                        original_path = tuple(activator._get_starting_path_list())
-
-                        builder = activator.build_deactivate()
-
-                        assert builder['unset_vars'] == ('CONDA_PREFIX_1',)
-
-                        new_path = activator.pathsep_join(activator.path_conversion(original_path))
-
-                        set_vars = {
-                            'PATH': new_path,
-                            'CONDA_SHLVL': 1,
-                            'CONDA_PREFIX': old_prefix,
-                            'CONDA_DEFAULT_ENV': old_prefix,
-                            'CONDA_PROMPT_MODIFIER': "(%s) " % old_prefix,
-                        }
-                        assert builder['set_vars'] == set_vars
-                        assert builder['activate_scripts'] == (activator.path_conversion(activate_d_1),)
-                        assert builder['deactivate_scripts'] == (activator.path_conversion(deactivate_d_1),)
-
-    def test_build_deactivate_shlvl_1(self):
-        with tempdir() as td:
-            mkdir_p(join(td, 'conda-meta'))
-            deactivate_d_dir = mkdir_p(join(td, 'etc', 'conda', 'deactivate.d'))
-            deactivate_d_1 = join(deactivate_d_dir, 'see-me-deactivate.sh')
-            deactivate_d_2 = join(deactivate_d_dir, 'dont-see-me.bat')
-            touch(join(deactivate_d_1))
-            touch(join(deactivate_d_2))
-
-            with env_var('CONDA_SHLVL', '1'):
-                with env_var('CONDA_PREFIX', td):
-                    activator = Activator('posix')
-                    original_path = tuple(activator._get_starting_path_list())
-                    builder = activator.build_deactivate()
-
-                    assert builder['unset_vars'] == (
-                        'CONDA_PREFIX',
-                        'CONDA_DEFAULT_ENV',
-                        'CONDA_PYTHON_EXE',
-                        'CONDA_PROMPT_MODIFIER',
-                    )
-
-                    new_path = activator.pathsep_join(activator.path_conversion(original_path))
-                    assert builder['set_vars'] == {
-                        'PATH': new_path,
-                        'CONDA_SHLVL': 0,
-                    }
-                    assert builder['activate_scripts'] == ()
-                    assert builder['deactivate_scripts'] == (activator.path_conversion(deactivate_d_1),)
-
-
-class ShellWrapperUnitTests(TestCase):
-
-    def setUp(self):
-        tempdirdir = gettempdir()
-
-        prefix_dirname = str(uuid4())[:4] + ' ' + str(uuid4())[:4]
-        self.prefix = join(tempdirdir, prefix_dirname)
-        mkdir_p(join(self.prefix, 'conda-meta'))
-        assert isdir(self.prefix)
-        touch(join(self.prefix, 'conda-meta', 'history'))
-
-    def tearDown(self):
-        rm_rf(self.prefix)
-
-    def make_dot_d_files(self, extension):
-        mkdir_p(join(self.prefix, 'etc', 'conda', 'activate.d'))
-        mkdir_p(join(self.prefix, 'etc', 'conda', 'deactivate.d'))
-
-        touch(join(self.prefix, 'etc', 'conda', 'activate.d', 'ignore.txt'))
-        touch(join(self.prefix, 'etc', 'conda', 'deactivate.d', 'ignore.txt'))
-
-        touch(join(self.prefix, 'etc', 'conda', 'activate.d', 'activate1' + extension))
-        touch(join(self.prefix, 'etc', 'conda', 'deactivate.d', 'deactivate1' + extension))
-
-    def test_native_path_to_unix(self):
-        def assert_unix_path(path):
-            assert '\\' not in path, path
-            assert ':' not in path, path
-            return True
-
-        path1 = join(self.prefix, 'path', 'number', 'one')
-        path2 = join(self.prefix, 'path', 'two')
-        path3 = join(self.prefix, 'three')
-        paths = (path1, path2, path3)
-
-        if on_win:
-            assert_unix_path(native_path_to_unix(path1))
+from conda.base.context import context
+from conda.cli.activate import _get_prefix_paths, binpath_from_arg
+from conda.compat import TemporaryDirectory
+from conda.config import platform, root_dir
+from conda.install import symlink_conda
+from conda.utils import on_win, shells, translate_stream
+from tests.helpers import assert_equals, assert_in, assert_not_in
+
+# ENVS_PREFIX = "envs" if PY2 else "envsßôç"
+ENVS_PREFIX = "envs"
+
+
+def gen_test_env_paths(envs, shell, num_test_folders=5):
+    """People need not use all the test folders listed here.
+    This is only for shortening the environment string generation.
+
+    Also encapsulates paths in double quotes.
+    """
+    paths = [os.path.join(envs, "test {}".format(test_folder+1)) for test_folder in range(num_test_folders)]
+    for path in paths[:2]:      # Create symlinks ONLY for the first two folders.
+        symlink_conda(path, sys.prefix, shell)
+    converter = shells[shell]["path_to"]
+    paths = [converter(path) for path in paths]
+    return paths
+
+def _envpaths(env_root, env_name="", shell=None):
+    """Supply the appropriate platform executable folders.  rstrip on root removes
+       trailing slash if env_name is empty (the default)
+
+    Assumes that any prefix used here exists.  Will not work on prefixes that don't.
+    """
+    sep = shells[shell]['sep']
+    return binpath_from_arg(sep.join([env_root, env_name]), shell)
+
+
+PYTHONPATH = os.path.dirname(os.path.dirname(__file__))
+
+# Make sure the subprocess activate calls this python
+syspath = os.pathsep.join(_get_prefix_paths(context.root_prefix))
+
+def print_ps1(env_dirs, raw_ps, number):
+    return (u"({}) ".format(env_dirs[number]) + raw_ps)
+
+
+CONDA_ENTRY_POINT = """\
+#!{syspath}/python
+import sys
+from conda.cli import main
+
+sys.exit(main())
+"""
+
+def raw_string(s):
+    if isinstance(s, str):
+        s = s.encode('string-escape')
+    elif isinstance(s, unicode):
+        s = s.encode('unicode-escape')
+    return s
+
+def strip_leading_library_bin(path_string, shelldict):
+    entries = path_string.split(shelldict['pathsep'])
+    if "library{}bin".format(shelldict['sep']) in entries[0].lower():
+        entries = entries[1:]
+    return shelldict['pathsep'].join(entries)
+
+
+def _format_vars(shell):
+    shelldict = shells[shell]
+
+    base_path, _ = run_in(shelldict['printpath'], shell)
+    # windows forces Library/bin onto PATH when starting up.  Strip it for the purposes of this test.
+    if on_win:
+        base_path = strip_leading_library_bin(base_path, shelldict)
+
+    raw_ps, _ = run_in(shelldict["printps1"], shell)
+
+    command_setup = """\
+{set} PYTHONPATH="{PYTHONPATH}"
+{set} CONDARC=
+{set} CONDA_PATH_BACKUP=
+""".format(here=dirname(__file__), PYTHONPATH=shelldict['path_to'](PYTHONPATH),
+           set=shelldict["set_var"])
+    if shelldict["shell_suffix"] == '.bat':
+        command_setup = "@echo off\n" + command_setup
+
+    return {
+        'echo': shelldict['echo'],
+        'nul': shelldict['nul'],
+        'printpath': shelldict['printpath'],
+        'printdefaultenv': shelldict['printdefaultenv'],
+        'printps1': shelldict['printps1'],
+        'raw_ps': raw_ps,
+        'set_var': shelldict['set_var'],
+        'source': shelldict['source_setup'],
+        'binpath': shelldict['binpath'],
+        'shell_suffix': shelldict['shell_suffix'],
+        'syspath': shelldict['path_to'](sys.prefix),
+        'binpath': shelldict['binpath'],
+        'command_setup': command_setup,
+        'base_path': base_path,
+}
+
+
+@pytest.fixture(scope="module")
+def bash_profile(request):
+    profile=os.path.join(os.path.expanduser("~"), ".bash_profile")
+    if os.path.isfile(profile):
+        os.rename(profile, profile+"_backup")
+    with open(profile, "w") as f:
+        f.write("export PS1=test_ps1\n")
+        f.write("export PROMPT=test_ps1\n")
+    def fin():
+        if os.path.isfile(profile+"_backup"):
+            os.remove(profile)
+            os.rename(profile+"_backup", profile)
+    request.addfinalizer(fin)
+    return request  # provide the fixture value
+
+
+@pytest.mark.installed
+def test_activate_test1(shell):
+    shell_vars = _format_vars(shell)
+    with TemporaryDirectory(prefix=ENVS_PREFIX, dir=dirname(__file__)) as envs:
+        commands = (shell_vars['command_setup'] + """
+        {source} "{syspath}{binpath}activate{shell_suffix}" "{env_dirs[0]}"
+        {printpath}
+        """).format(envs=envs, env_dirs=gen_test_env_paths(envs, shell), **shell_vars)
+
+        stdout, stderr = run_in(commands, shell)
+        assert_in(shells[shell]['pathsep'].join(_envpaths(envs, 'test 1', shell)),
+                 stdout, shell)
+
+
+@pytest.mark.installed
+def test_activate_env_from_env_with_root_activate(shell):
+    shell_vars = _format_vars(shell)
+    with TemporaryDirectory(prefix=ENVS_PREFIX, dir=dirname(__file__)) as envs:
+        commands = (shell_vars['command_setup'] + """
+        {source} "{syspath}{binpath}activate" "{env_dirs[0]}" {nul}
+        {source} "{syspath}{binpath}activate" "{env_dirs[1]}"
+        {printpath}
+        """).format(envs=envs, env_dirs=gen_test_env_paths(envs, shell), **shell_vars)
+
+        stdout, stderr = run_in(commands, shell)
+        assert_in(shells[shell]['pathsep'].join(_envpaths(envs, 'test 2', shell)), stdout)
+
+
+@pytest.mark.installed
+def test_activate_bad_directory(shell):
+    shell_vars = _format_vars(shell)
+    with TemporaryDirectory(prefix=ENVS_PREFIX, dir=dirname(__file__)) as envs:
+        env_dirs = gen_test_env_paths(envs, shell)
+        # Strange semicolons are here to defeat MSYS' automatic path conversion.
+        #   See http://www.mingw.org/wiki/Posix_path_conversion
+        commands = (shell_vars['command_setup'] + """
+        {source} "{syspath}{binpath}activate" "{env_dirs[2]}"
+        {printpath}
+        """).format(envs=envs, env_dirs=env_dirs, **shell_vars)
+        stdout, stderr = run_in(commands, shell)
+        # another semicolon here for comparison reasons with one above.
+        assert 'Could not find environment' in stderr
+        assert_not_in(env_dirs[2], stdout)
+
+
+@pytest.mark.installed
+def test_activate_bad_env_keeps_existing_good_env(shell):
+    shell_vars = _format_vars(shell)
+    with TemporaryDirectory(prefix=ENVS_PREFIX, dir=dirname(__file__)) as envs:
+        commands = (shell_vars['command_setup'] + """
+        {source} {syspath}{binpath}activate "{env_dirs[0]}" {nul}
+        {source} "{syspath}{binpath}activate" "{env_dirs[2]}"
+        {printpath}
+        """).format(envs=envs, env_dirs=gen_test_env_paths(envs, shell), **shell_vars)
+
+        stdout, stderr = run_in(commands, shell)
+        assert_in(shells[shell]['pathsep'].join(_envpaths(envs, 'test 1', shell)),stdout)
+
+
+@pytest.mark.installed
+def test_activate_deactivate(shell):
+    if shell == "bash.exe" and datetime.now() < datetime(2017, 6, 1):
+        pytest.xfail("fix this soon")
+    shell_vars = _format_vars(shell)
+    with TemporaryDirectory(prefix=ENVS_PREFIX, dir=dirname(__file__)) as envs:
+        commands = (shell_vars['command_setup'] + """
+        {source} "{syspath}{binpath}activate" "{env_dirs[0]}" {nul}
+        {source} "{syspath}{binpath}deactivate"
+        {printpath}
+        """).format(envs=envs, env_dirs=gen_test_env_paths(envs, shell), **shell_vars)
+
+        stdout, stderr = run_in(commands, shell)
+        stdout = strip_leading_library_bin(stdout, shells[shell])
+        assert_equals(stdout, u"%s" % shell_vars['base_path'])
+
+
+@pytest.mark.installed
+def test_activate_root_simple(shell):
+    if shell == "bash.exe" and datetime.now() < datetime(2017, 6, 1):
+        pytest.xfail("fix this soon")
+    shell_vars = _format_vars(shell)
+    with TemporaryDirectory(prefix=ENVS_PREFIX, dir=dirname(__file__)) as envs:
+        commands = (shell_vars['command_setup'] + """
+        {source} "{syspath}{binpath}activate" root
+        {printpath}
+        """).format(envs=envs, **shell_vars)
+
+        stdout, stderr = run_in(commands, shell)
+        assert_in(shells[shell]['pathsep'].join(_envpaths(root_dir, shell=shell)), stdout, stderr)
+
+        commands = (shell_vars['command_setup'] + """
+        {source} "{syspath}{binpath}activate" root
+        {source} "{syspath}{binpath}deactivate"
+        {printpath}
+        """).format(envs=envs, **shell_vars)
+
+        stdout, stderr = run_in(commands, shell)
+        stdout = strip_leading_library_bin(stdout, shells[shell])
+        assert_equals(stdout, u"%s" % shell_vars['base_path'], stderr)
+
+
+@pytest.mark.installed
+def test_activate_root_env_from_other_env(shell):
+    shell_vars = _format_vars(shell)
+    with TemporaryDirectory(prefix=ENVS_PREFIX, dir=dirname(__file__)) as envs:
+        commands = (shell_vars['command_setup'] + """
+        {source} "{syspath}{binpath}activate" "{env_dirs[0]}" {nul}
+        {source} "{syspath}{binpath}activate" root
+        {printpath}
+        """).format(envs=envs, env_dirs=gen_test_env_paths(envs, shell), **shell_vars)
+
+        stdout, stderr = run_in(commands, shell)
+        assert_in(shells[shell]['pathsep'].join(_envpaths(root_dir, shell=shell)),
+                  stdout)
+        assert_not_in(shells[shell]['pathsep'].join(_envpaths(envs, 'test 1', shell)), stdout)
+
+
+@pytest.mark.installed
+def test_wrong_args(shell):
+    shell_vars = _format_vars(shell)
+    with TemporaryDirectory(prefix=ENVS_PREFIX, dir=dirname(__file__)) as envs:
+        commands = (shell_vars['command_setup'] + """
+        {source} "{syspath}{binpath}activate" two args
+        {printpath}
+        """).format(envs=envs, **shell_vars)
+
+        stdout, stderr = run_in(commands, shell)
+        stdout = strip_leading_library_bin(stdout, shells[shell])
+        assert_equals(stderr, u'Error: did not expect more than one argument.\n    (got two args)')
+        assert_equals(stdout, shell_vars['base_path'], stderr)
+
+
+@pytest.mark.installed
+def test_activate_help(shell):
+    shell_vars = _format_vars(shell)
+    with TemporaryDirectory(prefix=ENVS_PREFIX, dir=dirname(__file__)) as envs:
+        if shell not in ['powershell.exe', 'cmd.exe']:
+            commands = (shell_vars['command_setup'] + """
+            "{syspath}{binpath}activate" Zanzibar
+            """).format(envs=envs, **shell_vars)
+            stdout, stderr = run_in(commands, shell)
+            assert_equals(stdout, '')
+            assert_in("activate must be sourced", stderr)
+            # assert_in("Usage: source activate ENV", stderr)
+
+        commands = (shell_vars['command_setup'] + """
+        {source} "{syspath}{binpath}activate" --help
+        """).format(envs=envs, **shell_vars)
+
+        stdout, stderr = run_in(commands, shell)
+        assert_equals(stdout, '')
+
+        if shell in ["cmd.exe", "powershell"]:
+            # assert_in("Usage: activate ENV", stderr)
+            pass
         else:
             assert native_path_to_unix(path1) == path1
 

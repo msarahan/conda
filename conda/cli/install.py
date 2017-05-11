@@ -9,8 +9,6 @@ from __future__ import absolute_import, division, print_function, unicode_litera
 import errno
 import logging
 import os
-import re
-from difflib import get_close_matches
 from os.path import abspath, basename, exists, isdir, join
 
 from . import common
@@ -37,8 +35,6 @@ log = logging.getLogger(__name__)
 def check_prefix(prefix, json=False):
     name = basename(prefix)
     error = None
-    if name.startswith('.'):
-        error = "environment name cannot start with '.': %s" % name
     if name == ROOT_ENV_NAME:
         error = "'%s' is a reserved environment name" % name
     if exists(prefix):
@@ -317,20 +313,26 @@ def install(args, parser, command='install'):
         if e.args and 'could not import' in e.args[0]:
             raise CondaImportError(text_type(e))
         raise
-    if not context.json:
-        if unlink_link_transaction.nothing_to_do and not newenv:
+
+    if any(nothing_to_do(actions) for actions in action_set) and not newenv:
+        if not context.json:
             from .main_list import print_packages
 
-            if not context.json:
-                spec_regex = r'^(%s)$' % re.escape('|'.join(s.split()[0] for s in ospecs))
-                print('\n# All requested packages already installed.')
-                print_packages(prefix, spec_regex)
-            else:
-                common.stdout_json_success(
-                    message='All requested packages already installed.')
-            return
+            spec_regex = r'^(%s)$' % '|'.join(re.escape(s.split()[0]) for s in ospecs)
+            print('\n# All requested packages already installed.')
+            for action in action_set:
+                print_packages(action["PREFIX"], spec_regex)
+        else:
+            common.stdout_json_success(
+                message='All requested packages already installed.')
+        return
 
-        unlink_link_transaction.display_actions(progressive_fetch_extract)
+    if not context.json:
+        for actions in action_set:
+            print()
+            print("Package plan for installation in environment %s:" % actions["PREFIX"])
+            display_actions(actions, index, show_channel_urls=context.show_channel_urls)
+            # TODO: this is where the transactions should be instantiated
         common.confirm_yn(args)
 
     elif args.dry_run:

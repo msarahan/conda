@@ -300,7 +300,7 @@ class LinkPathAction(CreateInPrefixPathAction):
                     break
             else:
                 # only run the 6.5 second backoff time once
-                LinkPathAction._verify_max_backoff_reached = True
+                self.transaction_context['_verify_backoff_count'] = count + 1
                 return CondaVerificationError(dals("""
                 The package for %s located at %s
                 appears to be corrupted. The path '%s'
