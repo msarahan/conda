@@ -43,7 +43,6 @@ def is_path(value):
 
 def paths_equal(path1, path2):
     """
-    
     Examples:
         >>> paths_equal('/a/b/c', '/a/b/c/d/..')
         True
