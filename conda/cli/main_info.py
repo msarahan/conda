@@ -11,11 +11,11 @@ import json
 from logging import getLogger
 import os
 from os import listdir
-from os.path import exists, expanduser, join
+from os.path import exists, expanduser, isfile, join
 import re
 import sys
 
-from .conda_argparse import add_parser_json, add_parser_offline
+from .common import add_parser_json, add_parser_offline, arg2spec, handle_envs_list, stdout_json
 from ..common.compat import iteritems, itervalues, on_win
 
 log = getLogger(__name__)
@@ -169,7 +169,12 @@ def get_info_dict(system=False):
 
     try:
         from requests import __version__ as requests_version
-    except ImportError:  # pragma: no cover
+        # These environment variables can influence requests' behavior, along with configuration
+        # in a .netrc file
+        #   REQUESTS_CA_BUNDLE
+        #   HTTP_PROXY
+        #   HTTPS_PROXY
+    except ImportError:
         requests_version = "could not import"
     except Exception as e:  # pragma: no cover
         requests_version = "Error %r" % e
@@ -198,8 +203,11 @@ def get_info_dict(system=False):
                     for c in channels]
     channels = [mask_anaconda_token(c) for c in channels]
 
-    config_files = tuple(path for path in context.collect_all()
-                         if path not in ('envvars', 'cmd_line'))
+    netrc_file = os.environ.get('NETRC')
+    if not netrc_file:
+        user_netrc = expanduser("~/.netrc")
+        if isfile(user_netrc):
+            netrc_file = user_netrc
 
     info_dict = dict(
         platform=context.subdir,
@@ -224,7 +232,7 @@ def get_info_dict(system=False):
         requests_version=requests_version,
         user_agent=context.user_agent,
         conda_location=CONDA_PACKAGE_ROOT,
-        config_files=config_files,
+        netrc_file=netrc_file,
     )
     if on_win:
         from ..common.platform import is_admin_on_windows
@@ -277,7 +285,7 @@ def get_main_info_str(info_dict):
               package cache : %(_pkgs_dirs)s
                channel URLs : %(_channels)s
                 config file : %(rc_path)s
-               config files : %(_config_files)s
+                 netrc file : %(netrc_file)s
                offline mode : %(offline)s
                  user-agent : %(user_agent)s\
     """) % info_dict)
