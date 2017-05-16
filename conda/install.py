@@ -31,19 +31,14 @@ import os
 from os import chmod, makedirs, stat
 from os.path import dirname, isdir, isfile, join, normcase, normpath
 
-from enum import Enum
-
-from . import CondaError
-from .base.constants import UTF8
-from .base.context import context
-from .common.compat import ensure_text_type
-from .common.disk import delete_trash, exp_backoff_fn, move_path_to_trash, move_to_trash, rm_rf
-from .common.url import path_to_url
-from .exceptions import CondaOSError, CondaUpgradeError, LinkError, PaddingError
-from .lock import DirectoryLock, FileLock
-from .models.channel import Channel
-from .utils import on_win
-delete_trash, move_to_trash, move_path_to_trash = delete_trash, move_to_trash, move_path_to_trash
+from .base.constants import PREFIX_PLACEHOLDER
+from .common.compat import on_win, open
+from .gateways.disk.delete import delete_trash, move_path_to_trash, rm_rf
+delete_trash, move_path_to_trash = delete_trash, move_path_to_trash
+from .core.linked_data import is_linked, linked, linked_data  # NOQA
+is_linked, linked, linked_data = is_linked, linked, linked_data
+from .core.package_cache import rm_fetched  # NOQA
+rm_fetched = rm_fetched
 
 log = logging.getLogger(__name__)
 stdoutlog = logging.getLogger('stdoutlog')
