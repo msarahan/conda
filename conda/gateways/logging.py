@@ -36,7 +36,7 @@ class TokenURLFilter(Filter):
 
 @memoize
 def initialize_logging():
-    initialize_root_logger()
+    # initialize_root_logger()  # probably don't need to touch the root logger per #5356
     initialize_conda_logger()
 
     formatter = Formatter("%(message)s\n")
@@ -70,7 +70,7 @@ def initialize_conda_logger(level=WARN):
 
 def set_all_logger_level(level=DEBUG):
     formatter = Formatter("%(message)s\n") if level >= INFO else None
-    attach_stderr_handler(level, formatter=formatter)
+    # attach_stderr_handler(level, formatter=formatter)  # probably don't need to touch the root logger per #5356  # NOQA
     attach_stderr_handler(level, 'conda', formatter=formatter)
     attach_stderr_handler(level, 'requests')
     attach_stderr_handler(level, 'requests.packages.urllib3')
@@ -91,4 +91,3 @@ def trace(self, message, *args, **kwargs):
 
 logging.addLevelName(TRACE, "TRACE")
 logging.Logger.trace = trace
-initialize_logging()
