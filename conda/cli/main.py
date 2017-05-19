@@ -91,7 +91,6 @@ def init_loggers(context):
 
 def _main(*args):
     import importlib
-    from logging import CRITICAL, DEBUG, getLogger
 
     try:
         from cytoolz.itertoolz import concatv
