@@ -91,7 +91,6 @@ def init_loggers(context):
 
 def _main(*args):
     import importlib
-    from logging import CRITICAL, DEBUG, getLogger
 
     try:
         from cytoolz.itertoolz import concatv
@@ -145,7 +144,10 @@ def _ensure_text_type(value):
         # In this case assume already text_type and do nothing
         return value
     except UnicodeDecodeError:
-        from requests.packages.chardet import detect
+        try:
+            from requests.packages.chardet import detect
+        except ImportError:  # pragma: no cover
+            from pip._vendor.requests.packages.chardet import detect
         encoding = detect(value).get('encoding') or 'utf-8'
         return value.decode(encoding)
 

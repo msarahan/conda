@@ -23,6 +23,7 @@ from ..common.path import (get_bin_directory_short_path, get_leaf_directories,
                            win_path_ok)
 from ..common.url import path_to_url, unquote
 from ..exceptions import CondaUpgradeError, CondaVerificationError, LinkError, PaddingError
+from ..gateways.connection.download import download
 from ..gateways.disk.create import (compile_pyc, copy, create_application_entry_point,
                                     create_fake_executable_softlink, create_hard_link_or_copy,
                                     create_link, create_python_entry_point, extract_tarball,
@@ -32,7 +33,6 @@ from ..gateways.disk.link import stat_nlink, symlink
 from ..gateways.disk.read import compute_md5sum, isfile, islink, lexists
 from ..gateways.disk.test import softlink_supported
 from ..gateways.disk.update import backoff_rename, touch
-from ..gateways.download import download
 from ..history import History
 from ..models.dist import Dist
 from ..models.enums import LeasedPathType, LinkType, NoarchType, PathType
