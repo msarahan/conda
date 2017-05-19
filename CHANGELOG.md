@@ -1,3 +1,65 @@
+## 4.4.0 (unreleased)
+
+### New Features
+* constrained, optional dependencies (#4982)
+* conda shell function (#5044, #5141, #5162, #5169, #5182)
+* resolve #5160 conda xontrib plugin (#5157)
+* resolve #1543 add support and tests for --no-deps and --only-deps (#5265)
+
+### Deprecations/Breaking Changes
+* remove support for with_features_depends (#5191)
+
+### Improvements
+* filter out unwritable package caches from conda clean command (#4620)
+* envs_manager, requested spec history, declarative solve, and private env tests (#4676, #5114, #5094, #5145)
+* make python entry point format match pip entry points (#5010)
+* resolve #5113 clean up CLI imports to improve process startup time (#4799)
+* resolve #5121 add features/track_features support for MatchSpec (#5054)
+* resolve #4671 hold verify backoff count in transaction context (#5122)
+* resolve #5078 record package metadata after tarball extraction (#5148)
+* resolve #3580 support stacking environments (#5159)
+* resolve #3763, #4378 allow pip requirements.txt syntax in environment files (#3969)
+* resolve #5147 add 'config files' to conda info (#5269)
+* use --format=json to parse list of pip packages (#5205)
+* resolve #1427 remove startswith '.' environment name constraint (#5284)
+* link packages from extracted tarballs when tarball is gone (#5289)
+* resolve #2511 accept config information from stdin (#5309)
+* resolve #4302 add ability to set map parameters with conda config (#5310)
+* resolve #5256 enable conda config --get for all primitive parameters (#5312)
+* resolve #1992 add short flag -C for --use-index-cache (#5314)
+* resolve #2173 add --quiet option to conda clean (#5313)
+* resolve #5358 conda should exec to subcommands, not subprocess (#5359)
+
+### Bug Fixes
+* fix some conda-build compatibility issues (#5089)
+* resolve #5123 export toposort (#5124)
+* fix #5132 signal handler can only be used in main thread (#5133)
+* fix orphaned --clobber parser arg (#5188)
+* fix #3814 don't remove directory that's not a conda environment (#5204)
+* fix #4468 _license stack trace (#5206)
+* fix #4987 conda update --all no longer displays full list of packages (#5228)
+* fix #3489 don't error on remove --all if environment doesn't exist (#5231)
+* fix #1509 bash doesn't need full path for pre/post link/unlink scripts on unix (#5252)
+* fix #462 add regression test (#5286)
+* fix #5288 confirmation prompt doesn't accept no (#5291)
+* fix #1713 'conda package -w' is case dependent on Windows (#5308)
+* fix #5371 try falling back to pip's vendored requests if no requests available (#5372)
+* fix #5356 skip root logger configuration (#5380)
+
+### Non-User-Facing Changes
+* eliminate index modification in Resolve.__init__ (#4333)
+* new MatchSpec implementation (#4158)
+* update conda.recipe for 4.4 (#5086)
+* resolve #5118 organization and cleanup for 4.4 release (#5115)
+* remove unused disk space check instructions (#5167)
+* localfs adapter tests (#5181)
+* extra config command tests (#5185)
+* add coverage for confirm (#5203)
+* clean up FileNotFoundError and DirectoryNotFoundError (#5237)
+* add assertion that a path only has a single hard link before rewriting prefixes (#5305)
+* remove pycrypto as requirement on windows (#5326)
+
+
 ## 4.3.19 (2017-05-18)
 
 ### Improvements
