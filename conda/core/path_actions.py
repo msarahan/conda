@@ -10,7 +10,6 @@ from random import random
 import re
 from time import sleep
 
-from conda.gateways.connection.download import download
 from .linked_data import delete_linked_data, get_python_version_for_prefix, load_linked_data
 from .portability import _PaddingError, update_prefix
 from .._vendor.auxlib.compat import with_metaclass
@@ -24,6 +23,7 @@ from ..common.path import (get_bin_directory_short_path, get_leaf_directories,
                            win_path_ok)
 from ..common.url import path_to_url, unquote
 from ..exceptions import CondaUpgradeError, CondaVerificationError, LinkError, PaddingError
+from ..gateways.connection.download import download
 from ..gateways.disk.create import (compile_pyc, copy, create_application_entry_point,
                                     create_fake_executable_softlink, create_hard_link_or_copy,
                                     create_link, create_python_entry_point, extract_tarball,
