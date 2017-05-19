@@ -511,7 +511,7 @@ class Resolve(object):
         cpri = -rec.get('priority', 1)
         ver = normalized_version(rec.get('version', ''))
         bld = rec.get('build_number', 0)
-        bs = rec.get('build_string')
+        bs = rec.get('build')
         ts = rec.get('timestamp', 0)
         return ((valid, -cpri, ver, bld, bs, ts) if context.channel_priority else
                 (valid, ver, -cpri, bld, bs, ts))
