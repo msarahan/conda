@@ -6,9 +6,7 @@ from os.path import basename
 import re
 import sys
 
-from .. import console
-from .._vendor.auxlib.entity import EntityEncoder
-from ..base.constants import ROOT_ENV_NAME, CONDA_TARBALL_EXTENSION
+from ..base.constants import ROOT_ENV_NAME
 from ..base.context import context, get_prefix as context_get_prefix
 from ..common.compat import iteritems
 from ..common.constants import NULL
