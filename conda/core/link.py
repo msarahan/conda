@@ -10,8 +10,7 @@ import sys
 from traceback import format_exc
 import warnings
 
-from .linked_data import (get_python_version_for_prefix, linked_data as get_linked_data,
-                          load_meta)
+from .linked_data import PrefixData, get_python_version_for_prefix, linked_data as get_linked_data
 from .package_cache import PackageCache
 from .path_actions import (CompilePycAction, CreateApplicationEntryPointAction,
                            CreateApplicationSoftlinkAction, CreateLinkedPackageRecordAction,
@@ -202,8 +201,11 @@ class UnlinkLinkTransaction(object):
                                  "" % target_prefix)
 
         # gather information from disk and caches
-        linked_packages_data_to_unlink = tuple(load_meta(target_prefix, dist)
-                                               for dist in unlink_dists)
+        prefix_data = PrefixData(target_prefix)
+        linked_pkgs_data_to_unlink = (prefix_data.get(dist.name) for dist in unlink_dists)
+        # NOTE: load_meta can return None
+        # TODO: figure out if this filter shouldn't be an assert not None
+        linked_pkgs_data_to_unlink = tuple(lpd for lpd in linked_pkgs_data_to_unlink if lpd)
         pkg_dirs_to_link = tuple(PackageCache.get_entry_to_link(dist).extracted_package_dir
                                  for dist in link_dists)
         assert all(pkg_dirs_to_link)
@@ -465,8 +467,11 @@ class UnlinkLinkTransaction(object):
         axn_idx, action, is_unlink = 0, None, axngroup.type == 'unlink'
         pkg_data = axngroup.pkg_data
         dist = pkg_data and Dist(pkg_data)
-        try:
 
+        if not isdir(join(target_prefix, 'conda-meta')):
+            mkdir_p(join(target_prefix, 'conda-meta'))
+
+        try:
             if axngroup.type == 'unlink':
                 log.info("===> UNLINKING PACKAGE: %s <===\n"
                          "  prefix=%s\n", dist, target_prefix)
