@@ -159,7 +159,13 @@ class ChannelType(type):
                 c = Channel._cache_[value] = Channel.from_value(value)
                 return c
         else:
-            return super(ChannelType, cls).__call__(*args, **kwargs)
+            if 'channels' in kwargs:
+                name = kwargs['name']
+                channels = tuple(super(ChannelType, cls).__call__(**_kwargs)
+                                 for _kwargs in kwargs['channels'])
+                return MultiChannel(name, channels)
+            else:
+                return super(ChannelType, cls).__call__(*args, **kwargs)
 
 
 @with_metaclass(ChannelType)
@@ -377,21 +383,17 @@ class Channel(object):
     def url_channel_wtf(self):
         return self.base_url, self.canonical_name
 
-    def __init__(self, name):
-        log.debug("making channel object for named channel: %s", name)
-        self._raw_value = name
-        if name in context.custom_channels:
-            parsed = urlparse(context.custom_channels[name])
-        elif name.split('/')[0] in context.custom_channels:
-            parsed = urlparse(context.custom_channels[name.split('/')[0]])
-        else:
-            parsed = urlparse(context.channel_alias)
-        self._scheme = parsed.scheme
-        self._netloc = parsed.netloc
-        self._auth = parsed.auth
-        self._token = None
-        self._path = join(parsed.path or '/', name)
-        self._platform = None
+    def dump(self):
+        return {
+            "scheme": self.scheme,
+            "auth": self.auth,
+            "location": self.location,
+            "token": self.token,
+            "name": self.name,
+            "platform": self.platform,
+            "package_filename": self.package_filename,
+        }
+
 
 class MultiChannel(Channel):
 
@@ -431,6 +433,12 @@ class MultiChannel(Channel):
 
     def url(self, with_credentials=False):
         return None
+
+    def dump(self):
+        return {
+            "name": self.name,
+            "channels": tuple(c.dump() for c in self._channels)
+        }
 
 
 def prioritize_channels(channels, with_credentials=True, subdirs=None):
