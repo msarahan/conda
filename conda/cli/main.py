@@ -75,9 +75,22 @@ def generate_parser():
     return p, sub_parsers
 
 
+def init_loggers(context):
+    from ..gateways.logging import set_all_logger_level, set_verbosity
+    if not context.json:
+        # Silence logging info to avoid interfering with JSON output
+        for logger in ('print', 'dotupdate', 'stdoutlog', 'stderrlog'):
+            getLogger(logger).setLevel(CRITICAL + 1)
+
+    if context.debug:
+        set_all_logger_level(DEBUG)
+    elif context.verbosity:
+        set_verbosity(context.verbosity)
+        log.debug("verbosity set to %s", context.verbosity)
+
+
 def _main(*args):
     import importlib
-    from logging import CRITICAL, DEBUG, getLogger
 
     try:
         from cytoolz.itertoolz import concatv
@@ -86,9 +99,6 @@ def _main(*args):
 
     from ..base.constants import SEARCH_PATH
     from ..base.context import context
-    from ..gateways.logging import set_all_logger_level, set_verbosity
-
-    log = getLogger(__name__)
 
     if len(args) == 1:
         args = args + ('-h',)
@@ -118,17 +128,7 @@ def _main(*args):
     args = p.parse_args(args)
 
     context.__init__(SEARCH_PATH, 'conda', args)
-
-    if getattr(args, 'json', False):
-        # Silence logging info to avoid interfering with JSON output
-        for logger in ('print', 'dotupdate', 'stdoutlog', 'stderrlog'):
-            getLogger(logger).setLevel(CRITICAL + 1)
-
-    if context.debug:
-        set_all_logger_level(DEBUG)
-    elif context.verbosity:
-        set_verbosity(context.verbosity)
-        log.debug("verbosity set to %s", context.verbosity)
+    init_loggers(context)
 
     exit_code = args.func(args, p)
     if isinstance(exit_code, int):
@@ -144,7 +144,10 @@ def _ensure_text_type(value):
         # In this case assume already text_type and do nothing
         return value
     except UnicodeDecodeError:
-        from requests.packages.chardet import detect
+        try:
+            from requests.packages.chardet import detect
+        except ImportError:  # pragma: no cover
+            from pip._vendor.requests.packages.chardet import detect
         encoding = detect(value).get('encoding') or 'utf-8'
         return value.decode(encoding)
 

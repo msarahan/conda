@@ -174,8 +174,11 @@ def get_info_dict(system=False):
         #   REQUESTS_CA_BUNDLE
         #   HTTP_PROXY
         #   HTTPS_PROXY
-    except ImportError:
-        requests_version = "could not import"
+    except ImportError:  # pragma: no cover
+        try:
+            from pip._vendor.requests import __version__ as requests_version
+        except Exception as e:  # pragma: no cover
+            requests_version = "Error %r" % e
     except Exception as e:  # pragma: no cover
         requests_version = "Error %r" % e
 
