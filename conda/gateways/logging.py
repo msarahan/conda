@@ -34,16 +34,32 @@ class TokenURLFilter(Filter):
         return True
 
 
-# Don't use initialize_logging/initialize_root_logger/initialize_conda_logger in
+class StdStreamHandler(StreamHandler):
+    """Log StreamHandler that always writes to the current sys stream."""
+    def __init__(self, sys_stream):
+        """
+        Args:
+            sys_stream: stream name, either "stdout" or "stderr" (attribute of module sys)
+        """
+        assert hasattr(sys, sys_stream)
+        self._sys_stream = sys_stream
+        super(StreamHandler, self).__init__()  # skip StreamHandler.__init__ which sets self.stream
+
+    @property
+    def stream(self):
+        # always get current stdout/stderr, removes the need to replace self.stream when needed
+        return getattr(sys, self._sys_stream)
+
+
+# Don't use initialize_logging/initialize_root_logger/set_conda_log_level in
 # cli.python_api! There we want the user to have control over their logging,
 # e.g., using their own levels, handlers, formatters and propagation settings.
 
 @memoize
 def initialize_logging():
-    # root and 'conda' logger both get their own separate sys.stderr stream handlers.
-    # root gets level ERROR; 'conda' gets level WARN and does not propagate to root.
+    # root gets level ERROR; 'conda' gets level WARN and propagates to root.
     initialize_root_logger()
-    initialize_conda_logger()
+    set_conda_log_level()
     initialize_std_loggers()
 
 
@@ -78,15 +94,16 @@ def initialize_root_logger(level=ERROR):
     attach_stderr_handler(level)
 
 
-def initialize_conda_logger(level=WARN):
-    attach_stderr_handler(level, 'conda')
+def set_conda_log_level(level=WARN):
+    conda_logger = getLogger('conda')
+    conda_logger.setLevel(level)
+    conda_logger.propagate = True  # let root logger's handler format/output message
 
 
 def set_all_logger_level(level=DEBUG):
     formatter = Formatter("%(message)s\n") if level >= INFO else None
-    # root and 'conda' loggers use separate handlers but behave the same wrt level and formatting
     attach_stderr_handler(level, formatter=formatter)
-    attach_stderr_handler(level, 'conda', formatter=formatter)
+    set_conda_log_level(level)  # only set level and use root's handler/formatter
     # 'requests' loggers get their own handlers so that they always output messages in long format
     # regardless of the level.
     attach_stderr_handler(level, 'requests')
