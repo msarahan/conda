@@ -11,7 +11,7 @@ from ..base.constants import MAX_CHANNEL_PRIORITY
 from ..base.context import context
 from ..common.compat import iteritems, itervalues
 from ..gateways.disk.read import read_index_json
-from ..models.channel import prioritize_channels, Channel
+from ..models.channel import Channel, prioritize_channels
 from ..models.dist import Dist
 from ..models.index_record import EMPTY_LINK, IndexRecord
 
@@ -79,8 +79,8 @@ def supplement_index_with_repodata(index, repodata, channel, priority):
         subdir = "%s-%s" % (repodata_info['platform'], repodata_info['arch'])
     arch = repodata_info.get('arch')
     platform = repodata_info.get('platform')
-    schannel = channel.canonical_name
-    channel_url = channel.url()
+    # schannel = channel.canonical_name
+    # channel_url = channel.url()
     auth = channel.auth
     for fn, info in iteritems(repodata['packages']):
         rec = IndexRecord.from_objects(info,
