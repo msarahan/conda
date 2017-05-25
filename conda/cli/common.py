@@ -6,9 +6,7 @@ from os.path import basename
 import re
 import sys
 
-from .. import console
-from .._vendor.auxlib.entity import EntityEncoder
-from ..base.constants import ROOT_ENV_NAME, CONDA_TARBALL_EXTENSION
+from ..base.constants import ROOT_ENV_NAME
 from ..base.context import context, get_prefix as context_get_prefix
 from ..common.compat import iteritems
 from ..common.constants import NULL
@@ -480,18 +478,13 @@ def ensure_name_or_prefix(args, command):
 
 def arg2spec(arg, json=False, update=False):
     try:
-        # spec_from_line can return None, especially for the case of a .tar.bz2 extension and
-        #   a space in the path
-        _arg = spec_from_line(arg)
-        if _arg is None and arg.endswith(CONDA_TARBALL_EXTENSION):
-            _arg = arg
-        spec = MatchSpec(_arg, normalize=True)
+        spec = MatchSpec(arg)
     except:
         from ..exceptions import CondaValueError
         raise CondaValueError('invalid package specification: %s' % arg)
 
     name = spec.name
-    if not spec.is_simple() and update:
+    if not spec._is_simple() and update:
         from ..exceptions import CondaValueError
         raise CondaValueError("""version specifications not allowed with 'update'; use
     conda update  %s%s  or
