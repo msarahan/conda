@@ -3,11 +3,10 @@ import os
 import sys
 import textwrap
 
-from conda import config
-from conda.cli import install as cli_install
-from conda.cli.conda_argparse import add_parser_json
+from conda.cli import common, install as cli_install
 from conda.misc import touch_nonadmin
-from .common import get_prefix
+# for conda env
+from conda_env.cli.common import get_prefix
 from .. import exceptions, specs as install_specs
 from ..exceptions import CondaEnvException
 from ..installers.base import InvalidInstaller, get_installer
@@ -34,12 +33,7 @@ def configure_parser(sub_parsers):
         help=description,
         epilog=example,
     )
-    p.add_argument(
-        '-n', '--name',
-        action='store',
-        help='name of environment (in %s)' % os.pathsep.join(config.envs_dirs),
-        default=None,
-    )
+    common.add_parser_prefix(p)
     p.add_argument(
         '-f', '--file',
         action='store',
