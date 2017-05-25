@@ -14,6 +14,7 @@ import os
 # TODO This should never have to import from conda.cli
 from itertools import chain
 
+from conda_env.yaml import dump
 from . import compat, exceptions, yaml
 from .pip_util import add_pip_installed
 
@@ -167,7 +168,7 @@ class Environment(object):
 
     def to_yaml(self, stream=None):
         d = self.to_dict()
-        out = compat.u(yaml.dump(d, default_flow_style=False))
+        out = compat.u(dump(d))
         if stream is None:
             return out
         stream.write(compat.b(out, encoding="utf-8"))
