@@ -3,8 +3,11 @@ from __future__ import absolute_import, print_function
 import json
 import os
 import unittest
+
+from conda.common.io import env_var
+
 from conda.base.constants import MAX_CHANNEL_PRIORITY
-from conda.base.context import reset_context, context
+from conda.base.context import reset_context
 from conda.common.compat import iteritems, text_type
 from conda.common.io import env_var
 from conda.exceptions import NoPackagesFoundError, UnsatisfiableError
@@ -1053,14 +1056,12 @@ def test_channel_priority():
         # Should also select the newer package because we have
         # turned off channel priority altogether
 
-    assert installed1 != installed2
-
     with env_var("CONDA_CHANNEL_PRIORITY", "False", reset_context):
         r2.index[Dist(fn2)] = IndexRecord.from_objects(r2.index[Dist(fn2)], priority=0)
         installed3 = r2.install(spec)
-
-    assert installed1 != installed3
-    assert installed2 == installed3
+        assert installed1 != installed2
+        assert installed1 != installed3
+        assert installed2 == installed3
 
 
 def test_dependency_sort():
