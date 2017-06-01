@@ -92,10 +92,10 @@ remove_conda() {
        $site_packages/pyopenssl* \
        $site_packages/cryptography* \
        $site_packages/idna* \
-       $site_packages/ruamel* \
-       $site_packages/pycrypto* \
-       $site_packages/pycosat*
-    ls -al $site_packages
+       $site_packages/ruamel*
+
+       # $site_packages/pycrypto* \
+       # $site_packages/pycosat*
     hash -r
 }
 
@@ -313,7 +313,22 @@ conda_build_test() {
     export PATH="$prefix/bin:$PATH"  # cheating
     conda info
 
-    pushd conda-build
+    $prefix/bin/python -m pytest --basetemp /tmp/cb -v --durations=20 -n 0 -m "serial" tests -k "not xattr"
+    $prefix/bin/python -m pytest --basetemp /tmp/cb -v --durations=20 -n 2 -m "not serial" tests
+    popd
+}
+
+
+osx_setup() {
+    # brew update || brew update
+    # brew outdated openssl || brew upgrade openssl
+    brew install zsh
+
+    # rvm get head
+
+    install_conda_dev
+}
+
 
     # TODO: remove -k flag when conda/conda-build#1927 is merged
     $prefix/$BIN_DIR/python -m pytest --basetemp /tmp/cb -v --durations=20 -n 2 -m "not serial" tests \
