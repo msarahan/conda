@@ -85,7 +85,7 @@ def gen_test_env_paths(envs, shell, num_test_folders=5):
                     set_vars = {
                         'CONDA_PYTHON_EXE': activator.path_conversion(sys.executable),
                         'PATH': new_path,
-                        'CONDA_PREFIX': activator.path_conversion(td),
+                        'CONDA_PREFIX': td,
                         'CONDA_SHLVL': 1,
                         'CONDA_DEFAULT_ENV': td,
                         'CONDA_PROMPT_MODIFIER': "(%s) " % td,
@@ -114,7 +114,7 @@ def gen_test_env_paths(envs, shell, num_test_folders=5):
 
                     set_vars = {
                         'PATH': new_path,
-                        'CONDA_PREFIX': activator.path_conversion(td),
+                        'CONDA_PREFIX': td,
                         'CONDA_PREFIX_1': old_prefix,
                         'CONDA_SHLVL': 2,
                         'CONDA_DEFAULT_ENV': td,
@@ -150,7 +150,7 @@ def gen_test_env_paths(envs, shell, num_test_folders=5):
 
                     set_vars = {
                         'PATH': new_path,
-                        'CONDA_PREFIX': activator.path_conversion(td),
+                        'CONDA_PREFIX': td,
                         'CONDA_DEFAULT_ENV': td,
                         'CONDA_PROMPT_MODIFIER': "(%s) " % td,
                     }
@@ -527,7 +527,7 @@ def test_activate_help(shell):
         new_path_parts = activator._add_prefix_to_path(self.prefix)
         assert activate_data == dals("""
         export CONDA_DEFAULT_ENV="%(native_prefix)s"
-        export CONDA_PREFIX="%(converted_prefix)s"
+        export CONDA_PREFIX="%(native_prefix)s"
         export CONDA_PROMPT_MODIFIER="(%(native_prefix)s) "
         export CONDA_PYTHON_EXE="%(sys_executable)s"
         export CONDA_SHLVL="1"
@@ -676,7 +676,7 @@ def test_activate_help(shell):
         new_path_parts = activator._add_prefix_to_path(self.prefix)
         assert activate_data == dals("""
         setenv CONDA_DEFAULT_ENV "%(native_prefix)s"
-        setenv CONDA_PREFIX "%(converted_prefix)s"
+        setenv CONDA_PREFIX "%(native_prefix)s"
         setenv CONDA_PROMPT_MODIFIER "(%(native_prefix)s) "
         setenv CONDA_PYTHON_EXE "%(sys_executable)s"
         setenv CONDA_SHLVL "1"
@@ -750,7 +750,7 @@ def test_activate_help(shell):
         new_path_parts = activator._add_prefix_to_path(self.prefix)
         assert activate_data == dals("""
         $CONDA_DEFAULT_ENV = "%(native_prefix)s"
-        $CONDA_PREFIX = "%(converted_prefix)s"
+        $CONDA_PREFIX = "%(native_prefix)s"
         $CONDA_PROMPT_MODIFIER = "(%(native_prefix)s) "
         $CONDA_PYTHON_EXE = "%(sys_executable)s"
         $CONDA_SHLVL = "1"
@@ -825,7 +825,7 @@ def test_activate_help(shell):
         new_path_parts = activator._add_prefix_to_path(self.prefix)
         assert activate_data == dals("""
         set -gx CONDA_DEFAULT_ENV "%(native_prefix)s"
-        set -gx CONDA_PREFIX "%(converted_prefix)s"
+        set -gx CONDA_PREFIX "%(native_prefix)s"
         set -gx CONDA_PROMPT_MODIFIER "(%(native_prefix)s) "
         set -gx CONDA_PYTHON_EXE "%(sys_executable)s"
         set -gx CONDA_SHLVL "1"
