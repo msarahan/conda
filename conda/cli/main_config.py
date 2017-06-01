@@ -18,10 +18,9 @@ from .. import CondaError
 from ..base.constants import CONDA_HOMEPAGE_URL
 from ..base.context import context
 from ..common.compat import isiterable, iteritems, string_types, text_type
-from ..common.configuration import pretty_list, pretty_map
 from ..common.constants import NULL
-from ..common.yaml import yaml_dump, yaml_load
-from ..config import rc_other, sys_rc_path, user_rc_path
+from ..config import (rc_bool_keys, rc_list_keys, rc_other, rc_string_keys, sys_rc_path,
+                      user_rc_path)
 
 descr = """
 Modify configuration values in .condarc.  This is modeled after the git
@@ -212,6 +211,7 @@ or the file path given by the 'CONDARC' environment variable, if it is set
 
 def execute(args, parser):
     from ..exceptions import CouldntParseError
+
     try:
         execute_config(args, parser)
     except (CouldntParseError, NotImplementedError) as e:
@@ -219,6 +219,8 @@ def execute(args, parser):
 
 
 def format_dict(d):
+    from ..common.configuration import pretty_list, pretty_map
+
     lines = []
     for k, v in iteritems(d):
         if isinstance(v, collections.Mapping):
@@ -271,11 +273,8 @@ def parameter_description_builder(name):
 
 
 def execute_config(args, parser):
-    try:
-        from cytoolz.itertoolz import concat, groupby
-    except ImportError:  # pragma: no cover
-        from .._vendor.toolz.itertoolz import concat, groupby  # NOQA
     from .._vendor.auxlib.entity import EntityEncoder
+    from ..common.yaml import yaml_dump, yaml_load
 
     json_warnings = []
     json_get = {}
@@ -427,6 +426,7 @@ def execute_config(args, parser):
             if not isinstance(rc_config.get(key, []), list):
                 from ..exceptions import CouldntParseError
                 bad = rc_config[key].__class__.__name__
+                from ..exceptions import CouldntParseError
                 raise CouldntParseError("key %r should be a list, not %s." % (key, bad))
             if key == 'default_channels' and rc_path != sys_rc_path:
                 msg = "'default_channels' is only configurable for system installs"
@@ -445,14 +445,9 @@ def execute_config(args, parser):
 
     # Set
     for key, item in args.set:
-        key, subkey = key.split('.', 1) if '.' in key else (key, None)
-        if key in primitive_parameters:
-            value = context.typify_parameter(key, item)
-            rc_config[key] = value
-        elif key in map_parameters:
-            argmap = rc_config.setdefault(key, {})
-            argmap[subkey] = item
-        else:
+        primitive_parameters = [p for p in context.list_parameters()
+                                if context.describe_parameter(p)['parameter_type'] == 'primitive']
+        if key not in primitive_parameters:
             from ..exceptions import CondaValueError
             raise CondaValueError("Key '%s' is not a known primitive parameter." % key)
 

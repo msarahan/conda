@@ -17,8 +17,7 @@ import re
 import tarfile
 import tempfile
 
-from .conda_argparse import add_parser_prefix
-from ..base.constants import PREFIX_PLACEHOLDER
+from .common import add_parser_prefix
 from ..base.context import context, get_prefix
 from ..common.compat import PY3, itervalues
 
@@ -89,7 +88,6 @@ def remove(prefix, files):
 
 def execute(args, parser):
     from ..misc import untracked
-
     prefix = get_prefix(context, args)
 
     if args.which:
@@ -143,6 +141,8 @@ def create_info(name, version, build_number, requires_py):
 
 shebang_pat = re.compile(r'^#!.+$', re.M)
 def fix_shebang(tmp_dir, path):
+    from ..install import PREFIX_PLACEHOLDER
+
     if open(path, 'rb').read(2) != '#!':
         return False
 
@@ -228,6 +228,7 @@ def create_conda_pkg(prefix, files, info, tar_path, update_info=None):
 
 def make_tarbz2(prefix, name='unknown', version='0.0', build_number=0,
                 files=None):
+    from ..misc import untracked
     if files is None:
         from ..misc import untracked
         files = untracked(prefix)

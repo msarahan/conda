@@ -2,7 +2,8 @@
 from __future__ import absolute_import, division, print_function, unicode_literals
 
 import os
-from os.path import basename, dirname, join, split, splitext, abspath, normpath
+from os.path import (abspath, basename, dirname, expanduser, expandvars, join, normpath, split,
+                     splitext)
 import re
 
 from .compat import on_win, string_types
@@ -39,6 +40,10 @@ def is_path(value):
     if '://' in value:
         return False
     return re.match(PATH_MATCH_REGEX, value)
+
+
+def expand(path):
+    return abspath(expanduser(expandvars(path)))
 
 
 def paths_equal(path1, path2):
