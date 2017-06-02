@@ -312,7 +312,6 @@ conda_unit_test() {
 
 
 conda_integration_test() {
-    set -u
     $PYTEST_EXE $ADD_COV -m "integration and not installed" -v
 }
 
@@ -327,8 +326,6 @@ conda_activate_test() {
 
     $PYTHON_EXE -c "import conda; print(conda.__version__)"
     $CONDA_EXE info
-
-    set -u
 
     if [ -n "$ON_WIN" ]; then
         $PYTEST_EXE $ADD_COV -m "installed" --shell=bash.exe --shell=cmd.exe
