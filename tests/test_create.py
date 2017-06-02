@@ -1250,6 +1250,8 @@ class IntegrationTests(TestCase):
 
         assert all(isdir(d) for d in itervalues(cache_dirs))
 
+        run_command(Commands.CLEAN, '', "--source-cache --yes")
+
         # --json flag is regression test for #5451
         run_command(Commands.CLEAN, '', "--source-cache --yes  --json")
 
