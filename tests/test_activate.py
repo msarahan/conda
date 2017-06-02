@@ -959,7 +959,7 @@ class InteractiveShell(object):
     shells = {
         'posix': {
             'activator': 'posix',
-            'init_command': '. shell/etc/profile.d/conda.sh',
+            'init_command': 'set -u && . shell/etc/profile.d/conda.sh',
             'print_env_var': 'echo $%s',
         },
         'bash': {
