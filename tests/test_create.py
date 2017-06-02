@@ -320,6 +320,11 @@ class IntegrationTests(TestCase):
             assert not package_is_installed(prefix, 'flask-0.')
             assert_package_is_installed(prefix, 'python-3')
 
+            stdout, stderr = run_command(Commands.LIST, prefix, '--revisions')
+            assert not stderr
+            assert " (rev 4)\n" in stdout
+            assert not " (rev 5)\n" in stdout
+
             run_command(Commands.INSTALL, prefix, '--revision 0')
             assert not package_is_installed(prefix, 'flask')
             assert_package_is_installed(prefix, 'python-3')
@@ -385,6 +390,12 @@ class IntegrationTests(TestCase):
             assert not stderr
             assert not package_is_installed(prefix, 'flask-0.')
             assert_package_is_installed(prefix, 'python-3')
+
+            stdout, stderr = run_command(Commands.LIST, prefix, '--revisions --json')
+            assert not stderr
+            json_obj = json.loads(stdout)
+            assert len(json_obj) == 5
+            assert json_obj[4]["rev"] == 4
 
             stdout, stderr = run_command(Commands.INSTALL, prefix, '--revision 0', '--json')
             assert_json_parsable(stdout)
