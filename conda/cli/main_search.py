@@ -129,7 +129,7 @@ def make_icon_url(info):  # pragma: no cover
 def execute_search(args, parser):
     import re
     from ..resolve import Resolve
-    from ..api import get_index
+    from ..core.index import get_index
     from ..models.match_spec import MatchSpec
     from ..core.linked_data import linked as linked_data
     from ..core.package_cache import PackageCache
