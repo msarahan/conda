@@ -142,7 +142,7 @@ def execute(args, parser):
     specs = None
     if args.features:
         specs = [MatchSpec(track_features=f) for f in set(args.package_names)]
-        actions = remove_actions(prefix, specs, index, pinned=context.respect_pinned)
+        actions = remove_actions(prefix, specs, index, pinned=not context.ignore_pinned)
         actions['ACTION'] = 'REMOVE_FEATURE'
         action_groups = (actions, index),
     elif args.all:
@@ -179,13 +179,10 @@ def execute(args, parser):
                 ROOT_NO_RM, specs) and not args.force):
             raise CondaEnvironmentError('cannot remove %s from root environment' %
                                         ', '.join(ROOT_NO_RM))
-        actions = []
-        for prfx, spcs in iteritems(prefix_spec_map):
-            index = linked_data(prfx)
-            index = {dist: info for dist, info in iteritems(index)}
-            actions.append(remove_actions(prfx, list(spcs), index=index, force=args.force,
-                                          pinned=args.pinned))
-        action_groups = tuple(actions)
+        action_groups = (remove_actions(prefix, list(specs), index=index,
+                                        force=args.force,
+                                        pinned=not context.ignore_pinned,
+                                        ), index),
 
     delete_trash()
     if any(nothing_to_do(actions) for actions in action_groups):
