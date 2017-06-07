@@ -326,28 +326,27 @@ def install(args, parser, command='install'):
             raise CondaImportError(text_type(e))
         raise
 
-    if any(nothing_to_do(actions) for actions in action_set) and not newenv:
-        if not context.json:
-            from .main_list import print_packages
+    handle_txn(progressive_fetch_extract, unlink_link_transaction, prefix, args, newenv)
 
-            spec_regex = r'^(%s)$' % '|'.join(re.escape(s.split()[0]) for s in ospecs)
-            print('\n# All requested packages already installed.')
-            for action in action_set:
-                print_packages(action["PREFIX"], spec_regex)
-        else:
-            common.stdout_json_success(
-                message='All requested packages already installed.')
-        return
+
+
+def handle_txn(progressive_fetch_extract, unlink_link_transaction, prefix, args, newenv, remove_op=False):
+    if unlink_link_transaction.nothing_to_do:
+        if remove_op:
+            error_message = "No packages found to remove from environment."
+            raise PackageNotFoundError(error_message)
+        elif not newenv:
+            if context.json:
+                common.stdout_json_success(message='All requested packages already installed.')
+            else:
+                print('\n# All requested packages already installed.\n')
+            return
 
     if not context.json:
-        for actions in action_set:
-            print()
-            print("Package plan for installation in environment %s:" % actions["PREFIX"])
-            display_actions(actions, index, show_channel_urls=context.show_channel_urls)
-            # TODO: this is where the transactions should be instantiated
-        common.confirm_yn(args)
+        unlink_link_transaction.display_actions(progressive_fetch_extract)
+        common.confirm_yn()
 
-    elif args.dry_run:
+    elif context.dry_run:
         common.stdout_json_success(unlink_link_transaction=unlink_link_transaction, prefix=prefix,
                                    dry_run=True)
         raise DryRunExit()
