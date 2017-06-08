@@ -93,30 +93,41 @@ def make_unlink_actions(transaction_context, target_prefix, linked_package_data)
     ))
 
 
-class UnlinkLinkTransaction(object):
+def match_specs_to_dists(packages_info_to_link, specs):
+    matched_specs = [None for _ in range(len(packages_info_to_link))]
+    for spec in specs or ():
+        spec = MatchSpec(spec)
+        idx = next((q for q, pkg_info in enumerate(packages_info_to_link)
+                    if pkg_info.index_json_record.name == spec.name),
+                   None)
+        if idx is not None:
+            matched_specs[idx] = spec
+    return tuple(matched_specs)
 
-    @classmethod
-    def create_from_dists(cls, index, target_prefix, unlink_dists, link_dists):
-        # This constructor method helps to patch into the 'plan' framework
-        lnkd_pkg_data = (load_meta(target_prefix, dist) for dist in unlink_dists)
-        # TODO: figure out if this filter shouldn't be an assert not None
-        linked_packages_data_to_unlink = tuple(lpd for lpd in lnkd_pkg_data if lpd)
 
-        log.debug("instantiating UnlinkLinkTransaction with\n"
-                  "  target_prefix: %s\n"
-                  "  unlink_dists:\n"
-                  "    %s\n"
-                  "  link_dists:\n"
-                  "    %s\n",
-                  target_prefix,
-                  '\n    '.join(text_type(d) for d in unlink_dists),
-                  '\n    '.join(text_type(d) for d in link_dists))
+PrefixSetup = namedtuple('PrefixSetup', (
+    'index',
+    'target_prefix',
+    'unlink_dists',
+    'link_dists',
+    'remove_specs',
+    'update_specs',
+))
 
-        pkg_dirs_to_link = tuple(PackageCache.get_entry_to_link(dist).extracted_package_dir
-                                 for dist in link_dists)
-        assert all(pkg_dirs_to_link)
-        packages_info_to_link = tuple(read_package_info(index[dist], pkg_dir)
-                                      for dist, pkg_dir in zip(link_dists, pkg_dirs_to_link))
+PrefixActionGroup = namedtuple('PrefixActionGroup', (
+    'unlink_action_groups',
+    'unregister_action_groups',
+    'link_action_groups',
+    'register_action_groups',
+))
+
+# each PrefixGroup item is a sequence of ActionGroups
+ActionGroup = namedtuple('ActionGroup', (
+    'type',
+    'pkg_data',
+    'actions',
+    'target_prefix',
+))
 
 
 class UnlinkLinkTransaction(object):
@@ -159,7 +170,7 @@ class UnlinkLinkTransaction(object):
 
         for stp in itervalues(self.prefix_setups):
             grps = self._prepare(stp.index, stp.target_prefix, stp.unlink_dists, stp.link_dists,
-                                 stp.command_action, stp.requested_specs)
+                                 stp.remove_specs, stp.update_specs)
             self.prefix_action_groups[stp.target_prefix] = PrefixActionGroup(*grps)
 
         self._prepared = True
@@ -187,8 +198,7 @@ class UnlinkLinkTransaction(object):
         self._execute(tuple(concat(interleave(itervalues(self.prefix_action_groups)))))
 
     @classmethod
-    def _prepare(cls, index, target_prefix, unlink_dists, link_dists, command_action,
-                 requested_specs):
+    def _prepare(cls, index, target_prefix, unlink_dists, link_dists, remove_specs, update_specs):
 
         # make sure prefix directory exists
         if not isdir(target_prefix):
@@ -239,7 +249,7 @@ class UnlinkLinkTransaction(object):
         else:
             unregister_action_groups = ()
 
-        matchspecs_for_link_dists = match_specs_to_dists(packages_info_to_link, requested_specs)
+        matchspecs_for_link_dists = match_specs_to_dists(packages_info_to_link, update_specs)
         link_action_groups = tuple(
             ActionGroup('link', pkg_info, cls.make_link_actions(transaction_context, pkg_info,
                                                                 target_prefix, lt, spec),
@@ -249,7 +259,8 @@ class UnlinkLinkTransaction(object):
         )
 
         history_actions = UpdateHistoryAction.create_actions(
-            transaction_context, target_prefix, requested_specs, command_action)
+            transaction_context, target_prefix, remove_specs, update_specs,
+        )
         if link_action_groups:
             register_actions = RegisterEnvironmentLocationAction(transaction_context,
                                                                  target_prefix),
