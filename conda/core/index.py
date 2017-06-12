@@ -72,52 +72,15 @@ def _supplement_index_with_cache(index, channels):
         index[dist] = index_json_record
 
 
-def supplement_index_with_repodata(index, repodata, channel, priority):
-    repodata_info = repodata.get('info', {})
-    arch = repodata_info.get('arch')
-    platform = repodata_info.get('platform')
-    schannel = channel.canonical_name
-    channel_url = channel.url()
-    auth = channel.auth
-    for fn, info in iteritems(repodata['packages']):
-        rec = IndexRecord.from_objects(info,
-                                       fn=fn,
-                                       arch=arch,
-                                       platform=platform,
-                                       schannel=schannel,
-                                       channel=channel_url,
-                                       priority=priority,
-                                       url=join_url(channel_url, fn),
-                                       auth=auth)
-        dist = Dist(rec)
-        index[dist] = rec
-        if 'with_features_depends' in info:
-            base_deps = info.get('depends', ())
-            base_feats = set(info.get('features', '').strip().split())
-            for feat, deps in iteritems(info['with_features_depends']):
-                feat = set(feat.strip().split())
-                snames = {MatchSpec(s).name for s in deps}
-                base2 = [s for s in base_deps if MatchSpec(s).name not in snames]
-                feat2 = ' '.join(sorted(base_feats | feat))
-                feat = ' '.join(sorted(feat))
-                deps2 = base2 + deps
-                dist = Dist.from_objects(dist, with_features_depends=feat)
-                rec2 = IndexRecord.from_objects(rec, features=feat2, depends=deps2)
-                index[dist] = rec2
+def get_channel_priority_map(channel_urls=(), prepend=True, platform=None, use_local=False):
+    if use_local:
+        channel_urls = ['local'] + list(channel_urls)
+    if prepend:
+        channel_urls += context.channels
 
-
-def supplement_index_with_features(index, features=()):
-    for feat in chain(context.track_features, features):
-        fname = feat + '@'
-        rec = IndexRecord(
-            name=fname,
-            version='0',
-            build='0',
-            schannel='defaults',
-            track_features=feat,
-            build_number=0,
-            fn=fname)
-        index[Dist(rec)] = rec
+    subdirs = (platform, 'noarch') if platform is not None else context.subdirs
+    channel_priority_map = prioritize_channels(channel_urls, subdirs=subdirs)
+    return channel_priority_map
 
 
 def get_index(channel_urls=(), prepend=True, platform=None,
@@ -129,15 +92,12 @@ def get_index(channel_urls=(), prepend=True, platform=None,
     If platform=None, then the current platform is used.
     If prefix is supplied, then the packages installed in that prefix are added.
     """
-    if use_local:
-        channel_urls = ['local'] + list(channel_urls)
-    if prepend:
-        channel_urls += context.channels
+
     if context.offline and unknown is None:
         unknown = True
 
-    subdirs = (platform, 'noarch') if platform is not None else context.subdirs
-    channel_priority_map = prioritize_channels(channel_urls, subdirs=subdirs)
+    channel_priority_map = get_channel_priority_map(channel_urls, prepend, platform, use_local)
+
     index = fetch_index(channel_priority_map, use_cache=use_cache)
 
     if prefix or unknown:
