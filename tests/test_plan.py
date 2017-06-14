@@ -902,7 +902,7 @@ class PlanFromActionsTests(unittest.TestCase):
             ('PREFIX', 'aprefix'),
             ('PRINT', 'Linking packages ...'),
             # ('PROGRESS', '2'),
-            ('PROGRESSIVEFETCHEXTRACT', ProgressiveFetchExtract(index, (ipython, menuinst))),
+            ('PROGRESSIVEFETCHEXTRACT', ProgressiveFetchExtract((ipython_record, menuinst_record))),
             ('UNLINKLINKTRANSACTION', ((), (ipython), menuinst)),
         ]
 
@@ -912,7 +912,7 @@ class PlanFromActionsTests(unittest.TestCase):
                 ('PREFIX', 'aprefix'),
                 ('PRINT', 'Linking packages ...'),
                 # ('PROGRESS', '1'),
-                ('PROGRESSIVEFETCHEXTRACT', ProgressiveFetchExtract(index, (menuinst, ipython))),
+                ('PROGRESSIVEFETCHEXTRACT', ProgressiveFetchExtract((menuinst_record, ipython_record))),
                 ('UNLINKLINKTRANSACTION', ((), (menuinst, ipython))),
             ]
 
