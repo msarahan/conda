@@ -6,7 +6,7 @@ from enum import Enum
 import logging
 from logging import CRITICAL, Formatter, NOTSET, StreamHandler, WARN, getLogger
 import os
-from os import chdir, getcwd
+import signal
 import sys
 
 from .compat import StringIO, iteritems
@@ -216,3 +216,23 @@ def attach_stderr_handler(level=WARN, logger_name=None, propagate=False, formatt
         logr.addHandler(new_stderr_handler)
         logr.setLevel(level)
         logr.propagate = propagate
+
+
+def timeout(timeout_secs, func, *args, **kwargs):
+    default_return = kwargs.pop('default_return', None)
+
+    class TimeoutException(Exception):
+        pass
+
+    def interrupt(signum, frame):
+        raise TimeoutException()
+
+    signal.signal(signal.SIGALRM, interrupt)
+    signal.alarm(timeout_secs)
+
+    try:
+        ret = func(*args, **kwargs)
+        signal.alarm(0)
+        return ret
+    except (TimeoutException,  KeyboardInterrupt):
+        return default_return
