@@ -227,7 +227,7 @@ def timeout(timeout_secs, func, *args, **kwargs):
         # Guess we'll bypass Windows timeouts for now.
         try:
             return func(*args, **kwargs)
-        except KeyboardInterrupt:
+        except KeyboardInterrupt:  # pragma: no cover
             return default_return
     else:
         class TimeoutException(Exception):
@@ -243,5 +243,5 @@ def timeout(timeout_secs, func, *args, **kwargs):
             ret = func(*args, **kwargs)
             signal.alarm(0)
             return ret
-        except (TimeoutException,  KeyboardInterrupt):
+        except (TimeoutException,  KeyboardInterrupt):  # pragma: no cover
             return default_return
