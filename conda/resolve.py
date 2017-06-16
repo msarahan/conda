@@ -3,11 +3,12 @@ from __future__ import absolute_import, division, print_function, unicode_litera
 import logging
 import re
 
+from . import CondaError
 from .base.constants import DEFAULTS_CHANNEL_NAME, MAX_CHANNEL_PRIORITY, CONDA_TARBALL_EXTENSION
 from .base.context import context
 from .common.compat import iteritems, iterkeys, itervalues, string_types
 from .console import setup_handlers
-from .exceptions import CondaValueError, NoPackagesFoundError, UnsatisfiableError
+from .exceptions import CondaValueError, UnsatisfiableError
 from .logic import Clauses, minimal_unsatisfiable_subset
 from .models.dist import Dist
 from .toposort import toposort
@@ -20,9 +21,17 @@ stderrlog = logging.getLogger('stderrlog')
 setup_handlers()
 
 
+class ResolvePackageNotFound(Exception):
+    def __init__(self, bad_deps):
+        deps = dashlist(' -> '.join(map(str, q)) for q in bad_deps)
+        super(ResolvePackageNotFound, self).__init__(bad_deps)
+        self.pkgs = deps
+
+
 # used in conda build
 Unsatisfiable = UnsatisfiableError
-NoPackagesFound = NoPackagesFoundError
+ResolvePackageNotFound = ResolvePackageNotFound
+
 
 def dashlist(iter):
     return ''.join('\n  - ' + str(x) for x in iter)
@@ -275,7 +284,7 @@ class Resolve(object):
             filter = self.default_filter(feats)
             bad_deps.extend(self.invalid_chains(ms, filter))
         if bad_deps:
-            raise NoPackagesFoundError(bad_deps)
+            raise ResolvePackageNotFound(bad_deps)
         return spec2, feats
 
     def find_conflicts(self, specs):
@@ -528,7 +537,7 @@ class Resolve(object):
         ms = MatchSpec(ms)
         dists = self.find_matches(ms)
         if not dists and not emptyok:
-            raise NoPackagesFoundError([(ms,)])
+            raise ResolvePackageNotFound([(ms,)])
         return sorted(dists, key=self.version_key)
 
     @staticmethod
