@@ -2,7 +2,8 @@
 from __future__ import absolute_import, division, print_function, unicode_literals
 
 import os
-from os.path import basename, dirname, join, split, splitext, abspath, normpath
+from os.path import (abspath, basename, dirname, expanduser, expandvars, join, normpath, split,
+                     splitext)
 import re
 
 from .compat import on_win, string_types
@@ -39,6 +40,10 @@ def is_path(value):
     if '://' in value:
         return False
     return re.match(PATH_MATCH_REGEX, value)
+
+
+def expand(path):
+    return abspath(expanduser(expandvars(path)))
 
 
 def paths_equal(path1, path2):
@@ -196,20 +201,6 @@ def win_path_backout(path):
 
 def ensure_pad(name, pad="_"):
     return name and "%s%s%s" % (pad, name.strip(pad), pad)
-
-
-def preferred_env_to_prefix(preferred_env, root_dir, envs_dirs):
-    if preferred_env is None:
-        return root_dir
-    else:
-        return '/'.join((envs_dirs[0], ensure_pad(preferred_env, '_')))
-
-
-def prefix_to_env_name(prefix, root_prefix):
-    if prefix == root_prefix:
-        return None
-    split_env = win_path_backout(prefix).split("/")
-    return split_env[-1]
 
 
 def preferred_env_matches_prefix(preferred_env, prefix, root_dir):

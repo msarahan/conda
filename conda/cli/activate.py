@@ -69,6 +69,7 @@ def _get_prefix_paths(prefix):
         yield os.path.join(prefix, 'Library', 'usr', 'bin')
         yield os.path.join(prefix, 'Library', 'bin')
         yield os.path.join(prefix, 'Scripts')
+        yield os.path.join(prefix, 'bin')
     else:
         yield os.path.join(prefix, 'bin')
 
@@ -106,6 +107,8 @@ def get_activate_path(prefix, shell):
 
 def main():
     from ..base.constants import ROOT_ENV_NAME
+    from ..gateways.logging import initialize_logging
+    initialize_logging()
 
     sys_argv = tuple(ensure_text_type(s) for s in sys.argv)
 

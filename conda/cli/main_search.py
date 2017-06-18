@@ -6,14 +6,11 @@
 
 from __future__ import absolute_import, division, print_function, unicode_literals
 
-from .common import (Completer, Packages, add_parser_channels, add_parser_json, add_parser_known,
-                     add_parser_offline, add_parser_prefix, add_parser_use_index_cache,
-                     add_parser_use_local, disp_features, arg2spec,
-                     ensure_override_channels_requires_channel, ensure_use_local, stdout_json,
-                     add_parser_insecure)
-from ..api import get_index
-from ..base.context import context
-from ..common.compat import text_type
+from os.path import dirname
+
+from .conda_argparse import (add_parser_channels, add_parser_insecure, add_parser_json,
+                             add_parser_known, add_parser_offline, add_parser_prefix,
+                             add_parser_use_index_cache, add_parser_use_local)
 
 descr = """Search for packages and display their information. The input is a
 Python regular expression.  To perform a search with a search string that starts
@@ -110,7 +107,9 @@ package.""",
 
 
 def execute(args, parser):
-    from ..exceptions import NoPackagesFoundError, PackageNotFoundError
+    from ..exceptions import PackageNotFoundError
+    from ..resolve import NoPackagesFoundError
+
     try:
         execute_search(args, parser)
     except NoPackagesFoundError as e:
@@ -118,14 +117,23 @@ def execute(args, parser):
         raise PackageNotFoundError(error_message)
 
 
+def make_icon_url(info):  # pragma: no cover
+    # TODO: deprecated
+    if info.get('channel') and info.get('icon'):
+        base_url = dirname(info['channel'])
+        icon_fn = info['icon']
+        return '%s/icons/%s' % (base_url, icon_fn)
+    return ''
+
+
 def execute_search(args, parser):
     import re
     from ..resolve import Resolve
-    from ..api import get_index
-    from ..misc import make_icon_url
+    from ..core.index import get_index
     from ..models.match_spec import MatchSpec
     from ..core.linked_data import linked as linked_data
     from ..core.package_cache import PackageCache
+    from ..base.context import context
 
     if args.reverse_dependency:
         if not args.regex:
@@ -154,7 +162,7 @@ def execute_search(args, parser):
     prefix = context.prefix_w_legacy_search
 
     linked = linked_data(prefix)
-    extracted = set(pc_entry.dist.name for pc_entry in PackageCache.get_all_extracted_entries())
+    extracted = set(pc_entry.name for pc_entry in PackageCache.get_all_extracted_entries())
 
     # XXX: Make this work with more than one platform
     platform = args.platform or ''
