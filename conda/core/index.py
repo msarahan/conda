@@ -1,19 +1,19 @@
 # -*- coding: utf-8 -*-
 from __future__ import absolute_import, division, print_function, unicode_literals
 
-from collections import namedtuple
+from itertools import chain
 from logging import getLogger
 
 from .linked_data import linked_data
 from .package_cache import PackageCache
-from .repodata import collect_all_repodata, make_feature_record
 from ..base.constants import MAX_CHANNEL_PRIORITY
 from ..base.context import context
 from ..common.compat import iteritems, itervalues
 from ..gateways.disk.read import read_index_json
 from ..models.channel import prioritize_channels
 from ..models.dist import Dist
-from ..models.index_record import EMPTY_LINK, IndexRecord, PackageRecord
+from ..models.index_record import EMPTY_LINK, IndexRecord, RepodataRecord
+from .repodata import RepoData
 
 try:
     from cytoolz.itertoolz import take
@@ -61,17 +61,19 @@ def fetch_index(channel_urls, use_cache=False, index=None):
 
     use_cache = use_cache or context.use_index_cache
 
-    CollectTask = namedtuple('CollectTask', ('url', 'schannel', 'priority'))
-    tasks = [CollectTask(url, *cdata) for url, cdata in iteritems(channel_urls)]
-    repodatas = collect_all_repodata(use_cache, tasks)
+    RepoData.clear()  # make sure we start with a clean slateq
+    for url, cdata in iteritems(channel_urls):
+        RepoData.enable(url, *cdata)
+    RepoData.load_all(use_cache)
     # type: List[Sequence[str, Option[Dict[Dist, IndexRecord]]]]
     #   this is sorta a lie; actually more primitve types
 
     if index is None:
         index = {}
-    for _, repodata in reversed(repodatas):
-        if repodata:
-            index.update(repodata.get('packages', {}))
+    for url in reversed(RepoData):
+        repo = RepoData[url]
+        if repo.index:
+            index.update(repo.index.get('packages', {}))
 
     if not context.json:
         stdoutlog.info('\n')
