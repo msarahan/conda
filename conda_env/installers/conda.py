@@ -33,14 +33,6 @@ def install(prefix, specs, args, env, prune=False):
     solver = Solver(prefix, channels, subdirs, specs_to_add=specs)
     unlink_link_transaction = solver.solve_for_transaction(prune=prune)
 
-    with common.json_progress_bars(json=args.json and not args.quiet):
-        for actions in action_set:
-            try:
-                plan.execute_actions(actions, index, verbose=not args.quiet)
-            except RuntimeError as e:
-                if len(e.args) > 0 and "LOCKERROR" in e.args[0]:
-                    raise LockError('Already locked: %s' % text_type(e))
-                else:
-                    raise CondaHTTPError('CondaHTTPError: %s' % e)
-            except SystemExit as e:
-                raise CondaSystemExit('Exiting', e)
+    pfe = unlink_link_transaction.get_pfe()
+    pfe.execute()
+    unlink_link_transaction.execute()
