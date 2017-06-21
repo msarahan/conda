@@ -10,7 +10,76 @@ from unittest import TestCase
 from uuid import uuid4
 
 from conda import CONDA_PACKAGE_ROOT
-import pytest
+from conda._vendor.auxlib.ish import dals
+from conda._vendor.toolz.itertoolz import concatv
+from conda.activate import Activator, main as activate_main, native_path_to_unix
+from conda.base.constants import ROOT_ENV_NAME
+from conda.base.context import context, reset_context
+from conda.common.compat import iteritems, on_win, string_types
+from conda.common.io import captured, env_var, env_vars
+from conda.exceptions import EnvironmentLocationNotFound, EnvironmentNameNotFound
+from conda.gateways.disk.create import mkdir_p
+from conda.gateways.disk.delete import rm_rf
+from conda.gateways.disk.update import touch
+from tests.helpers import tempdir
+
+try:
+    from unittest.mock import patch
+except ImportError:
+    from mock import patch
+
+log = getLogger(__name__)
+
+
+class ActivatorUnitTests(TestCase):
+
+    def test_activate_environment_not_found(self):
+        activator = Activator('posix')
+
+        with tempdir() as td:
+            with pytest.raises(EnvironmentLocationNotFound):
+                activator.build_activate(td)
+
+        with pytest.raises(EnvironmentLocationNotFound):
+            activator.build_activate('/not/an/environment')
+
+        with pytest.raises(EnvironmentNameNotFound):
+            activator.build_activate('wontfindmeIdontexist_abc123')
+
+    def test_wrong_args(self):
+        pass
+
+    def test_activate_help(self):
+        pass
+
+    def test_PS1(self):
+        with env_var("CONDA_CHANGEPS1", "yes", reset_context):
+            activator = Activator('posix')
+            assert activator._prompt_modifier(ROOT_ENV_NAME) == '(%s) ' % ROOT_ENV_NAME
+
+            instructions = activator.build_activate("root")
+            assert instructions['set_vars']['CONDA_PROMPT_MODIFIER'] == '(%s) ' % ROOT_ENV_NAME
+
+    def test_PS1_no_changeps1(self):
+        with env_var("CONDA_CHANGEPS1", "no", reset_context):
+            activator = Activator('posix')
+            assert activator._prompt_modifier('root') == ''
+
+            instructions = activator.build_activate("root")
+            assert instructions['set_vars']['CONDA_PROMPT_MODIFIER'] == ''
+
+    def test_add_prefix_to_path(self):
+        activator = Activator('posix')
+
+        path_dirs = activator.path_conversion(['/path1/bin', '/path2/bin', '/usr/local/bin', '/usr/bin', '/bin'])
+        assert len(path_dirs) == 5
+        test_prefix = '/usr/mytest/prefix'
+        added_paths = activator.path_conversion(activator._get_path_dirs(test_prefix))
+        if isinstance(added_paths, string_types):
+            added_paths = added_paths,
+
+        new_path = activator._add_prefix_to_path(test_prefix, path_dirs)
+        assert new_path == added_paths + path_dirs
 
 from conda.base.context import context
 from conda.cli.activate import _get_prefix_paths, binpath_from_arg
@@ -57,7 +126,7 @@ def gen_test_env_paths(envs, shell, num_test_folders=5):
 
     def test_default_env(self):
         activator = Activator('posix')
-        assert 'root' == activator._default_env(context.root_prefix)
+        assert ROOT_ENV_NAME == activator._default_env(context.root_prefix)
 
         with tempdir() as td:
             assert td == activator._default_env(td)

@@ -55,18 +55,18 @@ def initialize_std_loggers():
     #       should most likely be renamed to 'conda.stdout'/'conda.stderr' in the future!
     formatter = Formatter("%(message)s\n")
 
-    stdout = getLogger('stdout')
+    stdout = getLogger('conda.stdout')
     stdout.setLevel(INFO)
-    stdouthandler = StreamHandler(sys.stdout)
+    stdouthandler = StdStreamHandler('stdout')
     stdouthandler.setLevel(INFO)
     stdouthandler.setFormatter(formatter)
     stdout.addHandler(stdouthandler)
     stdout.addFilter(TokenURLFilter())
     stdout.propagate = False
 
-    stderr = getLogger('stderr')
+    stderr = getLogger('conda.stderr')
     stderr.setLevel(INFO)
-    stderrhandler = StreamHandler(sys.stderr)
+    stderrhandler = StdStreamHandler('stderr')
     stderrhandler.setLevel(INFO)
     stderrhandler.setFormatter(formatter)
     stderr.addHandler(stderrhandler)
