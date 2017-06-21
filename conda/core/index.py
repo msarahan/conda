@@ -6,6 +6,7 @@ from logging import getLogger
 
 from .linked_data import linked_data
 from .package_cache import PackageCache
+from .repodata import collect_all_repodata_as_index, make_feature_record
 from ..base.constants import MAX_CHANNEL_PRIORITY
 from ..base.context import context
 from ..common.compat import iteritems, itervalues
@@ -61,22 +62,11 @@ def fetch_index(channel_urls, use_cache=False, index=None):
 
     use_cache = use_cache or context.use_index_cache
 
-    RepoData.clear()  # make sure we start with a clean slateq
-    for url, cdata in iteritems(channel_urls):
-        RepoData.enable(url, *cdata)
-    RepoData.load_all(use_cache)
-    # type: List[Sequence[str, Option[Dict[Dist, IndexRecord]]]]
-    #   this is sorta a lie; actually more primitve types
+    # channel_urls reversed to build up index in correct order
+    CollectTask = namedtuple('CollectTask', ('url', 'schannel', 'priority'))
+    tasks = (CollectTask(url, *channel_urls[url]) for url in reversed(channel_urls))
+    index = collect_all_repodata_as_index(use_cache, tasks)
 
-    if index is None:
-        index = {}
-    for url in reversed(RepoData):
-        repo = RepoData[url]
-        if repo.index:
-            index.update(repo.index.get('packages', {}))
-
-    if not context.json:
-        stdoutlog.info('\n')
     return index
 
 
