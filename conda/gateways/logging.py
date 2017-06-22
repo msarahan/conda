@@ -52,11 +52,6 @@ class StdStreamHandler(StreamHandler):
         return super(StdStreamHandler, self).__getattribute__(attr)
 
 
-class RawFormatter(Formatter):
-    def format(self, record):
-        return record.msg
-
-
 # Don't use initialize_logging/initialize_root_logger/set_conda_log_level in
 # cli.python_api! There we want the user to have control over their logging,
 # e.g., using their own levels, handlers, formatters and propagation settings.
@@ -76,7 +71,7 @@ def initialize_std_loggers():
     # TODO: To avoid clashes with user loggers when cli.python_api is used, these loggers
     #       should most likely be renamed to 'conda.stdout'/'conda.stderr' in the future!
     formatter = Formatter("%(message)s\n")
-    raw_formatter = RawFormatter()
+    raw_formatter = Formatter('%(message)s')
 
     for stream in 'stdout', 'stderr'):
         logger = getLogger('conda.%s' % stream)
