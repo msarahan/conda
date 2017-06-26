@@ -578,33 +578,21 @@ def maybe_raise(error, context):
     stderrlog = getLogger('conda.stderr')
     if context.json:
         import json
-        map_dump = exception.dump_map()
-        json_exception = json.dumps(map_dump, indent=2, sort_keys=True, cls=EntityEncoder)
-        stdoutlog.info("%s\n" % json_exception)
+        stdoutlog = getLogger('conda.stdout')
+        exc_json = json.dumps(exc_val.dump_map(), indent=2, sort_keys=True, cls=EntityEncoder)
+        stdoutlog.info("%s\n" % exc_json)
     else:
-        stderrlog.info("\n%r\n", exception)
+        stderrlog = getLogger('conda.stderr')
+        stderrlog.info("\n%r\n", exc_val)
 
 
-def _calculate_ask_do_upload(context):
-    try:
-        isatty = os.isatty(0) or on_win
-    except Exception as e:
-        log.debug('%r', e)
-        # given how the rest of this function is constructed, better to assume True here
-        isatty = True
-
-    if context.report_errors is False:
-        ask_for_upload = False
-        do_upload = False
-    elif context.report_errors is True or context.always_yes:
-        ask_for_upload = False
-        do_upload = True
-    elif context.json or context.quiet:
-        ask_for_upload = False
-        do_upload = not context.offline and context.always_yes
-    elif not isatty:
-        ask_for_upload = False
-        do_upload = not context.offline and context.always_yes
+def _format_exc(exc_val=None, exc_tb=None):
+    if exc_val is None:
+        exc_type, exc_val, exc_tb = sys.exc_info()
+    else:
+        exc_type = type(exc_val)
+    if exc_tb:
+        formatted_exception = format_exception(exc_type, exc_val, exc_tb)
     else:
         formatted_exception = format_exception_only(exc_type, exc_val)
     return ''.join(formatted_exception)
