@@ -205,7 +205,6 @@ def install(args, parser, command='install'):
         else:
             raise EnvironmentLocationNotFound(prefix)
 
-    index = {}
     try:
         if isinstall and args.revision:
             index = get_index(channel_urls=index_args['channel_urls'],
