@@ -30,9 +30,8 @@ from conda._vendor.boltons.setutils import IndexedSet
 from conda.base.context import context, reset_context
 from conda.cli.python_api import Commands, run_command
 from conda.common.io import env_var
-from conda.core.package_cache import ProgressiveFetchExtract
-import conda.core.solve
-from conda.exceptions import NoPackagesFoundError
+from conda.core.solve import get_pinned_specs
+from conda.exceptions import PackagesNotFoundError
 from conda.gateways.disk.create import mkdir_p
 from conda.gateways.disk.delete import rm_rf
 from conda.gateways.disk.update import touch
@@ -898,7 +897,7 @@ def generate_mocked_resolve(pkgs, install=None):
         # Here, spec should be a MatchSpec
         res = groups[spec.name]
         if not res and not emptyok:
-            raise PackageNotFoundError([(spec,)])
+            raise PackagesNotFoundError((spec,))
         return res
 
     def get_explicit(spec):

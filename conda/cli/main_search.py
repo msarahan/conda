@@ -111,29 +111,19 @@ package.""",
 def execute(args, parser):
     from ..exceptions import PackageNotFoundError
     from ..core.index import get_channel_priority_map
+    from ..exceptions import PackagesNotFoundError, ResolvePackageNotFound
 
     try:
         execute_search(args, parser)
     except ResolvePackageNotFound as e:
-        pkg = []
-        pkg.append(e.bad_deps)
-        pkg = dashlist(pkg)
-        index_args = {
-            'channel_urls': context.channels,
-            'prepend': not args.override_channels,
-            'use_local': args.use_local,
-        }
-
         channel_priority_map = get_channel_priority_map(
-            channel_urls=index_args['channel_urls'],
-            prepend=index_args['prepend'],
+            channel_urls=context.channels,
+            prepend=not args.override_channels,
             platform=None,
-            use_local=index_args['use_local'],
+            use_local=args.use_local,
         )
-
         channels_urls = tuple(channel_priority_map)
-
-        raise PackageNotFoundError(pkg, channels_urls)
+        raise PackagesNotFoundError(e.bad_deps, channels_urls)
 
 
 
@@ -218,7 +208,7 @@ def execute_search(args, parser):
             names.append((name, res))
 
     if not names:
-        raise ResolvePackageNotFound(args.regex)
+        raise ResolvePackageNotFound([(args.regex,)])
 
     for name, pkgs in names:
         disp_name = name

@@ -6,11 +6,12 @@ from conda._vendor.auxlib.collection import AttrDict
 from conda._vendor.auxlib.ish import dals
 from conda.base.context import context, reset_context
 from conda.common.compat import on_win
-from conda.common.io import captured, env_var, replace_log_streams
-from conda.exceptions import CommandNotFoundError, CondaFileNotFoundError, CondaHTTPError, CondaKeyError, \
-    CondaRevisionError, DirectoryNotFoundError, MD5MismatchError, PackageNotFoundError, TooFewArgumentsError, \
-    TooManyArgumentsError, conda_exception_handler, BasicClobberError, KnownPackageClobberError, \
-    UnknownPackageClobberError, SharedLinkPathClobberError, ResolvePackageNotFound, BinaryPrefixReplacementError
+from conda.common.io import captured, env_var
+from conda.exceptions import BasicClobberError, BinaryPrefixReplacementError, CommandNotFoundError, \
+    CondaHTTPError, CondaKeyError, CondaRevisionError, DirectoryNotFoundError, \
+    KnownPackageClobberError, MD5MismatchError, PackagesNotFoundError, PathNotFoundError, \
+    SharedLinkPathClobberError, TooFewArgumentsError, TooManyArgumentsError, \
+    UnknownPackageClobberError, conda_exception_handler, print_unexpected_error_message
 
 try:
     from unittest.mock import Mock, patch
@@ -218,13 +219,13 @@ class ExceptionTests(TestCase):
     def test_PackageNotFoundError(self):
         package = "Potato"
         with env_var("CONDA_JSON", "yes", reset_context):
-            with captured() as c, replace_log_streams():
-                exc = PackageNotFoundError(package)
+            with captured() as c:
+                exc = PackagesNotFoundError((package,))
                 conda_exception_handler(_raise_helper, exc)
 
         json_obj = json.loads(c.stdout)
         assert not c.stderr
-        assert json_obj['exception_type'] == "<class 'conda.exceptions.PackageNotFoundError'>"
+        assert json_obj['exception_type'] == "<class 'conda.exceptions.PackagesNotFoundError'>"
         assert json_obj['message'] == text_type(exc)
         assert json_obj['error'] == repr(exc)
 
@@ -233,10 +234,10 @@ class ExceptionTests(TestCase):
                 conda_exception_handler(_raise_helper, exc)
 
         assert not c.stdout
-        assert c.stderr.strip() == """
-        PackageNotFoundError: Package(s) is missing from the environment:
-            Potato
-        """.strip()
+        assert c.stderr.strip() == dals("""
+        PackagesNotFoundError: The following packages are missing from the target environment:
+          - Potato
+        """).strip()
 
     def test_CondaRevisionError(self):
         message = "Potato"
