@@ -6,7 +6,7 @@ import json
 from logging import getLogger
 import os
 import sys
-from traceback import format_exc
+from traceback import format_exc, format_exception, format_exception_only
 
 from . import CondaError, CondaExitZero, CondaMultiError, text_type
 from ._vendor.auxlib.entity import EntityEncoder
@@ -31,8 +31,8 @@ log = getLogger(__name__)
 class ResolvePackageNotFound(Exception):
     def __init__(self, bad_deps):
         # bad_deps is a list of lists
-        self.bad_deps = bad_deps
-        message = '\n' + '\n'.join(('  - %s' % dep) for deps in bad_deps for dep in deps if dep)
+        self.bad_deps = tuple(dep for deps in bad_deps for dep in deps if dep)
+        message = '\n' + '\n'.join(('  - %s' % dep) for dep in self.bad_deps)
         super(ResolvePackageNotFound, self).__init__(message)
 NoPackagesFound = NoPackagesFoundError = ResolvePackageNotFound  # NOQA
 
@@ -392,26 +392,35 @@ class AuthenticationError(CondaError):
     pass
 
 
-class PackageNotFoundError(CondaError):
+class PackagesNotFoundError(CondaError):
 
-    def __init__(self, bad_pkg, channel_urls=()):
-        from .resolve import dashlist
-        channels = dashlist(channel_urls)
+    def __init__(self, packages, channel_urls=()):
+        format_list = lambda iterable: '  - ' + '\n  - '.join(text_type(x) for x in iterable)
 
-        if not channel_urls:
-            msg = """Package(s) is missing from the environment:
-            %(pkg)s
-            """
+        if channel_urls:
+            message = dals("""
+            The following packages are not available from current channels:
+            
+            %(packages_formatted)s
 
+            Current channels:
+            
+            %(channels_formatted)s
+            """)
+            packages_formatted = format_list(packages)
+            channels_formatted = format_list(channel_urls)
         else:
-            msg = """Packages missing in current channels:
-            %(pkg)s
+            message = dals("""
+            The following packages are missing from the target environment:
+            %(packages_formatted)s
+            """)
+            packages_formatted = format_list(packages)
+            channels_formatted = ()
 
-We have searched for the packages in the following channels:
-            %(channels)s
-            """
-
-        super(PackageNotFoundError, self).__init__(msg, pkg=bad_pkg, channels=channels)
+        super(PackagesNotFoundError, self).__init__(
+            message, packages=packages, packages_formatted=packages_formatted,
+            channel_urls=channel_urls, channels_formatted=channels_formatted
+        )
 
 
 class UnsatisfiableError(CondaError):
@@ -553,74 +562,159 @@ class InvalidSpecError(CondaError):
         super(InvalidSpecError, self).__init__(message, invalid_spec=invalid_spec)
 
 
-def print_conda_exception(exception):
-    from .base.context import context
+def maybe_raise(error, context):
+    if isinstance(error, CondaMultiError):
+        groups = groupby(lambda e: isinstance(e, ClobberError), error.errors)
+        clobber_errors = groups.get(True, ())
+        non_clobber_errors = groups.get(False, ())
+        if clobber_errors:
+            if context.path_conflict == PathConflict.prevent and not context.clobber:
+                raise error
+            elif context.path_conflict == PathConflict.warn and not context.clobber:
+                print_conda_exception(CondaMultiError(clobber_errors))
+        if non_clobber_errors:
+            raise CondaMultiError(non_clobber_errors)
+    elif isinstance(error, ClobberError):
+        if context.path_conflict == PathConflict.prevent and not context.clobber:
+            raise error
+        elif context.path_conflict == PathConflict.warn and not context.clobber:
+            print_conda_exception(error)
+    else:
+        raise error
 
-    stdoutlogger = getLogger('conda.stdout')
-    stderrlogger = getLogger('conda.stderr')
+
+    stdoutlog = getLogger('conda.stdout')
+    stderrlog = getLogger('conda.stderr')
     if context.json:
         import json
-        stdoutlogger.info(json.dumps(exception.dump_map(), indent=2, sort_keys=True,
-                                     cls=EntityEncoder))
+        stdoutlog = getLogger('conda.stdout')
+        exc_json = json.dumps(exc_val.dump_map(), indent=2, sort_keys=True, cls=EntityEncoder)
+        stdoutlog.info("%s\n" % exc_json)
     else:
-        stderrlogger.info("\n%r", exception)
+        stderrlog = getLogger('conda.stderr')
+        stderrlog.info("\n%r\n", exc_val)
 
 
-def _calculate_ask_do_upload(context):
-    try:
-        isatty = os.isatty(0) or on_win
-    except Exception as e:
-        log.debug('%r', e)
-        # given how the rest of this function is constructed, better to assume True here
-        isatty = True
-
-    if context.report_errors is False:
-        ask_for_upload = False
-        do_upload = False
-    elif context.report_errors is True or context.always_yes:
-        ask_for_upload = False
-        do_upload = True
-    elif context.json or context.quiet:
-        ask_for_upload = False
-        do_upload = not context.offline and context.always_yes
-    elif not isatty:
-        ask_for_upload = False
-        do_upload = not context.offline and context.always_yes
+def _format_exc(exc_val=None, exc_tb=None):
+    if exc_val is None:
+        exc_type, exc_val, exc_tb = sys.exc_info()
     else:
-        ask_for_upload = True
-        do_upload = False
-
-    return ask_for_upload, do_upload
-
-
-def _print_exception_message_and_prompt(context, error_report):
-    ask_for_upload, do_upload = _calculate_ask_do_upload(context)
-
-    stdin = None
-    if context.json:
-        from .cli.common import stdout_json
-        stdout_json(error_report)
+        exc_type = type(exc_val)
+    if exc_tb:
+        formatted_exception = format_exception(exc_type, exc_val, exc_tb)
     else:
-        message_builder = []
-        if not ask_for_upload:
-            message_builder.append(
-                "An unexpected error has occurred. Conda has prepared the following report."
-            )
-        message_builder.append('')
-        message_builder.append('`$ %s`' % error_report['command'])
-        message_builder.append('')
-        message_builder.extend('    ' + line for line in error_report['traceback'].splitlines())
-        message_builder.append('')
-        if error_report['conda_info']:
-            from .cli.main_info import get_main_info_str
+        formatted_exception = format_exception_only(exc_type, exc_val)
+    return ''.join(formatted_exception)
+
+
+class ExceptionHandler(object):
+
+    def __call__(self, func, *args, **kwargs):
+        try:
+            return func(*args, **kwargs)
+        except:
+            _, exc_val, exc_tb = sys.exc_info()
+            return self.handle_exception(exc_val, exc_tb)
+
+    @property
+    def out_stream(self):
+        from .base.context import context
+        return sys.stdout if context.json else sys.stderr
+
+    @property
+    def http_timeout(self):
+        from .base.context import context
+        return context.remote_connect_timeout_secs, context.remote_read_timeout_secs
+
+    @property
+    def user_agent(self):
+        from .base.context import context
+        return context.user_agent
+
+    @property
+    def error_upload_url(self):
+        from .base.context import context
+        return context.error_upload_url
+
+    def handle_exception(self, exc_val, exc_tb):
+        return_code = getattr(exc_val, 'return_code', None)
+        if return_code == 0:
+            return 0
+        elif isinstance(exc_val, CondaError):
+            return self.handle_application_exception(exc_val, exc_tb)
+        elif isinstance(exc_val, KeyboardInterrupt):
+            self._print_conda_exception(KeyboardInterrupt(), _format_exc())
+            return 1
+        else:
+            return self.handle_unexpected_exception(exc_val, exc_tb)
+
+    def handle_application_exception(self, exc_val, exc_tb):
+        self._print_conda_exception(exc_val, exc_tb)
+        rc = getattr(exc_val, 'return_code', None)
+        return rc if rc is not None else 1
+
+    def _print_conda_exception(self, exc_val, exc_tb):
+        print_conda_exception(exc_val, exc_tb)
+
+    def handle_unexpected_exception(self, exc_val, exc_tb):
+        error_report = self.get_error_report(exc_val, exc_tb)
+        self.print_error_report(error_report)
+        ask_for_upload, do_upload = self._calculate_ask_do_upload()
+        do_upload, ask_response = self.ask_for_upload() if ask_for_upload else (do_upload, None)
+        if do_upload:
+            self._execute_upload(error_report)
+        self.print_upload_confirm(do_upload, ask_for_upload, ask_response)
+        rc = getattr(exc_val, 'return_code', None)
+        return rc if rc is not None else 1
+
+    def get_error_report(self, exc_val, exc_tb):
+        command = ' '.join(ensure_text_type(s) for s in sys.argv)
+        info_dict = {}
+        if ' info' not in command:
+            # get info_dict, but if we get an exception here too, record it without trampling
+            # the original exception
             try:
-                message_builder.append(get_main_info_str(error_report['conda_info']))
-            except Exception as e:
-                message_builder.append('conda info could not be constructed.')
-                message_builder.append('%r' % e)
-        message_builder.append('')
+                from .cli.main_info import get_info_dict
+                info_dict = get_info_dict()
+            except Exception as info_e:
+                info_traceback = _format_exc()
+                info_dict = {
+                    'error': repr(info_e),
+                    'exception_name': info_e.__class__.__name__,
+                    'exception_type': text_type(exc_val.__class__),
+                    'traceback': info_traceback,
+                }
 
-        if ask_for_upload:
+        error_report = {
+            'error': repr(exc_val),
+            'exception_name': exc_val.__class__.__name__,
+            'exception_type': text_type(exc_val.__class__),
+            'command': command,
+            'traceback': _format_exc(exc_val, exc_tb),
+            'conda_info': info_dict,
+        }
+        return error_report
+
+    def print_error_report(self, error_report):
+        from .base.context import context
+        if context.json:
+            from .cli.common import stdout_json
+            stdout_json(error_report)
+        else:
+            message_builder = []
+            message_builder.append('')
+            message_builder.append('`$ %s`' % error_report['command'])
+            message_builder.append('')
+            message_builder.extend('    ' + line for line in error_report['traceback'].splitlines())
+            message_builder.append('')
+            if error_report['conda_info']:
+                from .cli.main_info import get_main_info_str
+                try:
+                    message_builder.append(get_main_info_str(error_report['conda_info']))
+                except Exception as e:
+                    message_builder.append('conda info could not be constructed.')
+                    message_builder.append('%r' % e)
+            message_builder.append('')
             message_builder.append(
                 "An unexpected error has occurred. Conda has prepared the above report."
             )
@@ -683,47 +777,84 @@ def _execute_upload(context, error_report):
         log.debug("%r" % e)
 
 
-def print_unexpected_error_message(e):
+def _format_exc():
+    etype, value, traceback = sys.exc_info()
     try:
-        traceback = format_exc()
+        formatted_exception = format_exception(etype, value, traceback)
     except AttributeError:  # pragma: no cover
         if sys.version_info[:2] == (3, 4):
             # AttributeError: 'NoneType' object has no attribute '__context__'
-            traceback = ''
+            formatted_exception = format_exception_only(etype, value)
         else:
             raise
+    return ''.join(formatted_exception)
 
-    from .base.context import context
 
-    command = ' '.join(ensure_text_type(s) for s in sys.argv)
-    info_dict = {}
-    if ' info' not in command:
+def print_unexpected_error_message(e):
+    traceback = _format_exc()
+
+        return ask_for_upload, do_upload
+
+    def ask_for_upload(self):
+        message_builder = []
+        message_builder.append(
+            "Would you like conda to send this report to the core maintainers?"
+        )
+        message_builder.append(
+            "[y/N]: "
+        )
+        self.out_stream.write('\n'.join(message_builder))
+        ask_response = None
         try:
-            from .cli.main_info import get_info_dict
-            info_dict = get_info_dict()
-        except Exception as info_e:
-            info_traceback = format_exc()
-            info_dict = {
-                'error': repr(info_e),
-                'error_type': info_e.__class__.__name__,
-                'traceback': info_traceback,
-            }
+            ask_response = timeout(40, input)
+            do_upload = ask_response and boolify(ask_response)
+        except Exception as e:  # pragma: no cover
+            log.debug('%r', e)
+            do_upload = False
+        return do_upload, ask_response
 
-    error_report = {
-        'error': repr(e),
-        'error_type': e.__class__.__name__,
-        'command': command,
-        'traceback': traceback,
-        'conda_info': info_dict,
-    }
+    def _execute_upload(self, error_report):
+        headers = {
+            'User-Agent': self.user_agent,
+        }
+        _timeout = self.http_timeout
+        data = json.dumps(error_report, sort_keys=True, cls=EntityEncoder) + '\n'
+        response = None
+        try:
+            # requests does not follow HTTP standards for redirects of non-GET methods
+            # That is, when following a 301 or 302, it turns a POST into a GET.
+            # And no way to disable.  WTF
+            import requests
+            redirect_counter = 0
+            url = self.error_upload_url
+            response = requests.post(url, headers=headers, timeout=_timeout, data=data,
+                                     allow_redirects=False)
+            response.raise_for_status()
+            while response.status_code in (301, 302) and response.headers.get('Location'):
+                url = response.headers['Location']
+                response = requests.post(url, headers=headers, timeout=_timeout, data=data,
+                                         allow_redirects=False)
+                response.raise_for_status()
+                redirect_counter += 1
+                if redirect_counter > 15:
+                    raise CondaError("Redirect limit exceeded")
+            log.debug("upload response status: %s", response and response.status_code)
+        except Exception as e:  # pragma: no cover
+            log.info('%r', e)
+        try:
+            if response and response.ok:
+                self.out_stream.write("Upload successful.\n")
+            else:
+                self.out_stream.write("Upload did not complete.")
+                if response and response.status_code:
+                    self.out_stream.write(" HTTP %s" % response.status_code)
+                    self.out_stream.write("\n")
+        except Exception as e:
+            log.debug("%r" % e)
 
-    do_upload, ask_for_upload, stdin = _print_exception_message_and_prompt(context, error_report)
-
-    if do_upload:
-        _execute_upload(context, error_report)
-
-        if stdin:
-            sys.stderr.write(
+    def print_upload_confirm(self, do_upload, ask_for_upload, ask_response):
+        if ask_response and do_upload:
+            self.out_stream.write(
                 "\n"
                 "Thank you for helping to improve conda.\n"
                 "Opt-in to always sending reports (and not see this message again)\n"
@@ -777,7 +908,7 @@ def handle_exception(e):
         from .base.context import context
         if context.debug or context.verbosity > 0:
             sys.stderr.write('%r\n' % e)
-            sys.stderr.write(format_exc())
+            sys.stderr.write(_format_exc())
             sys.stderr.write('\n')
         else:
             print_conda_exception(e)
@@ -791,9 +922,7 @@ def handle_exception(e):
 
 
 def conda_exception_handler(func, *args, **kwargs):
-    try:
-        return_value = func(*args, **kwargs)
-        if isinstance(return_value, int):
-            return return_value
-    except (Exception, KeyboardInterrupt) as e:
-        return handle_exception(e)
+    exception_handler = ExceptionHandler()
+    return_value = exception_handler(func, *args, **kwargs)
+    if isinstance(return_value, int):
+        return return_value

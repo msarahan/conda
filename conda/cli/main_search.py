@@ -112,31 +112,21 @@ package.""",
 
 
 def execute(args, parser):
+    from ..exceptions import PackageNotFoundError
+    from ..core.index import get_channel_priority_map
+    from ..exceptions import PackagesNotFoundError, ResolvePackageNotFound
 
     try:
         execute_search(args, parser)
     except ResolvePackageNotFound as e:
-        pkg = []
-        pkg.append(e.bad_deps)
-        pkg = dashlist(pkg)
-        index_args = {
-        'use_cache': args.use_index_cache,
-        'channel_urls': context.channels,
-        'unknown': args.unknown,
-        'prepend': not args.override_channels,
-        'use_local': args.use_local
-        }
-
         channel_priority_map = get_channel_priority_map(
-            channel_urls=index_args['channel_urls'],
-            prepend=index_args['prepend'],
+            channel_urls=context.channels,
+            prepend=not args.override_channels,
             platform=None,
-            use_local=index_args['use_local'],
+            use_local=args.use_local,
         )
-
         channels_urls = tuple(channel_priority_map)
-
-        raise PackageNotFoundError(pkg, channels_urls)
+        raise PackagesNotFoundError(e.bad_deps, channels_urls)
 
 
 def execute_search(args, parser):
@@ -175,8 +165,32 @@ def execute_search(args, parser):
     ensure_use_local(args)
     ensure_override_channels_requires_channel(args, dashc=False)
 
-    with spinner("Loading channels", not context.verbosity and not context.quiet,
-             context.json):
+    if not names:
+        raise ResolvePackageNotFound([(args.regex,)])
+
+    for name, pkgs in names:
+        disp_name = name
+
+        if args.names_only and not args.outdated:
+            print(name)
+            continue
+
+        if not args.canonical:
+            json[name] = []
+
+        if args.outdated:
+            vers_inst = [dist.quad[1] for dist in linked if dist.quad[0] == name]
+            if not vers_inst:
+                continue
+            assert len(vers_inst) == 1, name
+            if not pkgs:
+                continue
+            latest = pkgs[-1]
+            if latest.version == vers_inst[0]:
+                continue
+            if args.names_only:
+                print(name)
+                continue
 
         index = get_index(channel_urls=context.channels, prepend=not args.override_channels,
                           platform=args.platform, use_local=args.use_local,

@@ -289,6 +289,9 @@ class MatchSpec(object):
 
         return ''.join(builder)
 
+    def __json__(self):
+        return self.__str__()
+
     def conda_build_form(self):
         builder = []
         name = self.get_exact_value('name')
