@@ -6,7 +6,7 @@ import json
 from logging import getLogger
 import os
 import sys
-from traceback import format_exception_only, format_exception
+from traceback import format_exc, format_exception, format_exception_only
 
 from . import CondaError, CondaExitZero, CondaMultiError, text_type
 from ._vendor.auxlib.entity import EntityEncoder
@@ -24,6 +24,17 @@ except ImportError:  # pragma: no cover
     from ._vendor.toolz.itertoolz import groupby  # NOQA
 
 log = getLogger(__name__)
+
+
+# TODO: for conda-build compatibility only
+# remove in conda 4.4
+class ResolvePackageNotFound(CondaError):  # change back to Exception in conda 4.4
+    def __init__(self, bad_deps):
+        # bad_deps is a list of lists
+        self.bad_deps = bad_deps
+        message = '\n' + '\n'.join(('  - %s' % dep) for deps in bad_deps for dep in deps if dep)
+        super(ResolvePackageNotFound, self).__init__(message)
+NoPackagesFound = NoPackagesFoundError = ResolvePackageNotFound  # NOQA
 
 
 class LockError(CondaError):
@@ -330,12 +341,7 @@ class MD5MismatchError(CondaError):
                                                actual_md5sum=actual_md5sum)
 
 
-class PackageNotFoundError(CondaError):
-    def __init__(self, message, **kwargs):
-        super(PackageNotFoundError, self).__init__(message, **kwargs)
-
-
-class PackageNotInstalledError(PackageNotFoundError):
+class PackageNotInstalledError(CondaError):
 
     def __init__(self, prefix, package_name):
         message = dals("""
@@ -386,33 +392,26 @@ class AuthenticationError(CondaError):
     pass
 
 
-class NoPackagesFoundError(CondaError):
-    """An exception to report that requested packages are missing.
+class PackageNotFoundError(CondaError):
 
-    Args:
-        bad_deps: a list of tuples of MatchSpecs, assumed to be dependency
-        chains, from top level to bottom.
-
-    Returns:
-        Raises an exception with a formatted message detailing the
-        missing packages and/or dependencies.
-    """
-
-    def __init__(self, bad_deps):
+    def __init__(self, bad_pkg, channel_urls=()):
         from .resolve import dashlist
-        from .base.context import context
+        channels = dashlist(channel_urls)
 
-        deps = set(q[-1] for q in bad_deps)
-        if all(len(q) > 1 for q in bad_deps):
-            what = "Dependencies" if len(bad_deps) > 1 else "Dependency"
-        elif all(len(q) == 1 for q in bad_deps):
-            what = "Packages" if len(bad_deps) > 1 else "Package"
+        if not channel_urls:
+            msg = """Package(s) is missing from the environment:
+            %(pkg)s
+            """
+
         else:
-            what = "Packages/dependencies"
-        bad_deps = dashlist(' -> '.join(map(str, q)) for q in bad_deps)
-        msg = '%s missing in current %s channels: %s' % (what, context.subdir, bad_deps)
-        super(NoPackagesFoundError, self).__init__(msg)
-        self.pkgs = deps
+            msg = """Packages missing in current channels:
+            %(pkg)s
+
+We have searched for the packages in the following channels:
+            %(channels)s
+            """
+
+        super(PackageNotFoundError, self).__init__(msg, pkg=bad_pkg, channels=channels)
 
 
 class UnsatisfiableError(CondaError):
@@ -449,7 +448,6 @@ class UnsatisfiableError(CondaError):
                         found = True
                 if not found:
                     chains[key] = [{val} for val in vals]
-            bad_deps = []
             for key, csets in iteritems(chains):
                 deps = []
                 for name, cset in zip(key, csets):
@@ -576,28 +574,37 @@ def maybe_raise(error, context):
         raise error
 
 
-def print_conda_exception(exc_val, exc_tb=None):
-    from .base.context import context
-    if context.debug or context.verbosity > 0:
-        sys.stderr.write(_format_exc(exc_val, exc_tb))
-        sys.stderr.write('\n')
-    elif context.json:
+    stdoutlog = getLogger('conda.stdout')
+    stderrlog = getLogger('conda.stderr')
+    if context.json:
         import json
-        stdoutlogger = getLogger('conda.stdout')
-        stdoutlogger.info(json.dumps(exc_val.dump_map(), indent=2, sort_keys=True,
-                                     cls=EntityEncoder))
+        map_dump = exception.dump_map()
+        json_exception = json.dumps(map_dump, indent=2, sort_keys=True, cls=EntityEncoder)
+        stdoutlog.info("%s\n" % json_exception)
     else:
-        stderrlogger = getLogger('conda.stderr')
-        stderrlogger.info("\n%r", exc_val)
+        stderrlog.info("\n%r\n", exception)
 
 
-def _format_exc(exc_val=None, exc_tb=None):
-    if exc_val is None:
-        exc_type, exc_val, exc_tb = sys.exc_info()
-    else:
-        exc_type = type(exc_val)
-    if exc_tb:
-        formatted_exception = format_exception(exc_type, exc_val, exc_tb)
+def _calculate_ask_do_upload(context):
+    try:
+        isatty = os.isatty(0) or on_win
+    except Exception as e:
+        log.debug('%r', e)
+        # given how the rest of this function is constructed, better to assume True here
+        isatty = True
+
+    if context.report_errors is False:
+        ask_for_upload = False
+        do_upload = False
+    elif context.report_errors is True or context.always_yes:
+        ask_for_upload = False
+        do_upload = True
+    elif context.json or context.quiet:
+        ask_for_upload = False
+        do_upload = not context.offline and context.always_yes
+    elif not isatty:
+        ask_for_upload = False
+        do_upload = not context.offline and context.always_yes
     else:
         formatted_exception = format_exception_only(exc_type, exc_val)
     return ''.join(formatted_exception)
@@ -712,34 +719,80 @@ class ExceptionHandler(object):
             message_builder.append(
                 "An unexpected error has occurred. Conda has prepared the above report."
             )
+            message_builder.append(
+                "Would you like conda to send this report to the core maintainers?"
+            )
+            message_builder.append(
+                "[y/N]: "
+            )
+        sys.stderr.write('\n'.join(message_builder))
+        if ask_for_upload:
+            try:
+                stdin = timeout(40, input)
+                do_upload = stdin and boolify(stdin)
 
-            self.out_stream.write('\n'.join(message_builder))
+            except Exception as e:  # pragma: no cover
+                log.debug('%r', e)
+                do_upload = False
 
-    def _calculate_ask_do_upload(self):
-        from .base.context import context
+    return do_upload, ask_for_upload, stdin
 
-        try:
-            isatty = os.isatty(0) or on_win
-        except Exception as e:
-            log.debug('%r', e)
-            # given how the rest of this function is constructed, better to assume True here
-            isatty = True
 
-        if context.report_errors is False:
-            ask_for_upload = False
-            do_upload = False
-        elif context.report_errors is True or context.always_yes:
-            ask_for_upload = False
-            do_upload = True
-        elif context.json or context.quiet:
-            ask_for_upload = False
-            do_upload = not context.offline and context.always_yes
-        elif not isatty:
-            ask_for_upload = False
-            do_upload = not context.offline and context.always_yes
+def _execute_upload(context, error_report):
+    headers = {
+        'User-Agent': context.user_agent,
+    }
+    _timeout = context.remote_connect_timeout_secs, context.remote_read_timeout_secs
+    data = json.dumps(error_report, sort_keys=True, cls=EntityEncoder) + '\n'
+    response = None
+    try:
+        # requests does not follow HTTP standards for redirects of non-GET methods
+        # That is, when following a 301 or 302, it turns a POST into a GET.
+        # And no way to disable.  WTF
+        import requests
+        redirect_counter = 0
+        url = context.error_upload_url
+        response = requests.post(url, headers=headers, timeout=_timeout, data=data,
+                                 allow_redirects=False)
+        response.raise_for_status()
+        while response.status_code in (301, 302) and response.headers.get('Location'):
+            url = response.headers['Location']
+            response = requests.post(url, headers=headers, timeout=_timeout, data=data,
+                                     allow_redirects=False)
+            response.raise_for_status()
+            redirect_counter += 1
+            if redirect_counter > 15:
+                raise CondaError("Redirect limit exceeded")
+        log.debug("upload response status: %s", response and response.status_code)
+    except Exception as e:  # pragma: no cover
+        log.info('%r', e)
+    try:
+        if response and response.ok:
+            sys.stderr.write("Upload successful.\n")
         else:
-            ask_for_upload = True
-            do_upload = False
+            sys.stderr.write("Upload did not complete.")
+            if response and response.status_code:
+                sys.stderr.write(" HTTP %s" % response.status_code)
+            sys.stderr.write("\n")
+    except Exception as e:
+        log.debug("%r" % e)
+
+
+def _format_exc():
+    etype, value, traceback = sys.exc_info()
+    try:
+        formatted_exception = format_exception(etype, value, traceback)
+    except AttributeError:  # pragma: no cover
+        if sys.version_info[:2] == (3, 4):
+            # AttributeError: 'NoneType' object has no attribute '__context__'
+            formatted_exception = format_exception_only(etype, value)
+        else:
+            raise
+    return ''.join(formatted_exception)
+
+
+def print_unexpected_error_message(e):
+    traceback = _format_exc()
 
         return ask_for_upload, do_upload
 
@@ -811,17 +864,62 @@ class ExceptionHandler(object):
                 "    $ conda config --set report_errors true\n"
                 "\n"
             )
-        elif ask_for_upload:
-            self.out_stream.write(
-                "\n"
-                "No report sent. To permanently opt-out, use\n"
-                "\n"
-                "    $ conda config --set report_errors false\n"
-                "\n"
-            )
-        elif ask_response is None and ask_for_upload:
-            # means timeout was reached for `input`
-            self.out_stream.write('\nTimeout reached. No report sent.\n')
+    elif ask_for_upload and stdin is None:
+        # means timeout was reached for `input`
+        sys.stderr.write('\nTimeout reached. No report sent.\n')
+    elif ask_for_upload:
+        sys.stderr.write(
+            "\n"
+            "No report sent. To permanently opt-out, use\n"
+            "\n"
+            "    $ conda config --set report_errors false\n"
+            "\n"
+        )
+
+
+def maybe_raise(error, context):
+    if isinstance(error, CondaMultiError):
+        groups = groupby(lambda e: isinstance(e, ClobberError), error.errors)
+        clobber_errors = groups.get(True, ())
+        non_clobber_errors = groups.get(False, ())
+        if clobber_errors:
+            if context.path_conflict == PathConflict.prevent and not context.clobber:
+                raise error
+            elif context.path_conflict == PathConflict.warn and not context.clobber:
+                print_conda_exception(CondaMultiError(clobber_errors))
+        if non_clobber_errors:
+            raise CondaMultiError(non_clobber_errors)
+    elif isinstance(error, ClobberError):
+        if context.path_conflict == PathConflict.prevent and not context.clobber:
+            raise error
+        elif context.path_conflict == PathConflict.warn and not context.clobber:
+            print_conda_exception(error)
+    else:
+        raise error
+
+
+def handle_exception(e):
+    return_code = getattr(e, 'return_code', None)
+    if return_code == 0:
+        return 0
+    elif isinstance(e, CondaRuntimeError):
+        print_unexpected_error_message(e)
+        return 1
+    elif isinstance(e, CondaError):
+        from .base.context import context
+        if context.debug or context.verbosity > 0:
+            sys.stderr.write('%r\n' % e)
+            sys.stderr.write(_format_exc())
+            sys.stderr.write('\n')
+        else:
+            print_conda_exception(e)
+        return return_code if return_code else 1
+    elif isinstance(e, KeyboardInterrupt):
+        print_conda_exception(CondaError("KeyboardInterrupt"))
+        return 1
+    else:
+        print_unexpected_error_message(e)
+        return return_code if return_code else 1
 
 
 def conda_exception_handler(func, *args, **kwargs):

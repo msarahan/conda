@@ -7,11 +7,10 @@ from conda._vendor.auxlib.ish import dals
 from conda.base.context import context, reset_context
 from conda.common.compat import on_win
 from conda.common.io import captured, env_var, replace_log_streams
-from conda.exceptions import BasicClobberError, BinaryPrefixReplacementError, CommandNotFoundError, \
-    CondaHTTPError, CondaKeyError, CondaRevisionError, DirectoryNotFoundError, \
-    KnownPackageClobberError, MD5MismatchError, PackageNotFoundError, PathNotFoundError, \
-    SharedLinkPathClobberError, TooFewArgumentsError, TooManyArgumentsError, \
-    UnknownPackageClobberError, conda_exception_handler, ExceptionHandler
+from conda.exceptions import CommandNotFoundError, CondaFileNotFoundError, CondaHTTPError, CondaKeyError, \
+    CondaRevisionError, DirectoryNotFoundError, MD5MismatchError, PackageNotFoundError, TooFewArgumentsError, \
+    TooManyArgumentsError, conda_exception_handler, BasicClobberError, KnownPackageClobberError, \
+    UnknownPackageClobberError, SharedLinkPathClobberError, ResolvePackageNotFound, BinaryPrefixReplacementError
 
 try:
     from unittest.mock import Mock, patch
@@ -140,7 +139,6 @@ class ExceptionTests(TestCase):
           path: 'some/where/in/shampoo/banana'
         """).strip()
 
-
     def test_CondaFileNotFoundError(self):
         filename = "Groot"
         exc = PathNotFoundError(filename)
@@ -218,18 +216,17 @@ class ExceptionTests(TestCase):
           actual md5 sum: deadbeef
         """).strip()
 
-    def PackageNotFoundError(self):
-        package = "Groot"
-        exc = PackageNotFoundError(package)
+    def test_PackageNotFoundError(self):
+        package = "Potato"
         with env_var("CONDA_JSON", "yes", reset_context):
-            with captured() as c:
+            with captured() as c, replace_log_streams():
+                exc = PackageNotFoundError(package)
                 conda_exception_handler(_raise_helper, exc)
 
         json_obj = json.loads(c.stdout)
         assert not c.stderr
         assert json_obj['exception_type'] == "<class 'conda.exceptions.PackageNotFoundError'>"
         assert json_obj['message'] == text_type(exc)
-        assert json_obj['package_name'] == package
         assert json_obj['error'] == repr(exc)
 
         with env_var("CONDA_JSON", "no", reset_context):
@@ -237,10 +234,13 @@ class ExceptionTests(TestCase):
                 conda_exception_handler(_raise_helper, exc)
 
         assert not c.stdout
-        assert c.stderr.strip() == "Package not found: Conda could not find Groot"
+        assert c.stderr.strip() == """
+        PackageNotFoundError: Package(s) is missing from the environment:
+            Potato
+        """.strip()
 
     def test_CondaRevisionError(self):
-        message = "Groot"
+        message = "Potato"
         exc = CondaRevisionError(message)
         with env_var("CONDA_JSON", "yes", reset_context):
             with captured() as c:
@@ -258,11 +258,11 @@ class ExceptionTests(TestCase):
                 conda_exception_handler(_raise_helper, exc)
 
         assert not c.stdout
-        assert c.stderr.strip() == "CondaRevisionError: Groot."
+        assert c.stderr.strip() == "CondaRevisionError: Potato."
 
     def test_CondaKeyError(self):
-        key = "Groot"
-        message = "Groot is not a key."
+        key = "Potato"
+        message = "Potato is not a key."
         exc = CondaKeyError(key, message)
         with env_var("CONDA_JSON", "yes", reset_context):
             with captured() as c:
@@ -274,19 +274,19 @@ class ExceptionTests(TestCase):
         assert json_obj['exception_name'] == 'CondaKeyError'
         assert json_obj['message'] == text_type(exc)
         assert json_obj['error'] == repr(exc)
-        assert json_obj['key'] == "Groot"
+        assert json_obj['key'] == "Potato"
 
         with env_var("CONDA_JSON", "no", reset_context):
             with captured() as c:
                 conda_exception_handler(_raise_helper, exc)
 
         assert not c.stdout
-        assert c.stderr.strip() == "CondaKeyError: 'Groot': Groot is not a key."
+        assert c.stderr.strip() == "CondaKeyError: 'Potato': Potato is not a key."
 
     def test_CondaHTTPError(self):
-        msg = "Groot"
-        url = "https://download.url/path/to/groot.tar.gz"
-        status_code = "Groot"
+        msg = "Potato"
+        url = "https://download.url/path/to/Potato.tar.gz"
+        status_code = "Potato"
         reason = "COULD NOT CONNECT"
         elapsed_time = 1.24
         exc = CondaHTTPError(msg, url, status_code, reason, elapsed_time)
@@ -312,10 +312,10 @@ class ExceptionTests(TestCase):
 
         assert not c.stdout
         assert c.stderr.strip() == dals("""
-                CondaHTTPError: HTTP Groot COULD NOT CONNECT for url <https://download.url/path/to/groot.tar.gz>
+                CondaHTTPError: HTTP Potato COULD NOT CONNECT for url <https://download.url/path/to/Potato.tar.gz>
                 Elapsed: 1.24
 
-                Groot
+                Potato
                 """).strip()
 
     def test_CommandNotFoundError_simple(self):

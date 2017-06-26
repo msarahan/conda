@@ -150,6 +150,27 @@ def execute(args, parser):
         actions['ACTION'] = 'REMOVE_ALL'
         action_groups = (actions, index),
 
+    delete_trash()
+    if any(nothing_to_do(actions) for actions in action_groups):
+        if args.all:
+            print("\nRemove all packages in environment %s:\n" % prefix, file=sys.stderr)
+            if not args.json:
+                confirm_yn(args)
+            rm_rf(prefix)
+
+            if context.json:
+                stdout_json({
+                    'success': True,
+                    'actions': action_groups
+                })
+            return
+
+        pkg = str(args.package_names).replace("['", "")
+        pkg = pkg.replace("']", "")
+
+        raise PackageNotFoundError(pkg)
+
+    for action in action_groups:
         if not context.json:
             confirm_yn()
         rm_rf(prefix)
