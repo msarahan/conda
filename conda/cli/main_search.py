@@ -13,7 +13,7 @@ from ..base.context import context
 from ..cli.common import stdout_json
 from ..common.io import spinner
 from ..compat import itervalues
-from ..exceptions import PackageNotFoundError, ResolvePackageNotFound
+from ..exceptions import ResolvePackageNotFound, PackagesNotFoundError
 
 descr = """Search for packages and display their information. The input is a
 Python regular expression.  To perform a search with a search string that starts
@@ -163,33 +163,7 @@ def execute_search(args, parser):
     ensure_use_local(args)
     ensure_override_channels_requires_channel(args, dashc=False)
 
-    if not names:
-        raise ResolvePackageNotFound([(args.regex,)])
-
-    for name, pkgs in names:
-        disp_name = name
-
-        if args.names_only and not args.outdated:
-            print(name)
-            continue
-
-        if not args.canonical:
-            json[name] = []
-
-        if args.outdated:
-            vers_inst = [dist.quad[1] for dist in linked if dist.quad[0] == name]
-            if not vers_inst:
-                continue
-            assert len(vers_inst) == 1, name
-            if not pkgs:
-                continue
-            latest = pkgs[-1]
-            if latest.version == vers_inst[0]:
-                continue
-            if args.names_only:
-                print(name)
-                continue
-
+    with spinner("Loading channels", not context.verbosity and not context.quiet, context.json):
         index = get_index(channel_urls=context.channels, prepend=not args.override_channels,
                           platform=args.platform, use_local=args.use_local,
                           use_cache=args.use_index_cache, prefix=None,
