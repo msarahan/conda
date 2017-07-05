@@ -721,77 +721,11 @@ class ExceptionHandler(object):
             message_builder.append(
                 "An unexpected error has occurred. Conda has prepared the above report."
             )
-            message_builder.append(
-                "Would you like conda to send this report to the core maintainers?"
-            )
-            message_builder.append(
-                "[y/N]: "
-            )
-        sys.stderr.write('\n'.join(message_builder))
-        if ask_for_upload:
-            try:
-                stdin = timeout(40, input)
-                do_upload = stdin and boolify(stdin)
+            message_builder.append('')
+            self.out_stream.write('\n'.join(message_builder))
 
-            except Exception as e:  # pragma: no cover
-                log.debug('%r', e)
-                do_upload = False
-
-    return do_upload, ask_for_upload, stdin
-
-
-def _execute_upload(context, error_report):
-    headers = {
-        'User-Agent': context.user_agent,
-    }
-    _timeout = context.remote_connect_timeout_secs, context.remote_read_timeout_secs
-    data = json.dumps(error_report, sort_keys=True, cls=EntityEncoder) + '\n'
-    response = None
-    try:
-        # requests does not follow HTTP standards for redirects of non-GET methods
-        # That is, when following a 301 or 302, it turns a POST into a GET.
-        # And no way to disable.  WTF
-        import requests
-        redirect_counter = 0
-        url = context.error_upload_url
-        response = requests.post(url, headers=headers, timeout=_timeout, data=data,
-                                 allow_redirects=False)
-        response.raise_for_status()
-        while response.status_code in (301, 302) and response.headers.get('Location'):
-            url = response.headers['Location']
-            response = requests.post(url, headers=headers, timeout=_timeout, data=data,
-                                     allow_redirects=False)
-            response.raise_for_status()
-            redirect_counter += 1
-            if redirect_counter > 15:
-                raise CondaError("Redirect limit exceeded")
-        log.debug("upload response status: %s", response and response.status_code)
-    except Exception as e:  # pragma: no cover
-        log.info('%r', e)
-    try:
-        if response and response.ok:
-            sys.stderr.write("Upload successful.\n")
-        else:
-            sys.stderr.write("Upload did not complete.")
-            if response and response.status_code:
-                sys.stderr.write(" HTTP %s" % response.status_code)
-            sys.stderr.write("\n")
-    except Exception as e:
-        log.debug("%r" % e)
-
-
-def _format_exc():
-    etype, value, traceback = sys.exc_info()
-    try:
-        formatted_exception = format_exception(etype, value, traceback)
-    except AttributeError:  # pragma: no cover
-        if sys.version_info[:2] == (3, 4):
-            # AttributeError: 'NoneType' object has no attribute '__context__'
-            formatted_exception = format_exception_only(etype, value)
-        else:
-            raise
-    return ''.join(formatted_exception)
-
+    def _calculate_ask_do_upload(self):
+        from .base.context import context
 
 def print_unexpected_error_message(e):
     traceback = _format_exc()
