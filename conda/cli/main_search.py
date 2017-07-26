@@ -180,6 +180,49 @@ def execute(args, parser):
         for record in matches:
             pretty_record(record)
 
+    if args.reverse_dependency:
+        if not args.regex:
+            parser.error("--reverse-dependency requires at least one package name")
+        if args.spec:
+            parser.error("--reverse-dependency does not work with --spec")
+
+    pat = None
+    ms = None
+    if args.regex:
+        if args.spec:
+            ms = MatchSpec(arg2spec(args.regex))
+        else:
+            regex = args.regex
+            if args.full_name:
+                regex = r'^%s$' % regex
+            try:
+                pat = re.compile(regex, re.I)
+            except re.error as e:
+                from ..exceptions import CommandArgumentError
+                raise CommandArgumentError("Failed to compile regex pattern for "
+                                           "search: %(regex)s\n"
+                                           "regex error: %(regex_error)s",
+                                           regex=regex, regex_error=repr(e))
+
+    prefix = context.target_prefix
+
+    linked = linked_data(prefix)
+    extracted = set(pc_entry.name for pc_entry in PackageCache.get_all_extracted_entries())
+
+    # XXX: Make this work with more than one platform
+    platform = args.platform or ''
+    if platform and platform != context.subdir:
+        args.unknown = False
+    ensure_use_local(args)
+    ensure_override_channels_requires_channel(args, dashc=False)
+    index = get_index(channel_urls=context.channels, prepend=not args.override_channels,
+                      platform=args.platform, use_local=args.use_local,
+                      use_cache=args.use_index_cache, prefix=None,
+                      unknown=args.unknown)
+
+    r = Resolve(index)
+    if args.canonical:
+        json = []
     else:
         builder = ['%-25s  %-15s %15s  %-15s' % (
             "Name",
