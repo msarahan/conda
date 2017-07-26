@@ -17,8 +17,8 @@ import re
 import tarfile
 import tempfile
 
-from .common import add_parser_prefix
-from ..base.context import context, get_prefix
+from .conda_argparse import add_parser_prefix
+from ..base.context import context
 from ..common.compat import PY3, itervalues
 
 descr = "Low-level conda package utility. (EXPERIMENTAL)"
@@ -88,7 +88,8 @@ def remove(prefix, files):
 
 def execute(args, parser):
     from ..misc import untracked
-    prefix = get_prefix(context, args)
+
+    prefix = context.target_prefix
 
     if args.which:
         for path in args.which:
