@@ -6,7 +6,6 @@ import logging
 from .base.constants import CONDA_TARBALL_EXTENSION, DEFAULTS_CHANNEL_NAME, MAX_CHANNEL_PRIORITY
 from .base.context import context
 from .common.compat import iteritems, iterkeys, itervalues, string_types
-from .console import setup_handlers
 from .exceptions import CondaValueError, ResolvePackageNotFound, UnsatisfiableError
 from .logic import Clauses, minimal_unsatisfiable_subset
 from .models.dist import Dist
@@ -14,7 +13,9 @@ from .models.match_spec import MatchSpec
 from .models.version import normalized_version
 
 log = logging.getLogger(__name__)
-stdoutlog = logging.getLogger('conda.stdoutlog')
+dotlog = logging.getLogger('dotupdate')
+stdoutlog = logging.getLogger('stdoutlog')
+stderrlog = logging.getLogger('stderrlog')
 
 # used in conda build
 Unsatisfiable = UnsatisfiableError
@@ -506,8 +507,8 @@ class Resolve(object):
         bld = rec.get('build_number', 0)
         bs = rec.get('build')
         ts = rec.get('timestamp', 0)
-        return ((valid, -cpri, ver, bld, bs, ts) if context.channel_priority else
-                (valid, ver, -cpri, bld, bs, ts))
+        return ((valid, -cpri, ver, bld, ts, bs) if context.channel_priority else
+                (valid, ver, -cpri, bld, ts, bs))
 
     def features(self, dist):
         _features = self.index[dist].get('features') or ()
@@ -664,7 +665,7 @@ class Resolve(object):
                 elif pkey[3] != version_key[3]:
                     ib += 1
                 # last field is timestamp. Use it as differentiator when build numbers are similar
-                elif pkey[5] != version_key[5]:
+                elif pkey[4] != version_key[4]:
                     ib += 1
 
                 if iv or include0:
@@ -879,44 +880,46 @@ class Resolve(object):
 
     def solve(self, specs, returnall=False, _remove=False):
         # type: (List[str], bool) -> List[Dist]
-        log.debug("Solving for %s", specs)
+        try:
+            if not context.json and not context.quiet:
+                stdoutlog.info("Solving package specifications: ")
+            log.debug("Solving for %s", specs)
 
-        # Find the compliant packages
-        len0 = len(specs)
-        specs = list(map(MatchSpec, specs))
-        reduced_index = self.get_reduced_index(specs)
-        if not reduced_index:
-            return False if reduced_index is None else ([[]] if returnall else [])
+            # Find the compliant packages
+            len0 = len(specs)
+            specs = list(map(MatchSpec, specs))
+            reduced_index = self.get_reduced_index(specs)
+            if not reduced_index:
+                return False if reduced_index is None else ([[]] if returnall else [])
 
-        # Check if satisfiable
-        def mysat(specs, add_if=False):
-            constraints = r2.generate_spec_constraints(C, specs)
-            return C.sat(constraints, add_if)
+            # Check if satisfiable
+            def mysat(specs, add_if=False):
+                constraints = r2.generate_spec_constraints(C, specs)
+                return C.sat(constraints, add_if)
+            dotlog.debug('Checking satisfiability')
+            r2 = Resolve(reduced_index, True, True)
+            C = r2.gen_clauses()
+            solution = mysat(specs, True)
+            if not solution:
+                specs = minimal_unsatisfiable_subset(specs, sat=mysat)
+                self.find_conflicts(specs)
 
-        r2 = Resolve(reduced_index, True, True)
-        C = r2.gen_clauses()
-        solution = mysat(specs, True)
-        if not solution:
-            specs = minimal_unsatisfiable_subset(specs, sat=mysat)
-            self.find_conflicts(specs)
+            speco = []  # optional packages
+            specr = []  # requested packages
+            speca = []  # all other packages
+            specm = set(r2.groups)  # missing from specs
+            for k, s in enumerate(specs):
+                if s.name in specm:
+                    specm.remove(s.name)
+                if not s.optional:
+                    (speca if s.target or k >= len0 else specr).append(s)
+                elif any(r2.find_matches(s)):
+                    s = MatchSpec(s.name, optional=True, target=s.target)
+                    speco.append(s)
+                    speca.append(s)
+            speca.extend(MatchSpec(s) for s in specm)
 
-        speco = []  # optional packages
-        specr = []  # requested packages
-        speca = []  # all other packages
-        specm = set(r2.groups)  # missing from specs
-        for k, s in enumerate(specs):
-            if s.name in specm:
-                specm.remove(s.name)
-            if not s.optional:
-                (speca if s.target or k >= len0 else specr).append(s)
-            elif any(r2.find_matches(s)):
-                s = MatchSpec(s.name, optional=True, target=s.target)
-                speco.append(s)
-                speca.append(s)
-        speca.extend(MatchSpec(s) for s in specm)
-
-        # Removed packages: minimize count
-        if _remove:
+            # Removed packages: minimize count
             eq_optional_c = r2.generate_removal_count(C, speco)
             solution, obj7 = C.minimize(eq_optional_c, solution)
             log.debug('Package removal metric: %d', obj7)
@@ -995,8 +998,11 @@ class Resolve(object):
                      dashlist(', '.join(diff) for diff in diffs),
                      '\n  ... and others' if nsol > 10 else ''))
 
-        def stripfeat(sol):
-            return sol.split('[')[0]
+            def stripfeat(sol):
+                return sol.split('[')[0]
+
+            if not context.quiet:
+                stdoutlog.info('\n')
 
         if returnall:
             return [sorted(Dist(stripfeat(dname)) for dname in psol) for psol in psolutions]

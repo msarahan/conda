@@ -94,9 +94,8 @@ install_conda_full() {
        $site_packages/conda*
 
     $PYTHON_EXE --version
-    $prefix/$BIN_DIR/pip --version
 
-    $PYTHON_EXE conda.recipe/setup.py install --single-version-externally-managed --record record.txt
+    $PYTHON_EXE conda.recipe/setup.py install # --single-version-externally-managed --record record.txt
 
     install_conda_shell_scripts $prefix
 
@@ -257,15 +256,13 @@ install_conda_build() {
     $prefix/$BIN_DIR/pip install -r utils/requirements-test.txt
 
     # install conda-build dependencies (runtime and test)
-    conda config --append channels conda-forge
-    $prefix/$BIN_DIR/conda install -y \
-        perl pytest-xdist pytest-catchlog pytest-mock \
+    $prefix/bin/conda config --append channels conda-forge
+    $prefix/bin/conda install -y -q \
         anaconda-client numpy \
-        filelock jinja2 conda-verify contextlib2 pkginfo
-    conda config --remove channels conda-forge
-    if ! [ -n "$ON_WIN" ]; then
-        $prefix/$BIN_DIR/conda install -y -q patchelf
-    fi
+        filelock jinja2 patchelf conda-verify contextlib2 pkginfo \
+        perl pytest-xdist \
+        pytest-catchlog pytest-mock
+    $prefix/bin/conda config --remove channels conda-forge
 
     $prefix/$BIN_DIR/conda config --set add_pip_as_python_dependency true
 

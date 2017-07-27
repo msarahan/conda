@@ -7,7 +7,6 @@ import os
 from os.path import basename, dirname, isdir, join
 from subprocess import CalledProcessError
 import sys
-from tempfile import mkdtemp
 from traceback import format_exception_only
 import warnings
 
@@ -75,7 +74,7 @@ def make_unlink_actions(transaction_context, target_prefix, prefix_record):
             extracted_package_dir = basename(prefix_record.link.source)
         except AttributeError:
             # for backward compatibility only
-            extracted_package_dir = '%s-%s-%s' % (prefix_record.name, prefix_record.veresion,
+            extracted_package_dir = '%s-%s-%s' % (prefix_record.name, prefix_record.version,
                                                   prefix_record.build)
 
     meta_short_path = '%s/%s' % ('conda-meta', extracted_package_dir + '.json')
@@ -312,14 +311,15 @@ class UnlinkLinkTransaction(object):
         # run all per-action verify methods
         #   one of the more important of these checks is to verify that a file listed in
         #   the packages manifest (i.e. info/files) is actually contained within the package
-        for axn in all_actions:
-            if axn.verified:
-                continue
-            error_result = axn.verify()
-            if error_result:
-                formatted_error = ''.join(format_exception_only(type(error_result), error_result))
-                log.debug("Verification error in action %s\n%s", axn, formatted_error)
-                yield error_result
+        for _, pkg_actions in all_actions:
+            for axn in pkg_actions:
+                if axn.verified:
+                    continue
+                error_result = axn.verify()
+                if error_result:
+                    formatted = ''.join(format_exception_only(type(error_result), error_result))
+                    log.debug("Verification error in action %s\n%s", axn, formatted)
+                    yield error_result
 
     @staticmethod
     def _verify_prefix_level(target_prefix, prefix_action_group):
@@ -486,14 +486,14 @@ class UnlinkLinkTransaction(object):
                     for pkg_idx, axngroup in enumerate(all_action_groups):
                         cls._execute_actions(pkg_idx, axngroup)
             except CondaMultiError as e:
-                action, is_unlink = None, axngroup.type == 'unlink'
+                action, is_unlink = (None, axngroup.type == 'unlink')
                 prec = axngroup.pkg_data
 
                 log.error("An error occurred while %s package '%s'.\n"
                           "%r\n"
                           "Attempting to roll back.\n",
                           'uninstalling' if is_unlink else 'installing',
-                          prec.dist_str(), e.errors[0])
+                          prec and prec.dist_str(), e.errors[0])
 
                 # reverse all executed packages except the one that failed
                 rollback_excs = []

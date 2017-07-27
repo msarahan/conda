@@ -4,8 +4,7 @@ from __future__ import absolute_import, division, print_function, unicode_litera
 from functools import reduce
 from logging import getLogger
 from os import listdir
-from os.path import basename, dirname, join
-from tarfile import ReadError
+from os.path import basename, join
 
 from conda.gateways.disk.delete import rm_rf
 from .path_actions import CacheUrlAction, ExtractPackageAction
@@ -524,20 +523,18 @@ class ProgressiveFetchExtract(object):
         if cache_axn is None and extract_axn is None:
             return
 
-        desc = "%s %s" % (prec_or_spec.name, prec_or_spec.version)
-        progress_bar = ProgressBar(desc, not context.verbosity and not context.quiet, context.json)
-
-        download_total = 0.75  # fraction of progress for download; the rest goes to extract
-        try:
-            if cache_axn:
-                cache_axn.verify()
-
-                if not cache_axn.url.startswith('file:/'):
-                    def progress_update_cache_axn(pct_completed):
-                        progress_bar.update_to(pct_completed * download_total)
-                else:
-                    download_total = 0
-                    progress_update_cache_axn = None
+        max_tries = 3
+        exceptions = []
+        for q in range(max_tries):
+            try:
+                action.execute()
+            except Exception as e:
+                log.debug("Error in action %s", action, exc_info=True)
+                action.reverse()
+                exceptions.append(CondaError(repr(e)))
+            else:
+                action.cleanup()
+                return
 
                 cache_axn.execute(progress_update_cache_axn)
 
