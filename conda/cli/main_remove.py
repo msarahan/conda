@@ -12,12 +12,16 @@ import logging
 from os.path import isdir
 import sys
 
-from conda.cli.install import handle_txn
-from conda.core.solve import Solver
-from .conda_argparse import (add_parser_channels, add_parser_help, add_parser_insecure,
-                             add_parser_json, add_parser_no_pin, add_parser_offline,
-                             add_parser_prefix, add_parser_pscheck, add_parser_quiet,
-                             add_parser_use_index_cache, add_parser_use_local, add_parser_yes)
+from .common import (InstalledPackages, add_parser_channels, add_parser_help, add_parser_json,
+                     add_parser_no_pin, add_parser_no_use_index_cache, add_parser_offline,
+                     add_parser_prefix, add_parser_pscheck, add_parser_quiet,
+                     add_parser_use_index_cache, add_parser_use_local, add_parser_yes, confirm_yn,
+                     create_prefix_spec_map_with_deps, ensure_override_channels_requires_channel,
+                     ensure_use_local, names_in_specs, specs_from_args, stdout_json,
+                     add_parser_insecure, check_non_admin)
+from ..base.constants import ROOT_NO_RM
+from ..base.context import context
+from ..common.compat import iteritems, iterkeys
 
 help = "%s a list of packages from a specified conda environment."
 descr = help + """
@@ -117,7 +121,9 @@ def execute(args, parser):
         raise CondaValueError('no package names supplied,\n'
                               '       try "conda remove -h" for more details')
 
-    prefix = context.target_prefix
+    check_non_admin()
+
+    prefix = context.prefix_w_legacy_search
     if args.all and prefix == context.default_prefix:
         msg = "cannot remove current environment. deactivate and run conda remove again"
         raise CondaEnvironmentError(msg)
