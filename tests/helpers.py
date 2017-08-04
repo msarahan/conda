@@ -21,9 +21,9 @@ from conda._vendor.auxlib.collection import frozendict
 from conda import cli
 from conda._vendor.toolz.functoolz import memoize
 from conda.base.context import context, reset_context
-from conda.common.io import argv, captured, replace_log_streams
-from conda.core.index import _supplement_index_with_features
-from conda.core.repodata import make_feature_record
+from conda.common.compat import iteritems, itervalues
+from conda.common.io import argv, captured, captured as common_io_captured, env_var
+from conda.core.repodata import make_feature_record, SubdirData
 from conda.gateways.disk.delete import rm_rf
 from conda.gateways.disk.read import lexists
 from conda.gateways.logging import initialize_logging
@@ -183,13 +183,17 @@ def get_index_r_1():
             "packages": packages,
         }
 
-    index = {}
-    channel = Channel('defaults')
-    supplement_index_with_repodata(index, repodata, channel, 1)
+    channel = Channel('https://conda.anaconda.org/channel-1/%s' % context.subdir)
+    sd = SubdirData(channel, 1)
+    with env_var("CONDA_ADD_PIP_AS_PYTHON_DEPENDENCY", "false", reset_context):
+        sd._process_raw_repodata_str(json.dumps(repodata))
+    sd._priority = sd._internal_state['_priority']
+    sd._loaded = True
+    SubdirData._cache_[channel.url(with_credentials=True)] = sd
+
+    index = {Dist(prec): prec for prec in sd._package_records}
     add_feature_records(index)
-    index = frozendict(index)
     r = Resolve(index)
-    index = r.index
     return index, r
 
 
@@ -206,13 +210,16 @@ def get_index_r_2():
             "packages": packages,
         }
 
-    index = {}
-    channel = Channel('defaults')
-    supplement_index_with_repodata(index, repodata, channel, 1)
-    add_feature_records(index)
-    index = frozendict(index)
+    channel = Channel('https://conda.anaconda.org/channel-2/%s' % context.subdir)
+    sd = SubdirData(channel, 1)
+    with env_var("CONDA_ADD_PIP_AS_PYTHON_DEPENDENCY", "false", reset_context):
+        sd._process_raw_repodata_str(json.dumps(repodata))
+    sd._priority = sd._internal_state['_priority']
+    sd._loaded = True
+    SubdirData._cache_[channel.url(with_credentials=True)] = sd
+
+    index = {Dist(prec): prec for prec in sd._package_records}
     r = Resolve(index)
-    index = r.index
     return index, r
 
 
@@ -229,13 +236,15 @@ def get_index_r_3():
             "packages": packages,
         }
 
-    index = {}
-    channel = Channel('defaults')
-    supplement_index_with_repodata(index, repodata, channel, 1)
-    add_feature_records(index)
-    index = frozendict(index)
-    r = Resolve(index)
-    index = r.index
-    return index, r
+    channel = Channel('https://conda.anaconda.org/channel-3/%s' % context.subdir)
+    sd = SubdirData(channel, 1)
+    with env_var("CONDA_ADD_PIP_AS_PYTHON_DEPENDENCY", "false", reset_context):
+        sd._process_raw_repodata_str(json.dumps(repodata))
+    sd._priority = sd._internal_state['_priority']
+    sd._loaded = True
+    SubdirData._cache_[channel.url(with_credentials=True)] = sd
 
+    index = {Dist(prec): prec for prec in sd._package_records}
+    r = Resolve(index)
+    return index, r
 
