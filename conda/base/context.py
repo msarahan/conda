@@ -541,7 +541,6 @@ class Context(Configuration):
 # https://conda.io/docs/config.html#disable-updating-of-dependencies-update-dependencies # NOQA
 # I don't think this documentation is correct any longer. # NOQA
             'update_dependencies',
-            'use_index_cache',
         )
         return tuple(p for p in super(Context, self).list_parameters()
                      if p not in UNLISTED_PARAMETERS)
@@ -773,6 +772,9 @@ def get_help_dict():
         'track_features': dals("""
             A list of features that are tracked by default. An entry here is similar to
             adding an entry to the create_default_packages list.
+            """),
+        'use_index_cache': dals("""
+            Use cache of channel index files, even if it has expired.
             """),
         'use_pip': dals("""
             Include non-conda-installed python packages with conda list. This does not
