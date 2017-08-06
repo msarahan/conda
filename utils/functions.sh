@@ -259,10 +259,12 @@ install_conda_build() {
     $prefix/bin/conda config --append channels conda-forge
     $prefix/bin/conda install -y -q \
         anaconda-client numpy \
-        filelock jinja2 patchelf conda-verify contextlib2 pkginfo \
-        perl pytest-xdist \
-        pytest-catchlog pytest-mock
-    $prefix/bin/conda config --remove channels conda-forge
+        filelock jinja2 conda-verify contextlib2 pkginfo \
+        glob2 beautifulsoup4 chardet pycrypto
+    conda config --remove channels conda-forge
+    if ! [ -n "$ON_WIN" ]; then
+        $prefix/$BIN_DIR/conda install -y -q patchelf
+    fi
 
     $prefix/$BIN_DIR/conda config --set add_pip_as_python_dependency true
 
