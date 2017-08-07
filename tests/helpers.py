@@ -40,10 +40,6 @@ except ImportError:
     from mock import patch
 
 
-from contextlib import contextmanager
-
-from conda.common.compat import StringIO, iteritems, itervalues
-
 expected_error_prefix = 'Using Anaconda Cloud api site https://api.anaconda.org'
 def strip_expected(stderr):
     if expected_error_prefix and stderr.startswith(expected_error_prefix):
@@ -184,16 +180,15 @@ def get_index_r_1():
         }
 
     channel = Channel('https://conda.anaconda.org/channel-1/%s' % context.subdir)
-    sd = SubdirData(channel, 1)
+    sd = SubdirData(channel)
     with env_var("CONDA_ADD_PIP_AS_PYTHON_DEPENDENCY", "false", reset_context):
         sd._process_raw_repodata_str(json.dumps(repodata))
-    sd._priority = sd._internal_state['_priority']
     sd._loaded = True
     SubdirData._cache_[channel.url(with_credentials=True)] = sd
 
     index = {Dist(prec): prec for prec in sd._package_records}
     add_feature_records(index)
-    r = Resolve(index)
+    r = Resolve(index, channels=(channel,))
     return index, r
 
 
@@ -211,15 +206,14 @@ def get_index_r_2():
         }
 
     channel = Channel('https://conda.anaconda.org/channel-2/%s' % context.subdir)
-    sd = SubdirData(channel, 1)
+    sd = SubdirData(channel)
     with env_var("CONDA_ADD_PIP_AS_PYTHON_DEPENDENCY", "false", reset_context):
         sd._process_raw_repodata_str(json.dumps(repodata))
-    sd._priority = sd._internal_state['_priority']
     sd._loaded = True
     SubdirData._cache_[channel.url(with_credentials=True)] = sd
 
     index = {Dist(prec): prec for prec in sd._package_records}
-    r = Resolve(index)
+    r = Resolve(index, channels=(channel,))
     return index, r
 
 
@@ -237,14 +231,13 @@ def get_index_r_3():
         }
 
     channel = Channel('https://conda.anaconda.org/channel-3/%s' % context.subdir)
-    sd = SubdirData(channel, 1)
+    sd = SubdirData(channel)
     with env_var("CONDA_ADD_PIP_AS_PYTHON_DEPENDENCY", "false", reset_context):
         sd._process_raw_repodata_str(json.dumps(repodata))
-    sd._priority = sd._internal_state['_priority']
     sd._loaded = True
     SubdirData._cache_[channel.url(with_credentials=True)] = sd
 
     index = {Dist(prec): prec for prec in sd._package_records}
-    r = Resolve(index)
+    r = Resolve(index, channels=(channel,))
     return index, r
 
