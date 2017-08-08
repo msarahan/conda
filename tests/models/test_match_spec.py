@@ -225,6 +225,33 @@ class MatchSpecTests(TestCase):
         assert m(url) == "conda-canary/linux-64::conda==4.3.21.post699+1dab973=py36h4a561cd_0"
         assert m("conda-canary/linux-64::conda==4.3.21.post699+1dab973=py36h4a561cd_0") == "conda-canary/linux-64::conda==4.3.21.post699+1dab973=py36h4a561cd_0"
 
+        url = "https://conda.anaconda.org/conda-canary/conda-4.3.21.post699+1dab973-py36h4a561cd_0.tar.bz2"
+        assert m(url) == "*[url=%s]" % url
+
+        pref1 = PackageRef(
+            channel=Channel(None),
+            name="conda",
+            version="4.3.21.post699+1dab973",
+            build="py36h4a561cd_0",
+            build_number=0,
+            fn="conda-4.3.21.post699+1dab973-py36h4a561cd_0.tar.bz2",
+            url=url,
+        )
+        pref2 = PackageRef.from_objects(pref1, md5="1234")
+        assert MatchSpec(url=url).match(pref1)
+        assert MatchSpec(m(url)).match(pref1)
+        assert not MatchSpec(url=url, md5="1234").match(pref1)
+        assert MatchSpec(url=url, md5="1234").match(pref2)
+        assert MatchSpec(url=url, md5="1234").get('md5') == "1234"
+
+        url = "file:///var/folders/cp/7r2s_s593j7_cpdtxxsmct880000gp/T/edfc ñçêáôß/flask-0.10.1-py35_2.tar.bz2"
+        assert m(url) == "*[url='%s']" % url
+        # url = '*[url="file:///var/folders/cp/7r2s_s593j7_cpdtxxsmct880000gp/T/edfc ñçêáôß/flask-0.10.1-py35_2.tar.bz2"]'
+
+        # TODO: we need this working correctly with both channel and subdir
+        # especially for usages around PrefixData.all_subdir_urls() and Solver._prepare()
+        # assert MatchSpec('defaults/zos::python').get_exact_value('channel').urls() == ()
+
     def test_exact_values(self):
         assert MatchSpec("*").get_exact_value('name') is None
         assert MatchSpec("numpy").get_exact_value('name') == 'numpy'
