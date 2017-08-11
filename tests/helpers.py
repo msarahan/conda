@@ -13,14 +13,17 @@ import sys
 from tempfile import gettempdir
 from uuid import uuid4
 
+from collections import defaultdict
+
+from conda import cli
 from conda._vendor.auxlib.collection import frozendict
 
 from conda import cli
 from conda._vendor.toolz.functoolz import memoize
 from conda.base.context import context, reset_context
-from conda.common.io import argv, captured, replace_log_streams
-from conda.core.index import _supplement_index_with_features
-from conda.core.repodata import make_feature_record
+from conda.common.compat import iteritems, itervalues
+from conda.common.io import argv, captured, captured as common_io_captured, env_var
+from conda.core.repodata import make_feature_record, SubdirData
 from conda.gateways.disk.delete import rm_rf
 from conda.gateways.disk.read import lexists
 from conda.gateways.logging import initialize_logging
@@ -36,10 +39,6 @@ except ImportError:
     import mock
     from mock import patch
 
-
-from contextlib import contextmanager
-
-from conda.common.compat import StringIO, iteritems, itervalues
 
 expected_error_prefix = 'Using Anaconda Cloud api site https://api.anaconda.org'
 def strip_expected(stderr):
@@ -154,16 +153,17 @@ def supplement_index_with_repodata(index, repodata, channel, priority):
 
 
 def add_feature_records(index):
-    feature_names = set()
-    for record in itervalues(index):
-        if record.features:
-            feature_names.update(record.features)
-        if record.track_features:
-            feature_names.update(record.track_features)
+    all_features = defaultdict(set)
+    for rec in itervalues(index):
+        for k, v in iteritems(rec.requires_features):
+            all_features[k].add(v)
+        for k, v in iteritems(rec.provides_features):
+            all_features[k].add(v)
 
-    for feature_name in feature_names:
-        rec = make_feature_record(feature_name)
-        index[Dist(rec)] = rec
+    for feature_name, feature_values in iteritems(all_features):
+        for feature_value in feature_values:
+            rec = make_feature_record(feature_name, feature_value)
+            index[Dist(rec)] = rec
 
 
 @memoize
@@ -179,13 +179,16 @@ def get_index_r_1():
             "packages": packages,
         }
 
-    index = {}
-    channel = Channel('defaults')
-    supplement_index_with_repodata(index, repodata, channel, 1)
+    channel = Channel('https://conda.anaconda.org/channel-1/%s' % context.subdir)
+    sd = SubdirData(channel)
+    with env_var("CONDA_ADD_PIP_AS_PYTHON_DEPENDENCY", "false", reset_context):
+        sd._process_raw_repodata_str(json.dumps(repodata))
+    sd._loaded = True
+    SubdirData._cache_[channel.url(with_credentials=True)] = sd
+
+    index = {Dist(prec): prec for prec in sd._package_records}
     add_feature_records(index)
-    index = frozendict(index)
-    r = Resolve(index)
-    index = r.index
+    r = Resolve(index, channels=(channel,))
     return index, r
 
 
@@ -202,13 +205,15 @@ def get_index_r_2():
             "packages": packages,
         }
 
-    index = {}
-    channel = Channel('defaults')
-    supplement_index_with_repodata(index, repodata, channel, 1)
-    add_feature_records(index)
-    index = frozendict(index)
-    r = Resolve(index)
-    index = r.index
+    channel = Channel('https://conda.anaconda.org/channel-2/%s' % context.subdir)
+    sd = SubdirData(channel)
+    with env_var("CONDA_ADD_PIP_AS_PYTHON_DEPENDENCY", "false", reset_context):
+        sd._process_raw_repodata_str(json.dumps(repodata))
+    sd._loaded = True
+    SubdirData._cache_[channel.url(with_credentials=True)] = sd
+
+    index = {Dist(prec): prec for prec in sd._package_records}
+    r = Resolve(index, channels=(channel,))
     return index, r
 
 
@@ -225,13 +230,14 @@ def get_index_r_3():
             "packages": packages,
         }
 
-    index = {}
-    channel = Channel('defaults')
-    supplement_index_with_repodata(index, repodata, channel, 1)
-    add_feature_records(index)
-    index = frozendict(index)
-    r = Resolve(index)
-    index = r.index
-    return index, r
+    channel = Channel('https://conda.anaconda.org/channel-3/%s' % context.subdir)
+    sd = SubdirData(channel)
+    with env_var("CONDA_ADD_PIP_AS_PYTHON_DEPENDENCY", "false", reset_context):
+        sd._process_raw_repodata_str(json.dumps(repodata))
+    sd._loaded = True
+    SubdirData._cache_[channel.url(with_credentials=True)] = sd
 
+    index = {Dist(prec): prec for prec in sd._package_records}
+    r = Resolve(index, channels=(channel,))
+    return index, r
 
