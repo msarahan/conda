@@ -12,7 +12,7 @@ from . import CondaError, CondaExitZero, CondaMultiError, text_type
 from ._vendor.auxlib.entity import EntityEncoder
 from ._vendor.auxlib.ish import dals
 from ._vendor.auxlib.type_coercion import boolify
-from .base.constants import PathConflict
+from .base.constants import PathConflict, SafetyChecks
 from .common.compat import ensure_text_type, input, iteritems, iterkeys, on_win, string_types
 from .common.io import timeout
 from .common.signals import get_signal_name
@@ -538,6 +538,42 @@ class CondaVerificationError(CondaError):
         super(CondaVerificationError, self).__init__(message)
 
 
+class SafetyError(CondaError):
+    def __init__(self, message):
+        super(SafetyError, self).__init__(message)
+
+
+class NotWritableError(CondaError):
+
+    def __init__(self, path):
+        kwargs = {
+            'path': path,
+        }
+        if on_win:
+            message = dals("""
+            The current user does not have write permissions to a required path.
+              path: %(path)s
+            """)
+        else:
+            message = dals("""
+            The current user does not have write permissions to a required path.
+              path: %(path)s
+              uid: %(uid)s
+              gid: %(gid)s
+
+            If you feel that permissions on this path are set incorrectly, you can manually
+            change them by executing
+
+              $ sudo chmod %(uid)s:%(gid)s %(path)s
+            """)
+            import os
+            kwargs.update({
+                'uid': os.geteuid(),
+                'gid': os.getegid(),
+            })
+        super(NotWritableError, self).__init__(message, **kwargs)
+
+
 class CondaDependencyError(CondaError):
     def __init__(self, message):
         super(CondaDependencyError, self).__init__(message)
@@ -573,19 +609,32 @@ def maybe_raise(error, context):
     if isinstance(error, CondaMultiError):
         groups = groupby(lambda e: isinstance(e, ClobberError), error.errors)
         clobber_errors = groups.get(True, ())
-        non_clobber_errors = groups.get(False, ())
-        if clobber_errors:
-            if context.path_conflict == PathConflict.prevent and not context.clobber:
-                raise error
-            elif context.path_conflict == PathConflict.warn and not context.clobber:
-                print_conda_exception(CondaMultiError(clobber_errors))
-        if non_clobber_errors:
-            raise CondaMultiError(non_clobber_errors)
+        groups = groupby(lambda e: isinstance(e, SafetyError), groups.get(False, ()))
+        safety_errors = groups.get(True, ())
+        other_errors = groups.get(False, ())
+
+        if ((safety_errors and context.safety_checks == SafetyChecks.enabled)
+                or (clobber_errors and context.path_conflict == PathConflict.prevent
+                    and not context.clobber)
+                or other_errors):
+            raise error
+        elif ((safety_errors and context.safety_checks == SafetyChecks.warn)
+              or (clobber_errors and context.path_conflict == PathConflict.warn
+                  and not context.clobber)):
+            print_conda_exception(error)
+
     elif isinstance(error, ClobberError):
         if context.path_conflict == PathConflict.prevent and not context.clobber:
             raise error
         elif context.path_conflict == PathConflict.warn and not context.clobber:
             print_conda_exception(error)
+
+    elif isinstance(error, SafetyError):
+        if context.safety_checks == SafetyChecks.enabled:
+            raise error
+        elif context.safety_checks == SafetyChecks.warn:
+            print_conda_exception(error)
+
     else:
         raise error
 
