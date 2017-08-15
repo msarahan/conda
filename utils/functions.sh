@@ -357,7 +357,7 @@ conda_build_test() {
     . $prefix/etc/profile.d/conda.sh
     conda activate root
     conda info
-    echo "skip_safety_checks: true" >> ~/.condarc
+    echo "safety_checks: disabled" >> ~/.condarc
 
     $prefix/bin/python -m pytest --basetemp /tmp/cb -v --durations=20 -n 0 -m "serial" tests -k "not xattr"
     $prefix/bin/python -m pytest --basetemp /tmp/cb -v --durations=20 -n 2 -m "not serial" tests -k "not xattr"
