@@ -256,8 +256,9 @@ install_conda_build() {
     $prefix/$BIN_DIR/pip install -r utils/requirements-test.txt
 
     # install conda-build dependencies (runtime and test)
-    $prefix/bin/conda config --append channels conda-forge
-    $prefix/bin/conda install -y -q \
+    conda config --append channels conda-forge
+    $prefix/$BIN_DIR/conda install -y -vvv \
+        perl pytest-xdist pytest-catchlog pytest-mock \
         anaconda-client numpy \
         filelock jinja2 conda-verify contextlib2 pkginfo \
         glob2 beautifulsoup4 chardet pycrypto
@@ -356,7 +357,7 @@ conda_build_test() {
     . $prefix/etc/profile.d/conda.sh
     conda activate root
     conda info
-    echo "skip_safety_checks: true" >> ~/.condarc
+    echo "safety_checks: disabled" >> ~/.condarc
 
     $prefix/bin/python -m pytest --basetemp /tmp/cb -v --durations=20 -n 0 -m "serial" tests -k "not xattr"
     $prefix/bin/python -m pytest --basetemp /tmp/cb -v --durations=20 -n 2 -m "not serial" tests -k "not xattr"
