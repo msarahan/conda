@@ -13,9 +13,17 @@ import sys
 from textwrap import wrap
 
 from .. import CondaError
+from .._vendor.auxlib.entity import EntityEncoder
 from ..base.context import context, sys_rc_path, user_rc_path
 from ..common.compat import isiterable, iteritems, string_types, text_type
+from ..common.configuration import pretty_list, pretty_map
 from ..common.io import timeout
+from ..common.serialize import yaml_dump, yaml_load
+
+try:
+    from cytoolz.itertoolz import concat, groupby
+except ImportError:  # pragma: no cover
+    from .._vendor.toolz.itertoolz import concat, groupby  # NOQA
 
 
 def execute(args, parser):
@@ -28,8 +36,6 @@ def execute(args, parser):
 
 
 def format_dict(d):
-    from ..common.configuration import pretty_list, pretty_map
-
     lines = []
     for k, v in iteritems(d):
         if isinstance(v, collections.Mapping):
@@ -50,8 +56,6 @@ def format_dict(d):
 
 
 def parameter_description_builder(name):
-    from .._vendor.auxlib.entity import EntityEncoder
-    from ..common.serialize import yaml_dump
     builder = []
     details = context.describe_parameter(name)
     aliases = details['aliases']
@@ -83,10 +87,6 @@ def parameter_description_builder(name):
 
 
 def execute_config(args, parser):
-    from .._vendor.auxlib.entity import EntityEncoder
-    from ..common.yaml import yaml_dump, yaml_load
-
-    from ..common.serialize import yaml_dump, yaml_load
 
     json_warnings = []
     json_get = {}
