@@ -1,6 +1,3 @@
-# (c) 2012-2016 Continuum Analytics, Inc. / http://continuum.io
-# All Rights Reserved
-#
 # conda is distributed under the terms of the BSD 3-clause license.
 # Consult LICENSE.txt or http://opensource.org/licenses/BSD-3-Clause.
 """OS-agnostic, system-level binary package manager."""
@@ -19,9 +16,9 @@ __all__ = (
 )
 
 __name__ = "conda"
-__version__ = "4.1.12"
-__author__ = "Continuum Analytics, Inc."
-__email__ = "conda@continuum.io"
+__version__ = get_version(__file__)
+__author__ = "Anaconda Inc."
+__email__ = "conda@anaconda.com"
 __license__ = "BSD"
 __summary__ = __doc__
 __url__ = "https://github.com/conda/conda"
