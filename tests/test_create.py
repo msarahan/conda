@@ -531,9 +531,9 @@ class IntegrationTests(TestCase):
 
             # regression test for #5847
             #   when using rm_rf on a directory
-            assert prefix in PrefixData._cache_
+            assert prefix in linked_data_
             rm_rf(join(prefix, get_python_site_packages_short_path("3.5")))
-            assert prefix not in PrefixData._cache_
+            assert prefix not in linked_data_
 
     def test_list_with_pip_wheel(self):
         with make_temp_env("python=3.6 pip") as prefix:
@@ -550,9 +550,9 @@ class IntegrationTests(TestCase):
 
             # regression test for #5847
             #   when using rm_rf on a file
-            assert prefix in PrefixData._cache_
+            assert prefix in linked_data_
             rm_rf(join(prefix, get_python_site_packages_short_path("3.5")), "os.py")
-            assert prefix not in PrefixData._cache_
+            assert prefix not in linked_data_
 
     def test_install_tarball_from_local_channel(self):
         # Regression test for #2812
@@ -892,7 +892,7 @@ class IntegrationTests(TestCase):
             assert package_is_installed(prefix, 'itsdangerous-0.23')
             assert package_is_installed(prefix, 'flask')
 
-    @pytest.mark.xfail(datetime.now() < datetime(2017, 9, 1), reason="#5263", strict=True)
+    @pytest.mark.xfail(datetime.now() < datetime(2017, 10, 1), reason="#5263", strict=True)
     def test_update_deps_flag_present(self):
         with make_temp_env("python=2 itsdangerous=0.23") as prefix:
             assert package_is_installed(prefix, 'python-2')
@@ -1105,7 +1105,7 @@ class IntegrationTests(TestCase):
     def test_search_gawk_not_win_filter(self):
         with make_temp_env() as prefix:
             stdout, stderr = run_command(
-                Commands.SEARCH, prefix, "*gawk", "--platform", "win-64", "--json",
+                Commands.SEARCH, prefix, "gawk", "--platform", "win-64", "--json",
                 "-c", "https://repo.continuum.io/pkgs/msys2 --json",
                 use_exception_handler=True,
             )

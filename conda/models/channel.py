@@ -5,8 +5,7 @@ from copy import copy
 from itertools import chain
 from logging import getLogger
 
-from .._vendor.boltons.setutils import IndexedSet
-from ..base.constants import DEFAULTS_CHANNEL_NAME, MAX_CHANNEL_PRIORITY, UNKNOWN_CHANNEL
+from ..base.constants import (DEFAULTS_CHANNEL_NAME, MAX_CHANNEL_PRIORITY, UNKNOWN_CHANNEL)
 from ..base.context import context
 from ..common.compat import ensure_text_type, isiterable, iteritems, odict, with_metaclass
 from ..common.path import is_path, win_path_backout
@@ -16,10 +15,10 @@ from ..common.url import (Url, has_scheme, is_url, join_url, path_to_url,
 
 try:
     from cytoolz.functoolz import excepts
-    from cytoolz.itertoolz import concat, concatv, drop
-except ImportError:  # pragma: no cover
+    from cytoolz.itertoolz import concat, concatv, topk
+except ImportError:
     from .._vendor.toolz.functoolz import excepts  # NOQA
-    from .._vendor.toolz.itertoolz import concat, concatv, drop  # NOQA
+    from .._vendor.toolz.itertoolz import concat, concatv, topk  # NOQA
 
 log = getLogger(__name__)
 
@@ -603,14 +602,6 @@ def prioritize_channels(channels, with_credentials=True, subdirs=None):
             if url in result:
                 continue
             result[url] = channel.canonical_name, min(priority_counter, MAX_CHANNEL_PRIORITY - 1)
-    return result
-
-
-def all_channel_urls(channels, subdirs=None, with_credentials=True):
-    result = IndexedSet()
-    for chn in channels:
-        channel = Channel(chn)
-        result.update(channel.urls(with_credentials, subdirs))
     return result
 
 
