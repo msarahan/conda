@@ -26,10 +26,21 @@ class PriorityIntegrationTests(TestCase):
                 # update --all
                 update_stdout, _ = run_command(Commands.UPDATE, prefix, '--all')
 
-            # xz should be in the SUPERSEDED list
-            superceded_split = update_stdout.split('SUPERSEDED')
-            assert len(superceded_split) == 2
-            assert 'xz' in superceded_split[1]
+                # this assertion works with the pinned_packages config to make sure
+                # conda update --all still respects the pinned python version
+                assert_package_is_installed(prefix, 'python-3.5')
+
+                # pycosat should be in the SUPERSEDED list
+                # after the 4.4 solver work, looks like it's in the DOWNGRADED list
+                # This language needs changed anyway here.
+                # For packages that CHANGE because they're being moved to a higher-priority channel
+                # the message should be
+                #
+                # The following packages will be UPDATED to a higher-priority channel:
+                #
+                installed_str, x = update_stdout.split('UPDATED')
+                updated_str, downgraded_str = x.split('DOWNGRADED')
+                assert 'pycosat:' in updated_str
 
             # python sys.version should show conda-forge python
             python_tuple = get_conda_list_tuple(prefix, "python")
