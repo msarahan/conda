@@ -529,8 +529,15 @@ class IntegrationTests(TestCase):
             assert any(line.endswith("<pip>") for line in stdout_lines
                        if line.lower().startswith("flask"))
 
+            # regression test for #5847
+            #   when using rm_rf on a directory
+            assert prefix in PrefixData._cache_
+            from conda.exports import rm_rf as _rm_rf
+            _rm_rf(join(prefix, get_python_site_packages_short_path("3.5")))
+            assert prefix not in PrefixData._cache_
+
     def test_list_with_pip_wheel(self):
-        with make_temp_env("python=3.5 pip") as prefix:
+        with make_temp_env("python=3.6 pip") as prefix:
             check_call(PYTHON_BINARY + " -m pip install flask==0.10.1",
                        cwd=prefix, shell=True)
             stdout, stderr = run_command(Commands.LIST, prefix)
@@ -539,8 +546,15 @@ class IntegrationTests(TestCase):
                        if line.lower().startswith("flask"))
 
             # regression test for #3433
-            run_command(Commands.INSTALL, prefix, "python=3.4")
-            assert_package_is_installed(prefix, 'python-3.4.')
+            run_command(Commands.INSTALL, prefix, "python=3.5")
+            assert_package_is_installed(prefix, 'python-3.5.')
+
+            # regression test for #5847
+            #   when using rm_rf on a file
+            assert prefix in PrefixData._cache_
+            from conda.exports import rm_rf as _rm_rf
+            _rm_rf(join(prefix, get_python_site_packages_short_path("3.5")), "os.py")
+            assert prefix not in PrefixData._cache_
 
     def test_install_tarball_from_local_channel(self):
         # Regression test for #2812
@@ -880,7 +894,7 @@ class IntegrationTests(TestCase):
             assert package_is_installed(prefix, 'itsdangerous-0.23')
             assert package_is_installed(prefix, 'flask')
 
-    @pytest.mark.xfail(datetime.now() < datetime(2017, 9, 1), reason="#5263", strict=True)
+    @pytest.mark.xfail(datetime.now() < datetime(2017, 10, 1), reason="#5263", strict=True)
     def test_update_deps_flag_present(self):
         with make_temp_env("python=2 itsdangerous=0.23") as prefix:
             assert package_is_installed(prefix, 'python-2')
@@ -1093,7 +1107,10 @@ class IntegrationTests(TestCase):
     def test_search_gawk_not_win_filter(self):
         with make_temp_env() as prefix:
             stdout, stderr = run_command(
-                Commands.SEARCH, prefix, "*gawk", "--platform", "win-64", "--json", use_exception_handler=True)
+                Commands.SEARCH, prefix, "gawk", "--platform", "win-64", "--json",
+                "-c", "https://repo.continuum.io/pkgs/msys2 --json",
+                use_exception_handler=True,
+            )
             json_obj = json_loads(stdout.replace("Fetching package metadata ...", "").strip())
             assert "gawk" in json_obj.keys()
             assert "m2-gawk" in json_obj.keys()

@@ -1,16 +1,18 @@
 from unittest import TestCase
 
+from conda.common.compat import on_win
 import pytest
 
 from conda.base.context import context, reset_context
 from conda.common.io import env_var
-from .test_create import (make_temp_env, assert_package_is_installed,
-                          run_command, Commands, get_conda_list_tuple)
+from .test_create import Commands, assert_package_is_installed, get_conda_list_tuple, \
+    make_temp_env, run_command
 
 
 @pytest.mark.integration
 class PriorityIntegrationTests(TestCase):
 
+    @pytest.mark.skipif(on_win, reason="xz packages are different on windows than unix")
     def test_channel_order_channel_priority_true(self):
         with env_var("CONDA_PINNED_PACKAGES", "python=3.5", reset_context):
             with make_temp_env("pycosat==0.6.1") as prefix:
@@ -36,16 +38,16 @@ class PriorityIntegrationTests(TestCase):
                 #
                 # The following packages will be UPDATED to a higher-priority channel:
                 #
-                superceded_split = update_stdout.split('DOWNGRADED')
-                assert len(superceded_split) == 2
-                assert 'pycosat' in superceded_split[1]
+                installed_str, x = update_stdout.split('UPDATED')
+                updated_str, downgraded_str = x.split('DOWNGRADED')
+                assert 'pycosat:' in updated_str
 
-                # python sys.version should show conda-forge python
-                python_tuple = get_conda_list_tuple(prefix, "python")
-                assert python_tuple[3] == 'conda-forge'
-                # conda list should show pycosat coming from conda-forge
-                pycosat_tuple = get_conda_list_tuple(prefix, "pycosat")
-                assert pycosat_tuple[3] == 'conda-forge'
+            # python sys.version should show conda-forge python
+            python_tuple = get_conda_list_tuple(prefix, "python")
+            assert python_tuple[3] == 'conda-forge'
+            # conda list should show xz coming from conda-forge
+            pycosat_tuple = get_conda_list_tuple(prefix, "xz")
+            assert pycosat_tuple[3] == 'conda-forge'
 
     def test_channel_priority_update(self):
         """
