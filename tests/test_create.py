@@ -565,7 +565,7 @@ class IntegrationTests(TestCase):
             assert not isdir(prefix)
             assert prefix in PrefixData._cache_
 
-            rm_rf(prefix)
+            _rm_rf(prefix)
             assert not isdir(prefix)
             assert prefix not in PrefixData._cache_
 
