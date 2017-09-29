@@ -26,10 +26,35 @@ from .channel import Channel
 from .enums import FileMode, LinkType, NoarchType, PackageType, PathType, Platform
 from .._vendor.auxlib.collection import frozendict
 from .._vendor.auxlib.entity import (BooleanField, ComposableField, DictSafeMixin, Entity,
-                                     EnumField, IntegerField, ListField, MapField,
-                                     StringField)
-from ..base.context import context
-from ..common.compat import isiterable, iteritems, itervalues, string_types, text_type
+                                     EnumField, Field, IntegerField, ListField, MapField,
+                                     StringField, NumberField)
+from ..common.compat import string_types
+
+
+@total_ordering
+class Priority(object):
+
+    def __init__(self, priority):
+        self._priority = priority
+
+    def __int__(self):
+        return self._priority
+
+    def __lt__(self, other):
+        return self._priority < int(other)
+
+    def __eq__(self, other):
+        return self._priority == int(other)
+
+    def __repr__(self):
+        return "Priority(%d)" % self._priority
+
+
+class PriorityField(Field):
+    _type = (int, Priority)
+
+    def unbox(self, instance, instance_type, val):
+        return int(val)
 
 
 class LinkTypeField(EnumField):
@@ -46,6 +71,15 @@ class LinkTypeField(EnumField):
 class NoarchField(EnumField):
     def box(self, instance, instance_type, val):
         return super(NoarchField, self).box(instance, instance_type, NoarchType.coerce(val))
+
+
+class TimestampField(NumberField):
+
+    def box(self, instance, val):
+        val = super(TimestampField, self).box(instance, val)
+        if val and val > 253402300799:  # 9999-12-31
+            val /= 1000  # convert milliseconds to seconds; see conda/conda-build#1988
+        return val
 
 
 class Link(DictSafeMixin, Entity):
@@ -328,6 +362,10 @@ class PackageRecord(IndexJsonRecord, PackageRef):
 
     date = StringField(required=False)
     size = IntegerField(required=False)
+    subdir = StringField(required=False)
+    timestamp = TimestampField(required=False)
+    track_features = StringField(required=False)
+    version = StringField()
 
     package_type = EnumField(PackageType, required=False, nullable=True)
 

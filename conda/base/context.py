@@ -9,9 +9,8 @@ from platform import machine
 import sys
 
 from .constants import (APP_NAME, DEFAULTS_CHANNEL_NAME, DEFAULT_CHANNELS, DEFAULT_CHANNEL_ALIAS,
-                        ERROR_UPLOAD_URL, PLATFORM_DIRECTORIES, PathConflict, ROOT_ENV_NAME,
-                        SEARCH_PATH, SafetyChecks)
-from .. import __version__ as CONDA_VERSION
+                        PLATFORM_DIRECTORIES, PathConflict, ROOT_ENV_NAME, SEARCH_PATH)
+from .. import CondaError
 from .._vendor.appdirs import user_data_dir
 from .._vendor.auxlib.collection import frozendict
 from .._vendor.auxlib.decorators import memoize, memoizedproperty
@@ -22,7 +21,6 @@ from ..common.configuration import (Configuration, LoadError, MapParameter, Prim
                                     SequenceParameter, ValidationError)
 from ..common.disk import conda_bld_ensure_dir
 from ..common.path import expand
-from ..common.platform import linux_get_libc_version
 from ..common.url import has_scheme, path_to_url, split_scheme_auth_token
 
 try:

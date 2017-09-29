@@ -11,7 +11,6 @@ from .link import islink, lexists
 from .read import find_first_existing
 from .update import touch
 from ..._vendor.auxlib.decorators import memoize
-from ...base.constants import PREFIX_MAGIC_FILE
 from ...common.path import expand, get_python_short_path
 from ...models.enums import LinkType
 

@@ -2,8 +2,7 @@
 from __future__ import absolute_import, division, print_function, unicode_literals
 
 import os
-from os.path import (abspath, basename, dirname, expanduser, expandvars, join, normpath, split,
-                     splitext)
+from os.path import basename, dirname, join, split, splitext, expandvars, expanduser, abspath
 import re
 
 from .compat import on_win, string_types
@@ -251,24 +250,5 @@ def get_python_noarch_target_path(source_short_path, target_site_packages_short_
         return source_short_path
 
 
-def win_path_to_unix(path, root_prefix=""):
-    # If the user wishes to drive conda from MSYS2 itself while also having
-    # msys2 packages in their environment this allows the path conversion to
-    # happen relative to the actual shell. The onus is on the user to set
-    # CYGPATH to e.g. /usr/bin/cygpath.exe (this will be translated to e.g.
-    # (C:\msys32\usr\bin\cygpath.exe by MSYS2) to ensure this one is used.
-    if not path:
-        return ''
-    cygpath = os.environ.get('CYGPATH', 'cygpath.exe')
-    try:
-        path = subprocess.check_output([cygpath, '-up', path]).decode('ascii').split('\n')[0]
-    except Exception as e:
-        log.debug('%r' % e, exc_info=True)
-        # Convert a path or ;-separated string of paths into a unix representation
-        # Does not add cygdrive.  If you need that, set root_prefix to "/cygdrive"
-        def _translation(found_path):  # NOQA
-            found = found_path.group(1).replace("\\", "/").replace(":", "").replace("//", "/")
-            return root_prefix + "/" + found
-        path_re = '(?<![:/^a-zA-Z])([a-zA-Z]:[\/\\\\]+(?:[^:*?"<>|]+[\/\\\\]+)*[^:*?"<>|;\/\\\\]+?(?![a-zA-Z]:))'  # noqa
-        path = re.sub(path_re, _translation, path).replace(";/", ":/")
-    return path
+def expand(path):
+    return abspath(expanduser(expandvars(path)))
