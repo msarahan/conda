@@ -1263,3 +1263,13 @@ def add_parser_use_index_cache(p):
         default=False,
         help="Use cache of channel index files, even if it has expired.",
     )
+
+
+def add_parser_insecure(p):
+    p.add_argument(
+        "-k", "--insecure",
+        action="store_false",
+        default=NULL,
+        help="Allow conda to perform \"insecure\" SSL connections and transfers. "
+             "Equivalent to setting 'ssl_verify' to 'false'."
+    )
