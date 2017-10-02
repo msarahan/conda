@@ -10,11 +10,10 @@ from conda.gateways.disk.delete import rm_rf
 from .path_actions import CacheUrlAction, ExtractPackageAction
 from .. import CondaError, CondaMultiError, conda_signal_handler
 from .._vendor.auxlib.collection import first
-from ..base.constants import CONDA_TARBALL_EXTENSION, PACKAGE_CACHE_MAGIC_FILE
+from .._vendor.auxlib.decorators import memoizemethod
+from ..base.constants import CONDA_TARBALL_EXTENSION, UNKNOWN_CHANNEL
 from ..base.context import context
-from ..common.compat import iteritems, itervalues, odict, text_type, with_metaclass
-from ..common.constants import NULL
-from ..common.io import ProgressBar
+from ..common.compat import iteritems, iterkeys, itervalues, text_type, with_metaclass
 from ..common.path import expand, url_to_path
 from ..common.signals import signal_handler
 from ..common.url import path_to_url
