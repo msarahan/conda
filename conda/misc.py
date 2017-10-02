@@ -11,14 +11,13 @@ import shutil
 import sys
 
 from .base.context import context
-from .common.compat import iteritems, itervalues, on_win, open
-from .common.path import expand
+from .common.compat import iteritems, iterkeys, itervalues, on_win, open
+from .common.path import expand, url_to_path, win_path_ok
 from .common.url import is_url, join_url, path_to_url, unquote
-from .core.index import get_index
-from .core.link import PrefixSetup, UnlinkLinkTransaction
-from .core.linked_data import PrefixData, linked_data
+from .core.index import _supplement_index_with_cache, get_index
+from .core.linked_data import linked_data
 from .core.package_cache import PackageCache, ProgressiveFetchExtract
-from .exceptions import PackagesNotFoundError, ParseError
+from .exceptions import CondaFileNotFoundError, PackageNotFoundError, ParseError
 from .gateways.disk.delete import rm_rf
 from .gateways.disk.link import islink
 from .models.dist import Dist

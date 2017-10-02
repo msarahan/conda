@@ -2,8 +2,7 @@
 from __future__ import absolute_import, division, print_function, unicode_literals
 
 import os
-from os.path import (abspath, basename, dirname, expanduser, expandvars, join, normpath, split,
-                     splitext)
+from os.path import basename, dirname, join, split, splitext, expandvars, expanduser, abspath
 import re
 
 from .compat import on_win, string_types
@@ -251,15 +250,5 @@ def get_python_noarch_target_path(source_short_path, target_site_packages_short_
         return source_short_path
 
 
-def win_path_to_unix(path, root_prefix=""):
-    """Convert a path or ;-separated string of paths into a unix representation
-
-    Does not add cygdrive.  If you need that, set root_prefix to "/cygdrive"
-    """
-    path_re = '(?<![:/^a-zA-Z])([a-zA-Z]:[\/\\\\]+(?:[^:*?"<>|]+[\/\\\\]+)*[^:*?"<>|;\/\\\\]+?(?![a-zA-Z]:))'  # noqa
-
-    def _translation(found_path):
-        found = found_path.group(1).replace("\\", "/").replace(":", "").replace("//", "/")
-        return root_prefix + "/" + found
-    path = re.sub(path_re, _translation, path).replace(";/", ":/")
-    return path
+def expand(path):
+    return abspath(expanduser(expandvars(path)))

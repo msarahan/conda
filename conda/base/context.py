@@ -9,9 +9,8 @@ from platform import machine
 import sys
 
 from .constants import (APP_NAME, DEFAULTS_CHANNEL_NAME, DEFAULT_CHANNELS, DEFAULT_CHANNEL_ALIAS,
-                        ERROR_UPLOAD_URL, PLATFORM_DIRECTORIES, PathConflict, ROOT_ENV_NAME,
-                        SEARCH_PATH, SafetyChecks)
-from .. import __version__ as CONDA_VERSION
+                        PLATFORM_DIRECTORIES, PathConflict, ROOT_ENV_NAME, SEARCH_PATH)
+from .. import CondaError
 from .._vendor.appdirs import user_data_dir
 from .._vendor.auxlib.collection import frozendict
 from .._vendor.auxlib.decorators import memoize, memoizedproperty
@@ -22,7 +21,6 @@ from ..common.configuration import (Configuration, LoadError, MapParameter, Prim
                                     SequenceParameter, ValidationError)
 from ..common.disk import conda_bld_ensure_dir
 from ..common.path import expand
-from ..common.platform import linux_get_libc_version
 from ..common.url import has_scheme, path_to_url, split_scheme_auth_token
 
 try:
@@ -97,6 +95,7 @@ class Context(Configuration):
                                         element_type=string_types + (NoneType,),
                                         validation=default_python_validation)
     disallow = SequenceParameter(string_types)
+    download_only = PrimitiveParameter(False)
     enable_private_envs = PrimitiveParameter(False)
     force_32bit = PrimitiveParameter(False)
     non_admin_enabled = PrimitiveParameter(True)
@@ -386,7 +385,11 @@ class Context(Configuration):
     @property
     def aggressive_update_packages(self):
         from ..models.match_spec import MatchSpec
-        return MatchSpec('openssl', optional=True),
+        return (
+            MatchSpec('ca-certificates', optional=True),
+            MatchSpec('certifi', optional=True),
+            MatchSpec('openssl', optional=True),
+        )
 
     @property
     def deps_modifier(self):
@@ -678,6 +681,10 @@ def get_help_dict():
         'disallow': dals("""
             Package specifications to disallow installing. The default is to allow
             all packages.
+            """),
+        'download_only': dals("""
+            Solve an environment and ensure package caches are populated, but exit
+            prior to unlinking and linking packages into the prefix
             """),
         'envs_dirs': dals("""
             The list of directories to search for named environments. When creating a new

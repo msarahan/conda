@@ -51,7 +51,7 @@ except ImportError:  # pragma: no cover
 log = getLogger(__name__)
 stderrlog = getLogger('conda.stderrlog')
 
-REPODATA_PICKLE_VERSION = 1
+REPODATA_PICKLE_VERSION = 3
 REPODATA_HEADER_RE = b'"(_etag|_mod|_cache_control)":[ ]?"(.*?[^\\\\])"[,\}\s]'
 
 
@@ -615,6 +615,24 @@ def collect_all_repodata_as_index(use_cache, channel_urls):
         sd = SubdirData(Channel(url))
         index.update((Dist(prec), prec) for prec in sd.load()._package_records)
     return index
+
+
+def make_feature_record(feature_name, feature_value):
+    # necessary for the SAT solver to do the right thing with features
+    pkg_name = "%s=%s@" % (feature_name, feature_value)
+    return IndexRecord(
+        name=pkg_name,
+        version='0',
+        build='0',
+        channel='@',
+        subdir=context.subdir,
+        md5="12345678901234567890123456789012",
+        provides_features={
+            feature_name: feature_value,
+        },
+        build_number=0,
+        fn=pkg_name,
+    )
 
 
 def cache_fn_url(url):

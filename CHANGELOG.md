@@ -1,3 +1,35 @@
+## 4.3.28 (unreleased)
+
+### Bug Fixes
+
+* fix #5854 remove imports of pkg_resources (#5991)
+* fix millisecond timestamps (#6001)
+
+
+## 4.3.27 (2017-09-18)
+
+### Bug Fixes
+
+* fix #5980 always delete_prefix_from_linked_data in rm_rf (#5982)
+
+
+## 4.3.26 (2017-09-15)
+
+### Deprecations/Breaking Changes
+* resolve #5922 prioritize channels within multi-channels (#5923)
+* add https://repo.continuum.io/pkgs/main to defaults multi-channel (#5931)
+
+### Improvements
+* add a channel priority minimization pass to solver logic (#5859)
+* invoke cmd.exe with /D for pre/post link/unlink scripts (#5926)
+* add boto3 use to s3 adapter (#5949)
+
+### Bug Fixes
+* always remove linked prefix entry with rm_rf (#5846)
+* resolve #5920 bump repodata pickle version (#5921)
+* fix msys2 activate and deactivate (#5950)
+
+
 ## 4.3.25 (2017-08-16)
 
 ### Deprecations/Breaking Changes

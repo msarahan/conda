@@ -8,7 +8,6 @@ import re
 
 from . import exp_backoff_fn, mkdir_p
 from .delete import rm_rf
-from .link import lexists
 from ...common.path import expand
 
 log = getLogger(__name__)
