@@ -4,10 +4,9 @@ Wrapper around yaml to ensure that everything is ordered correctly.
 This is based on the answer at http://stackoverflow.com/a/16782282
 """
 from __future__ import absolute_import, print_function
-from collections import OrderedDict
 
 from conda.common.compat import PY2
-from conda.common.yaml import get_yaml
+from conda.common.serialize import get_yaml
 yaml = get_yaml()
 
 
@@ -20,17 +19,8 @@ def represent_ordereddict(dumper, data):
 
         value.append((node_key, node_value))
 
-    return yaml.nodes.MappingNode(u'tag:yaml.org,2002:map', value)
+yaml = get_yaml()
 
-
-yaml.add_representer(OrderedDict, represent_ordereddict)
-
-if PY2:
-    def represent_unicode(self, data):
-        return self.represent_str(data.encode('utf-8'))
-
-    yaml.add_representer(unicode, represent_unicode)  # NOQA
-
-dump = yaml.dump
-load = yaml.load
-dict = OrderedDict
+dump = yaml_dump
+load = yaml_load_safe
+dict = odict

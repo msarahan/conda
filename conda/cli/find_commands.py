@@ -73,4 +73,4 @@ def find_commands(include_others=True):
             m = pat.match(fn)
             if m:
                 res.add(m.group(1))
-    return sorted(res)
+    return tuple(sorted(res))

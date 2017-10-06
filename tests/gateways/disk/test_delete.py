@@ -22,9 +22,12 @@ from conda.utils import on_win
 from os.path import join, isdir, lexists, isfile
 from conda.gateways.disk.link import islink
 
+import pytest
 
-def can_not_symlink():
-    return on_win and context.default_python[0] == '2'
+from conda.gateways.disk.delete import move_to_trash, rm_rf
+from conda.gateways.disk.link import islink, symlink
+from conda.gateways.disk.update import touch
+from .test_permissions import _make_read_only, _try_open, tempdir
 
 
 def _write_file(path, content):
@@ -72,13 +75,12 @@ def test_remove_dir():
         assert not lexists(test_path)
 
 
-@pytest.mark.skipif(can_not_symlink(), reason="symlink function not available")
 def test_remove_link_to_file():
     with tempdir() as td:
         dst_link = join(td, "test_link")
         src_file = join(td, "test_file")
         _write_file(src_file, "welcome to the ministry of silly walks")
-        os.symlink(src_file, dst_link)
+        symlink(src_file, dst_link)
         assert isfile(src_file)
         assert not islink(src_file)
         assert islink(dst_link)
@@ -90,13 +92,12 @@ def test_remove_link_to_file():
         assert not lexists(dst_link)
 
 
-@pytest.mark.skipif(can_not_symlink(), reason="symlink function not available")
 def test_remove_link_to_dir():
     with tempdir() as td:
         dst_link = join(td, "test_link")
         src_dir = join(td, "test_dir")
         _write_file(src_dir, "welcome to the ministry of silly walks")
-        os.symlink(src_dir, dst_link)
+        symlink(src_dir, dst_link)
         assert not islink(src_dir)
         assert islink(dst_link)
         assert rm_rf(dst_link)

@@ -9,7 +9,6 @@ import socket
 
 from .path import split_filename
 from .._vendor.auxlib.decorators import memoize
-from .._vendor.auxlib.ish import dals
 from .._vendor.urllib3.exceptions import LocationParseError
 from .._vendor.urllib3.util.url import Url, parse_url
 from ..common.compat import on_win
@@ -31,18 +30,10 @@ from .._vendor.urllib3.util.url import Url, parse_url
 log = getLogger(__name__)
 
 
-on_win = bool(sys.platform == "win32")
-
-
 @memoize
 def path_to_url(path):
     if not path:
-        message = dals("""
-        Empty argument to `path_to_url()` not allowed.
-        path cannot be '%r'
-        """ % path)
-        from ..exceptions import CondaValueError
-        raise CondaValueError(message)
+        raise ValueError('Not allowed: %r' % path)
     if path.startswith('file:/'):
         return path
     path = abspath(expanduser(path))
@@ -71,6 +62,13 @@ def url_to_s3_info(url):
 
 
 def is_url(url):
+    """
+    Examples:
+        >>> is_url(None)
+        False
+        >>> is_url("s3://some/bucket")
+        True
+    """
     if not url:
         return False
     try:
@@ -97,9 +95,9 @@ def is_ipv4_address(string_ip):
 def is_ipv6_address(string_ip):
     """
     Examples:
-        >>> [is_ipv6_address(ip) for ip in ('::1', '2001:db8:85a3::370:7334', '1234:'*7+'1234')]
+        >> [is_ipv6_address(ip) for ip in ('::1', '2001:db8:85a3::370:7334', '1234:'*7+'1234')]
         [True, True, True]
-        >>> [is_ipv6_address(ip) for ip in ('192.168.10.10', '1234:'*8+'1234')]
+        >> [is_ipv6_address(ip) for ip in ('192.168.10.10', '1234:'*8+'1234')]
         [False, False]
     """
     try:
@@ -133,11 +131,11 @@ def is_ipv6_address_win_py27(string_ip):
 def is_ip_address(string_ip):
     """
     Examples:
-        >>> is_ip_address('192.168.10.10')
+        >> is_ip_address('192.168.10.10')
         True
-        >>> is_ip_address('::1')
+        >> is_ip_address('::1')
         True
-        >>> is_ip_address('www.google.com')
+        >> is_ip_address('www.google.com')
         False
     """
     return is_ipv4_address(string_ip) or is_ipv6_address(string_ip)
@@ -193,7 +191,7 @@ def split_anaconda_token(url):
     return cleaned_url.rstrip('/'), token
 
 
-def split_platform(url, known_platforms):
+def split_platform(url, known_subdirs):
     """
 
     Examples:
@@ -202,19 +200,19 @@ def split_platform(url, known_platforms):
         (u'https://1.2.3.4/t/tk-123/path', u'osx-64')
 
     """
-    _platform_match_regex = r'/(%s)/?' % r'|'.join(r'%s' % d for d in known_platforms)
+    _platform_match_regex = r'/(%s)/?' % r'|'.join(r'%s' % d for d in known_subdirs)
     _platform_match = re.search(_platform_match_regex, url, re.IGNORECASE)
     platform = _platform_match.groups()[0] if _platform_match else None
     cleaned_url = url.replace('/' + platform, '', 1) if platform is not None else url
     return cleaned_url.rstrip('/'), platform
 
 
-def has_platform(url, known_platforms):
+def has_platform(url, known_subdirs):
     url_no_package_name, _ = split_filename(url)
     if not url_no_package_name:
         return None
     maybe_a_platform = url_no_package_name.rsplit('/', 1)[-1]
-    return maybe_a_platform in known_platforms and maybe_a_platform or None
+    return maybe_a_platform in known_subdirs and maybe_a_platform or None
 
 
 def _split_package_filename(url):
@@ -240,10 +238,10 @@ def split_scheme_auth_token(url):
     return remainder_url, url_parts.scheme, url_parts.auth, token
 
 
-def split_conda_url_easy_parts(url, known_platforms):
+def split_conda_url_easy_parts(url, known_subdirs):
     # scheme, auth, token, platform, package_filename, host, port, path, query
     cleaned_url, token = split_anaconda_token(url)
-    cleaned_url, platform = split_platform(cleaned_url, known_platforms)
+    cleaned_url, platform = split_platform(cleaned_url, known_subdirs)
     cleaned_url, package_filename = _split_package_filename(cleaned_url)
 
     # TODO: split out namespace using regex

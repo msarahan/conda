@@ -8,6 +8,8 @@ Another important source of "static" configuration is conda/models/enums.py.
 """
 from __future__ import absolute_import, division, print_function, unicode_literals
 
+from os.path import join
+
 from enum import Enum
 import sys
 
@@ -42,6 +44,7 @@ SEARCH_PATH = (
 
 DEFAULT_CHANNEL_ALIAS = 'https://conda.anaconda.org'
 CONDA_HOMEPAGE_URL = 'https://conda.io'
+ERROR_UPLOAD_URL = 'https://conda.io/conda-post/unexpected-error'
 DEFAULTS_CHANNEL_NAME = 'defaults'
 
 PLATFORM_DIRECTORIES = ("linux-64",
@@ -60,23 +63,25 @@ PLATFORM_DIRECTORIES = ("linux-64",
 RECOGNIZED_URL_SCHEMES = ('http', 'https', 'ftp', 's3', 'file')
 
 
-DEFAULT_CHANNELS_UNIX = ('https://repo.continuum.io/pkgs/main',
-                         'https://repo.continuum.io/pkgs/free',
-                         'https://repo.continuum.io/pkgs/r',
-                         'https://repo.continuum.io/pkgs/pro',
-                         )
+DEFAULT_CHANNELS_UNIX = (
+    'https://repo.continuum.io/pkgs/main',
+    'https://repo.continuum.io/pkgs/free',
+    'https://repo.continuum.io/pkgs/r',
+    'https://repo.continuum.io/pkgs/pro',
+)
 
-DEFAULT_CHANNELS_WIN = ('https://repo.continuum.io/pkgs/main',
-                        'https://repo.continuum.io/pkgs/free',
-                        'https://repo.continuum.io/pkgs/r',
-                        'https://repo.continuum.io/pkgs/pro',
-                        'https://repo.continuum.io/pkgs/msys2',
-                        )
+DEFAULT_CHANNELS_WIN = (
+    'https://repo.continuum.io/pkgs/main',
+    'https://repo.continuum.io/pkgs/free',
+    'https://repo.continuum.io/pkgs/r',
+    'https://repo.continuum.io/pkgs/pro',
+    'https://repo.continuum.io/pkgs/msys2',
+)
 
 # use the bool(sys.platform == "win32") definition here so we don't import .compat.on_win
 DEFAULT_CHANNELS = DEFAULT_CHANNELS_WIN if bool(sys.platform == "win32") else DEFAULT_CHANNELS_UNIX
 
-ROOT_ENV_NAME = 'root'
+ROOT_ENV_NAME = 'base'
 
 ROOT_NO_RM = (
     'python',
@@ -94,6 +99,15 @@ UNKNOWN_CHANNEL = "<unknown>"
 UNKNOWN_CHANNEL = "<unknown>"
 
 
+class SafetyChecks(Enum):
+    disabled = 'disabled'
+    warn = 'warn'
+    enabled = 'enabled'
+
+    def __str__(self):
+        return self.value
+
+
 class PathConflict(Enum):
     clobber = 'clobber'
     warn = 'warn'
@@ -101,3 +115,9 @@ class PathConflict(Enum):
 
     def __str__(self):
         return self.value
+
+
+# Magic files for permissions determination
+PACKAGE_CACHE_MAGIC_FILE = 'urls.txt'
+ENVS_DIR_MAGIC_FILE = 'catalog.json'
+PREFIX_MAGIC_FILE = join('conda-meta', 'history')

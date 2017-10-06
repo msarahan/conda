@@ -1,16 +1,15 @@
 from __future__ import absolute_import, print_function
 
-import os
 from collections import OrderedDict
-from conda.base.context import context
-from conda.cli import common
-from conda.core.linked_data import linked
 from copy import copy
+from itertools import chain
 import os
 
-# TODO This should never have to import from conda.cli
-from itertools import chain
-
+from conda.base.context import context
+from conda.cli import common  # TODO: this should never have to import form conda.cli
+from conda.common.serialize import yaml_load
+from conda.core.linked_data import linked
+from conda_env.yaml import dump
 from . import compat, exceptions, yaml
 from .pip_util import add_pip_installed
 
@@ -69,7 +68,7 @@ def from_environment(name, prefix, no_builds=False, ignore_channels=False):
 
 def from_yaml(yamlstr, **kwargs):
     """Load and return a ``Environment`` from a given ``yaml string``"""
-    data = yaml.load(yamlstr)
+    data = yaml_load(yamlstr)
     if kwargs is not None:
         for key, value in kwargs.items():
             data[key] = value
@@ -164,7 +163,7 @@ class Environment(object):
 
     def to_yaml(self, stream=None):
         d = self.to_dict()
-        out = compat.u(yaml.dump(d, default_flow_style=False))
+        out = compat.u(dump(d))
         if stream is None:
             return out
         stream.write(compat.b(out, encoding="utf-8"))

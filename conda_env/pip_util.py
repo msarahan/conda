@@ -7,7 +7,7 @@ from __future__ import absolute_import, print_function
 
 import os
 from os.path import isfile, join
-import re
+import json
 import subprocess
 import sys
 
@@ -65,40 +65,25 @@ def installed(prefix, output=True):
         if output:
             print("# Warning: subprocess call to pip failed")
         return
+    pkgs = json.loads(s)
 
     # For every package in pipinst that is not already represented
     # in installed append a fake name to installed with 'pip'
     # as the build string
-    pat = re.compile('([\w.-]+)\s+\((.+)\)')
-    for line in pipinst:
-        line = line.strip()
-        if not line:
-            continue
-        m = pat.match(line)
-        if m is None:
-            if output:
-                print('Could not extract name and version from: %r' % line)
-            continue
-        name, version = m.groups()
-        name = name.lower()
-        kwargs = {
-            'name': name,
-            'version': version,
-        }
-        if ', ' in version:
+    for kwargs in pkgs:
+        kwargs['name'] = kwargs['name'].lower()
+        if ', ' in kwargs['version']:
             # Packages installed with setup.py develop will include a path in
             # the version. They should be included here, even if they are
             # installed with conda, as they are preferred over the conda
             # version. We still include the conda version, though, because it
             # is still installed.
 
-            version, path = version.split(', ')
+            version, path = kwargs['version'].split(', ')
             # We do this because the code below uses rsplit('-', 2)
             version = version.replace('-', ' ')
-            kwargs.update({
-                'path': path,
-                'version': version,
-            })
+            kwargs['version'] = version
+            kwargs['path'] = path
         yield PipPackage(**kwargs)
 
 
