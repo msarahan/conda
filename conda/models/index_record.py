@@ -95,7 +95,9 @@ class TimestampField(NumberField):
         return self._make_milliseconds(super(TimestampField, self).box(instance, val))
 
     def unbox(self, instance, instance_type, val):
-        return self._make_milliseconds(super(TimestampField, self).unbox(instance, instance_type, val))
+        return self._make_milliseconds(
+            super(TimestampField, self).unbox(instance, instance_type, val)
+        )
 
     def dump(self, val):
         return self._make_milliseconds(super(TimestampField, self).dump(val))
