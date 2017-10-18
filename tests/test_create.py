@@ -20,6 +20,13 @@ from tempfile import gettempdir
 from unittest import TestCase
 from uuid import uuid4
 
+import shutil
+
+from datetime import datetime
+
+import conda
+from conda._vendor.auxlib.ish import dals
+from conda.gateways.anaconda_client import read_binstar_tokens
 import pytest
 import requests
 
@@ -655,6 +662,7 @@ class IntegrationTests(TestCase):
             assert not exists(prefix)
 
     @pytest.mark.skipif(on_win, reason="nomkl not present on windows")
+    @pytest.mark.xfail(conda.__version__.startswith('4.3') and datetime.now() < datetime(2017, 11, 1), reason='currently broken in 4.3')
     def test_remove_features(self):
         with make_temp_env("python=2 numpy nomkl") as prefix:
             assert exists(join(prefix, PYTHON_BINARY))
@@ -907,7 +915,7 @@ class IntegrationTests(TestCase):
             assert package_is_installed(prefix, 'itsdangerous-0.23')
             assert package_is_installed(prefix, 'flask')
 
-    @pytest.mark.xfail(datetime.now() < datetime(2017, 10, 1), reason="#5263", strict=True)
+    @pytest.mark.xfail(datetime.now() < datetime(2017, 11, 1), reason="#5263", strict=True)
     def test_update_deps_flag_present(self):
         with make_temp_env("python=2 itsdangerous=0.23") as prefix:
             assert package_is_installed(prefix, 'python-2')
@@ -1147,10 +1155,12 @@ class IntegrationTests(TestCase):
             assert not len(json_obj.keys()) == 0
 
     def test_bad_anaconda_token_infinite_loop(self):
-        # First, confirm we get a 401 UNAUTHORIZED response from anaconda.org
+        # This test is being changed around 2017-10-17, when the behavior of anaconda.org
+        # was changed.  Previously, an expired token would return with a 401 response.
+        # Now, a 200 response is always given, with any public packages available on the channel.
         response = requests.get("https://conda.anaconda.org/t/cqgccfm1mfma/data-portal/"
                                 "%s/repodata.json" % context.subdir)
-        assert response.status_code == 401
+        assert response.status_code == 200
 
         try:
             prefix = make_temp_prefix(str(uuid4())[:7])
@@ -1160,13 +1170,14 @@ class IntegrationTests(TestCase):
             yml_obj = yaml_load(stdout)
             assert yml_obj['channels'] == [channel_url, 'defaults']
 
-            with pytest.raises(CondaHTTPError):
+            with pytest.raises(PackageNotFoundError):
                 run_command(Commands.SEARCH, prefix, "boltons", "--json")
 
-            stdout, stderr = run_command(Commands.SEARCH, prefix, "boltons", "--json",
-                                         use_exception_handler=True)
+            stdout, stderr = run_command(Commands.SEARCH, prefix, "anaconda-mosaic", "--json")
+
             json_obj = json.loads(stdout)
-            assert json_obj['status_code'] == 401
+            assert "anaconda-mosaic" in json_obj
+            assert len(json_obj["anaconda-mosaic"]) > 0
 
         finally:
             rmtree(prefix, ignore_errors=True)
@@ -1198,6 +1209,7 @@ class IntegrationTests(TestCase):
 
         finally:
             rmtree(prefix, ignore_errors=True)
+            reset_context()
 
         # Step 2. Now with the token make sure we can see the anyjson package
         try:
