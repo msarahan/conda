@@ -359,7 +359,19 @@ conda_build_test() {
     conda info
     echo "safety_checks: disabled" >> ~/.condarc
 
-    pushd conda-build
+    condabuild_skip="not xattr and not skeleton_pypi and not perl-cpan-Moo"
+    $prefix/bin/python -m pytest --basetemp /tmp/cb -v --durations=20 -n 0 -m "serial" tests -k "$condabuild_skip"
+    $prefix/bin/python -m pytest --basetemp /tmp/cb -v --durations=20 -n 2 -m "not serial" tests -k "$condabuild_skip"
+    popd
+}
+
+
+osx_setup() {
+    # brew update || brew update
+    # brew outdated openssl || brew upgrade openssl
+    brew install zsh
+
+    # rvm get head
 
     # TODO: remove -k flag when conda/conda-build#1927 is merged
     $prefix/$BIN_DIR/python -m pytest --basetemp /tmp/cb -v --durations=20 -n 2 -m "not serial" tests \
