@@ -9,8 +9,9 @@ from platform import machine
 import sys
 
 from .constants import (APP_NAME, DEFAULTS_CHANNEL_NAME, DEFAULT_CHANNELS, DEFAULT_CHANNEL_ALIAS,
-                        PLATFORM_DIRECTORIES, PathConflict, ROOT_ENV_NAME, SEARCH_PATH)
-from .. import CondaError
+                        ERROR_UPLOAD_URL, PLATFORM_DIRECTORIES, PathConflict, ROOT_ENV_NAME,
+                        SEARCH_PATH, SafetyChecks)
+from .. import __version__ as CONDA_VERSION, CondaError
 from .._vendor.appdirs import user_data_dir
 from .._vendor.auxlib.collection import frozendict
 from .._vendor.auxlib.decorators import memoize, memoizedproperty
@@ -314,7 +315,7 @@ class Context(Configuration):
         from ..gateways.disk.test import prefix_is_writable
         try:
             return prefix_is_writable(self.root_prefix)
-        except CondaError:
+        except CondaError:  # pragma: no cover
             # With pyinstaller, conda code can sometimes be called even though sys.prefix isn't
             # a conda environment with a conda-meta/ directory.  In this case, it's safe to return
             # False, because conda shouldn't itself be mutating that environment. See #6243
