@@ -23,7 +23,7 @@ def configure_parser(sub_parsers):
         epilog=example,
     )
 
-    add_parser_json(list_parser)
+    common.add_parser_json(list_parser)
 
     list_parser.set_defaults(func=execute)
 
