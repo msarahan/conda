@@ -392,70 +392,40 @@ def ensure_linked_actions(dists, prefix, index=None, force=False,
     return actions
 
 
-def get_blank_actions(prefix):
-    actions = defaultdict(list)
-    actions[PREFIX] = prefix
-    actions['op_order'] = (CHECK_FETCH, RM_FETCHED, FETCH, CHECK_EXTRACT,
-                           RM_EXTRACTED, EXTRACT,
-                           UNLINK, LINK, SYMLINK_CONDA)
-    return actions
+def add_defaults_to_specs(r, linked, specs, update=False, prefix=None):
+    # TODO: This should use the pinning mechanism. But don't change the API because cas uses it
+    if r.explicit(specs) or is_private_env(prefix):
+        return
+    log.debug('H0 specs=%r' % (specs,))
+    names_linked = {r.package_name(d): d for d in linked if d in r.index}
+    mspecs = list(map(MatchSpec, specs))
+
+    for name, def_ver in [('python', context.default_python or None),
+                          # Default version required, but only used for Python
+                          ('lua', None)]:
+        if any(s.name == name and not s.is_simple() for s in mspecs):
+            # if any of the specifications mention the Python/Numpy version,
+            # we don't need to add the default spec
+            log.debug('H1 %s' % name)
+            continue
+
+        depends_on = {s for s in mspecs if r.depends_on(s, name)}
+        any_depends_on = bool(depends_on)
+        log.debug('H2 %s %s' % (name, any_depends_on))
+
+        if not any_depends_on:
+            # if nothing depends on Python/Numpy AND the Python/Numpy is not
+            # specified, we don't need to add the default spec
+            log.debug('H2A %s' % name)
+            continue
 
 
 # -------------------------------------------------------------------
 
 
-def add_defaults_to_specs(r, linked, specs, update=False, prefix=None):
-    return
-    # # TODO: This should use the pinning mechanism. But don't change the API because cas uses it
-    # if r.explicit(specs) or is_private_env_path(prefix):
-    #     return
-    # log.debug('H0 specs=%r' % specs)
-    # # names_linked = {r.package_name(d): d for d in linked if d in r.index}
-    # mspecs = list(map(MatchSpec, specs))
-    #
-    # for name, def_ver in [('python', context.default_python or None),
-    #                       # Default version required, but only used for Python
-    #                       ('lua', None)]:
-    #     if any(s.name == name and not s.is_simple() for s in mspecs):
-    #         # if any of the specifications mention the Python/Numpy version,
-    #         # we don't need to add the default spec
-    #         log.debug('H1 %s' % name)
-    #         continue
-    #
-    #     depends_on = {s for s in mspecs if r.depends_on(s, name)}
-    #     any_depends_on = bool(depends_on)
-    #     log.debug('H2 %s %s' % (name, any_depends_on))
-    #
-    #     if not any_depends_on:
-    #         # if nothing depends on Python/Numpy AND the Python/Numpy is not
-    #         # specified, we don't need to add the default spec
-    #         log.debug('H2A %s' % name)
-    #         continue
-    #
-    #     if any(s.exact_field('build') for s in depends_on):
-    #         # If something depends on Python/Numpy, but the spec is very
-    #         # explicit, we also don't need to add the default spec
-    #         log.debug('H2B %s' % name)
-    #         continue
-    #
-    #     # if name in names_linked:
-    #     #     # if Python/Numpy is already linked, we add that instead of the default
-    #     #     log.debug('H3 %s' % name)
-    #     #     dist = Dist(names_linked[name])
-    #     #     info = r.index[dist]
-    #     #     ver = '.'.join(info['version'].split('.', 2)[:2])
-    #     #     spec = '%s %s* (target=%s)' % (info['name'], ver, dist)
-    #     #     specs.append(spec)
-    #     #     continue
-    #
-    #     if name == 'python' and def_ver and def_ver.startswith('3.'):
-    #         # Don't include Python 3 in the specs if this is the Python 3
-    #         # version of conda.
-    #         continue
-    #
-    #     if def_ver is not None:
-    #         specs.append('%s %s*' % (name, def_ver))
-    # log.debug('HF specs=%r' % specs)
+        if def_ver is not None:
+            specs.append('%s %s*' % (name, def_ver))
+    log.debug('HF specs=%r' % (specs,))
 
 
 def get_pinned_specs(prefix):
@@ -495,10 +465,108 @@ def install_actions(prefix, index, specs, force=False, only_names=None, always_c
     else:
         channels = subdirs = None
 
-    specs = tuple(MatchSpec(spec) for spec in specs)
+        def get_r(preferred_env):
+            # don't make r for the prefix where we already have it created
+            if preferred_env_matches_prefix(preferred_env, prefix, context.root_prefix):
+                return r
+            else:
+                return get_resolve_object(index.copy(), preferred_env_to_prefix(
+                    preferred_env, context.root_prefix, context.envs_dirs))
 
-    from .core.linked_data import PrefixData
-    PrefixData._cache_.clear()
+        prefix_with_dists_no_deps_has_resolve = []
+        for env in preferred_envs:
+            dists = IndexedSet(d.spec for d in dists_for_envs if d.env == env)
+            prefix_with_dists_no_deps_has_resolve.append(
+                SpecsForPrefix(
+                    prefix=preferred_env_to_prefix(env, context.root_prefix, context.envs_dirs),
+                    r=get_r(env),
+                    specs=dists)
+            )
+    return prefix_with_dists_no_deps_has_resolve
+
+
+def match_to_original_specs(specs, specs_for_prefix):
+    matches_any_spec = lambda dst: next(spc for spc in specs if spc.name == dst)
+    matched_specs_for_prefix = []
+    for prefix_with_dists in specs_for_prefix:
+        new_matches = []
+        for spec in prefix_with_dists.specs:
+            matched = matches_any_spec(spec)
+            if matched:
+                new_matches.append(matched)
+        matched_specs_for_prefix.append(SpecsForPrefix(
+            prefix=prefix_with_dists.prefix, r=prefix_with_dists.r, specs=new_matches))
+    return matched_specs_for_prefix
+
+
+def get_actions_for_dists(specs_by_prefix, only_names, index, force, always_copy, prune,
+                          update_deps, pinned):
+    root_only = ('conda', 'conda-env')
+    prefix = specs_by_prefix.prefix
+    r = specs_by_prefix.r
+    specs = [MatchSpec(s) for s in specs_by_prefix.specs]
+    specs = augment_specs(prefix, specs, pinned)
+
+    linked = linked_data(prefix)
+    add_defaults_to_specs(r, linked, specs, prefix)
+
+    installed = linked
+    if prune:
+        installed = []
+    pkgs = r.install(specs, installed, update_deps=update_deps)
+
+    must_have = odict()
+    for fn in pkgs:
+        dist = Dist(fn)
+        name = r.package_name(dist)
+        if not name or only_names and name not in only_names:
+            continue
+        must_have[name] = dist
+
+    if is_root_prefix(prefix):
+        # for name in foreign:
+        #     if name in must_have:
+        #         del must_have[name]
+        pass
+    elif basename(prefix).startswith('_'):
+        # anything (including conda) can be installed into environments
+        # starting with '_', mainly to allow conda-build to build conda
+        pass
+
+    elif any(s in must_have for s in root_only):
+        # the solver scheduled an install of conda, but it wasn't in the
+        # specs, so it must have been a dependency.
+        specs = [s for s in specs if r.depends_on(s, root_only)]
+        if specs:
+            raise InstallError("""\
+Error: the following specs depend on 'conda' and can only be installed
+into the root environment: %s""" % (' '.join(spec.name for spec in specs),))
+        linked = [r.package_name(s) for s in linked]
+        linked = [s for s in linked if r.depends_on(s, root_only)]
+        if linked:
+            raise InstallError("""\
+Error: one or more of the packages already installed depend on 'conda'
+and should only be installed in the root environment: %s
+These packages need to be removed before conda can proceed.""" % (' '.join(linked),))
+        raise InstallError("Error: 'conda' can only be installed into the "
+                           "root environment")
+
+    smh = r.dependency_sort(must_have)
+    actions = ensure_linked_actions(
+        smh, prefix,
+        index=r.index,
+        force=force, always_copy=always_copy)
+
+    if actions[LINK]:
+        actions[SYMLINK_CONDA] = [context.root_prefix]
+
+    for dist in sorted(linked):
+        dist = Dist(dist)
+        name = r.package_name(dist)
+        replace_existing = name in must_have and dist != must_have[name]
+        prune_it = prune and dist not in smh
+        if replace_existing or prune_it:
+            add_unlink(actions, dist)
 
     solver = Solver(prefix, channels, subdirs, specs_to_add=specs)
     if index:
@@ -511,55 +579,55 @@ def install_actions(prefix, index, specs, force=False, only_names=None, always_c
     return actions
 
 
-# def augment_specs(prefix, specs, pinned=True):
-#     """
-#     Include additional specs for conda and (optionally) pinned packages.
-#
-#     Parameters
-#     ----------
-#     prefix : str
-#         Environment prefix.
-#     specs : list of MatchSpec
-#         List of package specifications to augment.
-#     pinned : bool, optional
-#         Optionally include pinned specs for the current environment.
-#
-#     Returns
-#     -------
-#     augmented_specs : list of MatchSpec
-#        List of augmented package specifications.
-#     """
-#     specs = list(specs)
-#
-#     # Get conda-meta/pinned
-#     if pinned:
-#         pinned_specs = get_pinned_specs(prefix)
-#         log.debug("Pinned specs=%s", pinned_specs)
-#         specs.extend(pinned_specs)
-#
-#     # Support aggressive auto-update conda
-#     #   Only add a conda spec if conda and conda-env are not in the specs.
-#     #   Also skip this step if we're offline.
-#     root_only_specs_str = ('conda', 'conda-env')
-#     conda_in_specs_str = any(spec for spec in specs if spec.name in root_only_specs_str)
-#
-#     if abspath(prefix) == context.root_prefix:
-#         if context.auto_update_conda and not context.offline and not conda_in_specs_str:
-#             specs.append(MatchSpec('conda'))
-#             specs.append(MatchSpec('conda-env'))
-#     elif basename(prefix).startswith('_'):
-#         # Anything (including conda) can be installed into environments
-#         # starting with '_', mainly to allow conda-build to build conda
-#         pass
-#     elif conda_in_specs_str:
-#         raise InstallError("Error: 'conda' can only be installed into the "
-#                            "root environment")
-#
-#     # Support track_features config parameter
-#     if context.track_features:
-#         specs.extend(x + '@' for x in context.track_features)
-#
-#     return tuple(specs)
+def augment_specs(prefix, specs, pinned=True):
+    """
+    Include additional specs for conda and (optionally) pinned packages.
+
+    Parameters
+    ----------
+    prefix : str
+        Environment prefix.
+    specs : list of MatchSpec
+        List of package specifications to augment.
+    pinned : bool, optional
+        Optionally include pinned specs for the current environment.
+
+    Returns
+    -------
+    augmented_specs : list of MatchSpec
+       List of augmented package specifications.
+    """
+    specs = list(specs)
+
+    # Get conda-meta/pinned
+    if pinned:
+        pinned_specs = get_pinned_specs(prefix)
+        log.debug("Pinned specs=%s", pinned_specs)
+        specs.extend(pinned_specs)
+
+    # Support aggressive auto-update conda
+    #   Only add a conda spec if conda and conda-env are not in the specs.
+    #   Also skip this step if we're offline.
+    root_only_specs_str = ('conda', 'conda-env')
+    conda_in_specs_str = any(spec for spec in specs if spec.name in root_only_specs_str)
+
+    if is_root_prefix(prefix):
+        if context.auto_update_conda and not context.offline and not conda_in_specs_str:
+            specs.append(MatchSpec('conda'))
+            specs.append(MatchSpec('conda-env'))
+    elif basename(prefix).startswith('_'):
+        # Anything (including conda) can be installed into environments
+        # starting with '_', mainly to allow conda-build to build conda
+        pass
+    elif conda_in_specs_str:
+        raise InstallError("Error: 'conda' can only be installed into the "
+                           "root environment")
+
+    # Support track_features config parameter
+    if context.track_features:
+        specs.extend(x + '@' for x in context.track_features)
+
+    return list(specs)
 
 
 def remove_actions(prefix, specs, index, force=False, pinned=True):
