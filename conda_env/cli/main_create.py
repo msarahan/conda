@@ -5,10 +5,8 @@ import os
 import sys
 import textwrap
 
-from conda._vendor.auxlib.path import expand
-from conda.cli import install as cli_install
-from conda.cli.conda_argparse import add_parser_json, add_parser_prefix
-from conda.gateways.disk.delete import rm_rf
+from conda.cli import common, install as cli_install
+from conda.gateways.disk.delete import rm_rf, delete_trash
 from conda.misc import touch_nonadmin
 from .common import get_prefix
 from .. import exceptions, specs
@@ -119,4 +117,6 @@ def execute(args, parser):
             return -1
 
     touch_nonadmin(prefix)
-    cli_install.print_activate(args.name if args.name else prefix)
+    delete_trash()
+    if not args.json:
+        print(cli_install.print_activate(args.name if args.name else prefix))
