@@ -238,6 +238,20 @@ install_conda_dev() {
     rm -rf conda/.version
     $prefix/bin/python utils/setup-testing.py develop
     $prefix/bin/python utils/setup-testing.py --version > conda/.version
+
+
+    if [ -n "$ON_WIN" ]; then
+        $PYTHON_EXE utils/setup-testing.py develop  # this, just for the conda.exe and conda-env.exe file
+        make_conda_entrypoint "$prefix/Scripts/conda-script.py" "$(cygpath -w "$PYTHON_EXE")" "$(cygpath -w "$src_dir")" "from conda.cli import main"
+        make_conda_entrypoint "$prefix/Scripts/conda-env-script.py" "$(cygpath -w "$PYTHON_EXE")" "$(cygpath -w "$src_dir")" "from conda_env.cli.main import main"
+    else
+        $PYTHON_EXE setup.py develop
+        make_conda_entrypoint "$CONDA_EXE" "$PYTHON_EXE" "$src_dir" "from conda.cli import main"
+        make_conda_entrypoint "$prefix/bin/conda-env" "$PYTHON_EXE" "$src_dir" "from conda_env.cli.main import main"
+    fi
+
+    # install_conda_shell_scripts "$prefix" "$src_dir"
+
     mkdir -p $prefix/conda-meta
     touch $prefix/conda-meta/history
 
