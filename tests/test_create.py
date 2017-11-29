@@ -889,6 +889,7 @@ class IntegrationTests(TestCase):
             assert package_is_installed(prefix, "itsdangerous-0.23")
             # assert not package_is_installed(prefix, "python-3.5")  # should be python-3.6, but it's not because of add_defaults_to_specs
             assert package_is_installed(prefix, "python-2.7")
+
             assert not package_is_installed(prefix, "pytz-2015.7")
             assert package_is_installed(prefix, "pytz-")
 
