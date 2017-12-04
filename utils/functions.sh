@@ -238,6 +238,20 @@ install_conda_dev() {
     rm -rf conda/.version
     $prefix/bin/python utils/setup-testing.py develop
     $prefix/bin/python utils/setup-testing.py --version > conda/.version
+
+
+    if [ -n "$ON_WIN" ]; then
+        $PYTHON_EXE utils/setup-testing.py develop  # this, just for the conda.exe and conda-env.exe file
+        make_conda_entrypoint "$prefix/Scripts/conda-script.py" "$(cygpath -w "$PYTHON_EXE")" "$(cygpath -w "$src_dir")" "from conda.cli import main"
+        make_conda_entrypoint "$prefix/Scripts/conda-env-script.py" "$(cygpath -w "$PYTHON_EXE")" "$(cygpath -w "$src_dir")" "from conda_env.cli.main import main"
+    else
+        $PYTHON_EXE setup.py develop
+        make_conda_entrypoint "$CONDA_EXE" "$PYTHON_EXE" "$src_dir" "from conda.cli import main"
+        make_conda_entrypoint "$prefix/bin/conda-env" "$PYTHON_EXE" "$src_dir" "from conda_env.cli.main import main"
+    fi
+
+    # install_conda_shell_scripts "$prefix" "$src_dir"
+
     mkdir -p $prefix/conda-meta
     touch $prefix/conda-meta/history
 
@@ -307,19 +321,19 @@ set_test_vars() {
     export TEST_PLATFORM=$($PYTHON_EXE -c "import sys; print('win' if sys.platform.startswith('win') else 'unix')")
     export PYTHONHASHSEED=$($PYTHON_EXE -c "import random as r; print(r.randint(0,4294967296))")
 
-    export ADD_COV="--cov-report xml --cov-report term-missing --cov-append --cov conda"
+    export ADD_COV="--cov-report xml --cov-report term-missing --cov conda"
 
 }
 
 
 conda_unit_test() {
     $PYTHON_EXE utils/setup-testing.py --version
-    $PYTEST_EXE $ADD_COV -m "not integration and not installed"
+    $PYTEST_EXE $ADD_COV -m "not integration and not installed" -v
 }
 
 
 conda_integration_test() {
-    $PYTEST_EXE $ADD_COV -m "integration and not installed" -v
+    $PYTEST_EXE $ADD_COV --cov-append -m "integration and not installed" -v
 }
 
 

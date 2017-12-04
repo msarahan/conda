@@ -662,7 +662,6 @@ class IntegrationTests(TestCase):
             assert not exists(prefix)
 
     @pytest.mark.skipif(on_win, reason="nomkl not present on windows")
-    @pytest.mark.xfail(conda.__version__.startswith('4.3') and datetime.now() < datetime(2018, 1, 1), reason='currently broken in 4.3')
     def test_remove_features(self):
         with make_temp_env("python=2 numpy nomkl") as prefix:
             assert exists(join(prefix, PYTHON_BINARY))
@@ -889,6 +888,7 @@ class IntegrationTests(TestCase):
             assert package_is_installed(prefix, "itsdangerous-0.23")
             # assert not package_is_installed(prefix, "python-3.5")  # should be python-3.6, but it's not because of add_defaults_to_specs
             assert package_is_installed(prefix, "python-2.7")
+
             assert not package_is_installed(prefix, "pytz-2015.7")
             assert package_is_installed(prefix, "pytz-")
 
