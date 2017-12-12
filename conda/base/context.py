@@ -179,8 +179,7 @@ class Context(Configuration):
     update_dependencies = PrimitiveParameter(False, aliases=('update_deps',))
     _verbosity = PrimitiveParameter(0, aliases=('verbose', 'verbosity'), element_type=int)
 
-    _envs_dirs = SequenceParameter(string_types, aliases=('envs_dirs', 'envs_path'),
-                                   string_delimiter=os.pathsep)
+    target_prefix_override = PrimitiveParameter('')
 
     # conda_build
     bld_path = PrimitiveParameter('')
@@ -582,6 +581,7 @@ class Context(Configuration):
             'subdirs',
 # https://conda.io/docs/config.html#disable-updating-of-dependencies-update-dependencies # NOQA
 # I don't think this documentation is correct any longer. # NOQA
+            'target_prefix_override',  # used to override prefix rewriting, for e.g. building docker containers or RPMs  # NOQA
             'update_dependencies',
         )
         return tuple(p for p in super(Context, self).list_parameters()
@@ -870,7 +870,11 @@ def _get_user_agent(context_platform):
     libc_family, libc_ver = linux_get_libc_version()
     if context_platform == 'linux':
         from .._vendor.distro import linux_distribution
-        distinfo = linux_distribution(full_distribution_name=False)
+        try:
+            distinfo = linux_distribution(full_distribution_name=False)
+        except Exception as e:
+            log.debug('%r', e, exc_info=True)
+            distinfo = ('Linux', 'unknown')
         dist, ver = distinfo[0], distinfo[1]
     elif context_platform == 'osx':
         dist = 'OSX'
