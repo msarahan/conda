@@ -574,7 +574,6 @@ class Context(Configuration):
             'ignore_pinned',
             'max_shlvl',
             'migrated_custom_channels',
-            'no_dependencies',
             'only_dependencies',
             'prune',
             'root_prefix',
@@ -750,6 +749,10 @@ def get_help_dict():
         'migrated_channel_aliases': dals("""
             A list of previously-used channel_alias values, useful for example when switching
             between different Anaconda Repository instances.
+            """),
+        'no_dependencies': dals("""
+            Do not install, update, remove, or change dependencies. This WILL lead to broken
+            environments and inconsistent behavior. Use at your own risk.
             """),
         'non_admin_enabled': dals("""
             Allows completion of conda's create, install, update, and remove operations, for
