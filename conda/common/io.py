@@ -1,22 +1,20 @@
 # -*- coding: utf-8 -*-
 from __future__ import absolute_import, division, print_function, unicode_literals
 
+from collections import defaultdict
 from contextlib import contextmanager
-from itertools import cycle
+from functools import wraps
+import json
 import logging
 from logging import CRITICAL, Formatter, NOTSET, StreamHandler, WARN, getLogger
 import os
-import signal
+from os import chdir, getcwd
+from os.path import join, isfile
 import sys
-from threading import Event, Thread
-from time import sleep
+from time import time
 
-from concurrent.futures import ThreadPoolExecutor
-from enum import Enum
-from math import floor
-
-from .compat import StringIO, iteritems, on_win
-from .constants import NULL
+from .compat import StringIO
+from .path import expand
 from .._vendor.auxlib.logz import NullHandler
 from .._vendor.tqdm import tqdm
 
@@ -224,165 +222,61 @@ def attach_stderr_handler(level=WARN, logger_name=None, propagate=False, formatt
         logr.propagate = propagate
 
 
-def timeout(timeout_secs, func, *args, **kwargs):
-    """Enforce a maximum time for a callable to complete.
-    Not yet implemented on Windows.
-    """
-    default_return = kwargs.pop('default_return', None)
-    if on_win:
-        # Why does Windows have to be so difficult all the time? Kind of gets old.
-        # Guess we'll bypass Windows timeouts for now.
-        try:
-            return func(*args, **kwargs)
-        except KeyboardInterrupt:  # pragma: no cover
-            return default_return
-    else:
-        class TimeoutException(Exception):
-            pass
-
-        def interrupt(signum, frame):
-            raise TimeoutException()
-
-        signal.signal(signal.SIGALRM, interrupt)
-        signal.alarm(timeout_secs)
-
-        try:
-            ret = func(*args, **kwargs)
-            signal.alarm(0)
-            return ret
-        except (TimeoutException,  KeyboardInterrupt):  # pragma: no cover
-            return default_return
+class ContextDecorator(object):
+    def __call__(self, f):
+        @wraps(f)
+        def decorated(*args, **kwds):
+            with self:
+                return f(*args, **kwds)
+        return decorated
 
 
-class Spinner(object):
-    # spinner_cycle = cycle("⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏")
-    spinner_cycle = cycle('/-\\|')
+class time_recorder(ContextDecorator):  # pragma: no cover
+    start_time = None
 
-    def __init__(self, enable_spin=True):
-        self._stop_running = Event()
-        self._spinner_thread = Thread(target=self._start_spinning)
-        self._indicator_length = len(next(self.spinner_cycle)) + 1
-        self.fh = sys.stdout
-        self.show_spin = enable_spin and hasattr(self.fh, "isatty") and self.fh.isatty()
+    def __init__(self, entry_name):
+        self.entry_name = entry_name
 
-    def start(self):
-        if self.show_spin:
-            self._spinner_thread.start()
-        else:
-            self.fh.write("...working... ")
-            self.fh.flush()
+    def __enter__(self):
+        if os.environ.get('CONDA_INSTRUMENTATION_ENABLED'):
+            self.start_time = time()
 
-    def stop(self):
-        if self.show_spin:
-            self._stop_running.set()
-            self._spinner_thread.join()
-
-    def _start_spinning(self):
-        while not self._stop_running.is_set():
-            self.fh.write(next(self.spinner_cycle) + ' ')
-            self.fh.flush()
-            sleep(0.10)
-            self.fh.write('\b' * self._indicator_length)
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        if self.start_time:
+            end_time = time()
+            run_time = end_time - self.start_time
+            record_file = expand(join('~', '.conda', 'instrumentation-record.csv'))
+            with open(record_file, 'a') as fh:
+                fh.write("%s,%s\n" % (self.entry_name, run_time))
 
 
-@contextmanager
-def spinner(message=None, enabled=True, json=False):
-    """
-    Args:
-        message (str, optional):
-            An optional message to prefix the spinner with.
-            If given, ': ' are automatically added.
-        enabled (bool):
-            If False, usage is a no-op.
-        json (bool):
-           If True, will not output non-json to stdout.
+def print_instrumentation_data():  # pragma: no cover
+    record_file = expand(join('~', '.conda', 'instrumentation-record.csv'))
 
-    """
-    sp = Spinner(enabled)
-    exception_raised = False
-    try:
-        if message:
-            if json:
-                pass
-            else:
-                sys.stdout.write("%s: " % message)
-                sys.stdout.flush()
-        if not json:
-            sp.start()
-        yield
-    except:
-        exception_raised = True
-        raise
-    finally:
-        if not json:
-            sp.stop()
-        if message:
-            if json:
-                pass
-            else:
-                if exception_raised:
-                    sys.stdout.write("failed\n")
-                else:
-                    sys.stdout.write("done\n")
-                sys.stdout.flush()
+    grouped_data = defaultdict(list)
+    final_data = {}
+
+    if not isfile(record_file):
+        return
+
+    with open(record_file) as fh:
+        for line in fh:
+            entry_name, total_time = line.strip().split(',')
+            grouped_data[entry_name].append(float(total_time))
+
+    for entry_name in sorted(grouped_data):
+        all_times = grouped_data[entry_name]
+        counts = len(all_times)
+        total_time = sum(all_times)
+        average_time = total_time / counts
+        final_data[entry_name] = {
+            'counts': counts,
+            'total_time': total_time,
+            'average_time': average_time,
+        }
+
+    print(json.dumps(final_data, sort_keys=True, indent=2, separators=(',', ': ')))
 
 
-class ProgressBar(object):
-
-    def __init__(self, description, enabled=True, json=False):
-        """
-        Args:
-            description (str):
-                The name of the progress bar, shown on left side of output.
-            enabled (bool):
-                If False, usage is a no-op.
-            json (bool):
-                If true, outputs json progress to stdout rather than a progress bar.
-                Currently, the json format assumes this is only used for "fetch", which
-                maintains backward compatibility with conda 4.3 and earlier behavior.
-        """
-        self.description = description
-        self.enabled = enabled
-        self.json = json
-
-        if json:
-            pass
-        elif enabled:
-            bar_format = "{desc}{bar} | {percentage:3.0f}% "
-            self.pbar = tqdm(desc=description, bar_format=bar_format, ascii=True, total=1)
-
-    def update_to(self, fraction):
-        if self.json:
-            sys.stdout.write('{"fetch":"%s","finished":false,"maxval":1,"progress":%f}\n\0'
-                             % (self.description, fraction))
-        elif self.enabled:
-            self.pbar.update(fraction - self.pbar.n)
-
-    def finish(self):
-        self.update_to(1)
-
-    def close(self):
-        if self.json:
-            sys.stdout.write('{"fetch":"%s","finished":true,"maxval":1,"progress":1}\n\0'
-                             % self.description)
-            sys.stdout.flush()
-        elif self.enabled:
-            self.pbar.close()
-        self.enabled = False
-
-
-@contextmanager
-def backdown_thread_pool(max_workers=10):
-    """Tries to create an executor with max_workers, but will back down ultimately to a single
-    thread of the OS decides you can't have more than one.
-    """
-    try:
-        yield ThreadPoolExecutor(max_workers)
-    except RuntimeError as e:  # pragma: no cover
-        # RuntimeError is thrown if number of threads are limited by OS
-        log.debug(repr(e))
-        try:
-            yield ThreadPoolExecutor(floor(max_workers / 2))
-        except RuntimeError as e:
-            log.debug(repr(e))
-            yield ThreadPoolExecutor(1)
+if __name__ == "__main__":
+    print_instrumentation_data()
