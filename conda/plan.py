@@ -18,8 +18,13 @@ from conda.core.index import _supplement_index_with_prefix
 from ._vendor.boltons.setutils import IndexedSet
 from .base.constants import DEFAULTS_CHANNEL_NAME, UNKNOWN_CHANNEL
 from .base.context import context
-from .common.compat import on_win, itervalues, text_type
-from .core.link import PrefixSetup, UnlinkLinkTransaction
+from .cli import common
+from .cli.common import pkg_if_in_private_env, prefix_if_in_private_env
+from .common.compat import odict, on_win
+from .common.io import time_recorder
+from .common.path import (is_private_env, preferred_env_matches_prefix,
+                          preferred_env_to_prefix, prefix_to_env_name)
+from .core.index import _supplement_index_with_prefix
 from .core.linked_data import is_linked, linked_data
 from .core.package_cache import ProgressiveFetchExtract
 from .core.solve import Solver, get_pinned_specs
@@ -453,15 +458,142 @@ SpecForEnv = namedtuple('DistForEnv', ['env', 'spec'])
 SpecsForPrefix = namedtuple('DistsForPrefix', ['prefix', 'specs', 'r'])
 
 
+@time_recorder("install_actions")
 def install_actions(prefix, index, specs, force=False, only_names=None, always_copy=False,
-                    pinned=True, update_deps=True, prune=False,
-                    channel_priority_map=None, is_update=False,
-                    minimal_hint=False):  # pragma: no cover
-    # this is for conda-build
-    if channel_priority_map:
-        channel_names = IndexedSet(Channel(url).canonical_name for url in channel_priority_map)
-        channels = IndexedSet(Channel(cn) for cn in channel_names)
-        subdirs = IndexedSet(basename(url) for url in channel_priority_map)
+                    pinned=True, minimal_hint=False, update_deps=True, prune=False,
+                    channel_priority_map=None, is_update=False):  # pragma: no cover
+    """
+    This function ignores preferred_env.  It's currently used extensively by conda-build, but
+    it is no longer used within the conda code.  Instead, we now use `install_actions_list()`.
+    """
+    # type: (str, Dict[Dist, Record], List[str], bool, Option[List[str]], bool, bool, bool,
+    #        bool, bool, bool, Dict[str, Sequence[str, int]]) -> Dict[weird]
+    r = get_resolve_object(index.copy(), prefix)
+    str_specs = specs
+
+    specs_for_prefix = SpecsForPrefix(
+        prefix=prefix, specs=tuple(str_specs), r=r
+    )
+    actions = get_actions_for_dists(specs_for_prefix, only_names, index, force, always_copy, prune,
+                                    update_deps, pinned)
+    return actions
+
+
+@time_recorder("install_actions_list")
+def install_actions_list(prefix, index, specs, force=False, only_names=None, always_copy=False,
+                         pinned=True, minimal_hint=False, update_deps=True, prune=False,
+                         channel_priority_map=None, is_update=False):
+    # type: (str, Dict[Dist, Record], List[str], bool, Option[List[str]], bool, bool, bool,
+    #        bool, bool, bool, Dict[str, Sequence[str, int]]) -> List[Dict[weird]]
+    specs = [MatchSpec(spec) for spec in specs]
+    r = get_resolve_object(index.copy(), prefix)
+
+    linked_in_root = linked_data(context.root_prefix)
+
+    dists_for_envs = determine_all_envs(r, specs, channel_priority_map=channel_priority_map)
+    ensure_packge_not_duplicated_in_private_env_root(dists_for_envs, linked_in_root)
+    preferred_envs = set(d.env for d in dists_for_envs)
+
+    # Group specs by prefix
+    grouped_specs = determine_dists_per_prefix(r, prefix, index, preferred_envs,
+                                               dists_for_envs, context)
+
+    # Replace SpecsForPrefix specs with specs that were passed in in order to retain
+    #   version information
+    required_solves = match_to_original_specs(specs, grouped_specs)
+
+    actions = [get_actions_for_dists(specs_by_prefix, only_names, index, force,
+                                     always_copy, prune, update_deps, pinned)
+               for specs_by_prefix in required_solves]
+
+    # Need to add unlink actions if updating a private env from root
+    if is_update and prefix == context.root_prefix:
+        add_unlink_options_for_update(actions, required_solves, index)
+
+    return actions
+
+
+def add_unlink_options_for_update(actions, required_solves, index):
+    # type: (Dict[weird], List[SpecsForPrefix], List[weird]) -> ()
+    get_action_for_prefix = lambda prfx: tuple(actn for actn in actions if actn["PREFIX"] == prfx)
+    linked_in_prefix = linked_data(context.root_prefix)
+    spec_in_root = lambda spc: tuple(
+        mtch for mtch in linked_in_prefix.keys() if MatchSpec(spc).match(mtch))
+    for solved in required_solves:
+        # If the solved prefix is private
+        if is_private_env(prefix_to_env_name(solved.prefix, context.root_prefix)):
+            for spec in solved.specs:
+                matched_in_root = spec_in_root(spec)
+                if matched_in_root:
+                    aug_action = get_action_for_prefix(context.root_prefix)
+                    if len(aug_action) > 0:
+                        add_unlink(aug_action[0], matched_in_root[0])
+                    else:
+                        actions.append(remove_actions(context.root_prefix, matched_in_root, index))
+        # If the solved prefix is root
+        elif preferred_env_matches_prefix(None, solved.prefix, context.root_prefix):
+            for spec in solved.specs:
+                spec_in_private_env = prefix_if_in_private_env(spec)
+                if spec_in_private_env:
+                    # remove pkg from private env and install in root
+                    aug_action = get_action_for_prefix(spec_in_private_env)
+                    if len(aug_action) > 0:
+                        add_unlink(aug_action[0], Dist(pkg_if_in_private_env(spec)))
+                    else:
+                        actions.append(remove_spec_action_from_prefix(
+                            spec_in_private_env, Dist(pkg_if_in_private_env(spec))))
+
+
+def get_resolve_object(index, prefix):
+    # instantiate resolve object
+    _supplement_index_with_prefix(index, prefix, {})
+    r = Resolve(index)
+    return r
+
+
+def determine_all_envs(r, specs, channel_priority_map=None):
+    # type: (Record, List[MatchSpec], Option[List[Tuple]] -> List[SpecForEnv]
+    assert all(isinstance(spec, MatchSpec) for spec in specs)
+    best_pkgs = (r.index[r.get_dists_for_spec(s, emptyok=False)[-1]] for s in specs)
+    spec_for_envs = tuple(SpecForEnv(env=p.preferred_env, spec=p.name) for p in best_pkgs)
+    return spec_for_envs
+
+
+def ensure_packge_not_duplicated_in_private_env_root(dists_for_envs, linked_in_root):
+    # type: List[DistForEnv], List[(Dist, Record)] -> ()
+    for dist_env in dists_for_envs:
+        # If trying to install a package in root that is already in a private env
+        if dist_env.env is None and common.prefix_if_in_private_env(dist_env.spec) is not None:
+            raise InstallError("Package %s is already installed in a private env %s" %
+                               (dist_env.spec, dist_env.env))
+        # If trying to install a package in a private env that is already in root
+        if (is_private_env(dist_env.env) and
+                any(dist for dist in linked_in_root if dist.dist_name.startswith(dist_env.spec))):
+            raise InstallError("Package %s is already installed in root. Can't install in private"
+                               " environment %s" % (dist_env.spec, dist_env.env))
+
+
+def not_requires_private_env(prefix, preferred_envs):
+    if (context.prefix_specified is True or not context.prefix == context.root_prefix or
+            all(preferred_env_matches_prefix(preferred_env, prefix, context.root_prefix) for
+                preferred_env in preferred_envs)):
+        return True
+    return False
+
+
+def determine_dists_per_prefix(r, prefix, index, preferred_envs, dists_for_envs, context):
+    # type: (Resolve, string, List[(Dist, Record)], Set[String], List[SpecForEnv]) ->
+    #   (List[pecsForPrefix])
+
+    # if len(preferred_envs) == 1 and preferred_env matches prefix
+    #    solution is good
+    # if len(preferred_envs) == 1 and preferred_env is None
+    #    solution is good
+    # if len(preferred_envs) == 2 and set([None, preferred_env]) preferred_env matches prefix
+    #    solution is good
+    if not_requires_private_env(prefix, preferred_envs):
+        dists = set(d.spec for d in dists_for_envs)
+        prefix_with_dists_no_deps_has_resolve = [SpecsForPrefix(prefix=prefix, r=r, specs=dists)]
     else:
         channels = subdirs = None
 
@@ -735,6 +867,7 @@ def revert_actions(prefix, revision=-1, index=None):
 
 # ---------------------------- EXECUTION --------------------------
 
+@time_recorder("execute_actions")
 def execute_actions(actions, index, verbose=False):
     plan = plan_from_actions(actions, index)
     execute_instructions(plan, index, verbose)
@@ -758,6 +891,7 @@ def update_old_plan(old_plan):
     return plan
 
 
+@time_recorder("execute_plan")
 def execute_plan(old_plan, index=None, verbose=False):
     """
     Deprecated: This should `conda.instructions.execute_instructions` instead
