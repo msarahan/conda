@@ -22,9 +22,10 @@ from .. import CondaError, CondaMultiError, conda_signal_handler
 from .._vendor.auxlib.collection import first
 from .._vendor.auxlib.ish import dals
 from ..base.context import context
-from ..common.compat import ensure_text_type, iteritems, itervalues, odict, on_win
-from ..common.io import spinner
-from ..common.path import (explode_directories, get_all_directories, get_major_minor_version,
+from ..common.compat import ensure_text_type, iteritems, itervalues, on_win, text_type
+from ..common.io import time_recorder
+from ..common.path import (explode_directories, get_all_directories, get_bin_directory_short_path,
+                           get_major_minor_version,
                            get_python_site_packages_short_path)
 from ..common.signals import signal_handler
 from ..exceptions import (KnownPackageClobberError, LinkError, RemoveError,
@@ -392,25 +393,10 @@ class UnlinkLinkTransaction(object):
                     context,
                 )
 
-    @staticmethod
-    def _verify_transaction_level(prefix_setups):
-        # 1. make sure we're not removing conda or a conda dependency from conda's env
-        # 2. make sure we're not removing a conda dependency from conda's env
-        conda_prefixes = (join(context.root_prefix, 'envs', '_conda_'), context.root_prefix)
-        conda_setups = tuple(setup for setup in itervalues(prefix_setups)
-                             if setup.target_prefix in conda_prefixes)
-
-        conda_unlinked = any(prec.name == 'conda'
-                             for setup in conda_setups
-                             for prec in setup.unlink_precs)
-
-        conda_prec, conda_final_setup = next(
-            ((prec, setup)
-             for setup in conda_setups
-             for prec in setup.link_precs
-             if prec.name == 'conda'),
-            (None, None)
-        )
+    @time_recorder("unlink_link_prepare_and_verify")
+    def verify(self):
+        if not self._prepared:
+            self.prepare()
 
         if conda_unlinked and conda_final_setup is None:
             # means conda is being unlinked and not re-linked anywhere
@@ -479,7 +465,7 @@ class UnlinkLinkTransaction(object):
                                  "Check that you have sufficient permissions."
                                  "" % self.target_prefix)
 
-        with signal_handler(conda_signal_handler):
+        with signal_handler(conda_signal_handler), time_recorder("unlink_link_execute"):
             pkg_idx = 0
             try:
                 with spinner("Executing transaction", not context.verbosity and not context.quiet,

@@ -14,6 +14,7 @@ from .._vendor.auxlib.decorators import memoizemethod
 from ..base.constants import CONDA_TARBALL_EXTENSION, UNKNOWN_CHANNEL
 from ..base.context import context
 from ..common.compat import iteritems, iterkeys, itervalues, text_type, with_metaclass
+from ..common.io import time_recorder
 from ..common.path import expand, url_to_path
 from ..common.signals import signal_handler
 from ..common.url import path_to_url
@@ -490,6 +491,7 @@ class ProgressiveFetchExtract(object):
 
         self._prepared = False
 
+    @time_recorder("fetch_extract_prepare")
     def prepare(self):
         if self._prepared:
             return
@@ -511,31 +513,9 @@ class ProgressiveFetchExtract(object):
             self.prepare()
 
         assert not context.dry_run
-
-        if not self.cache_actions or not self.extract_actions:
-            return
-
-        if not context.verbosity and not context.quiet and not context.json:
-            # TODO: use logger
-            print("\nDownloading and Extracting Packages")
-        else:
-            log.debug("prepared package cache actions:\n"
-                      "  cache_actions:\n"
-                      "    %s\n"
-                      "  extract_actions:\n"
-                      "    %s\n",
-                      '\n    '.join(text_type(ca) for ca in self.cache_actions),
-                      '\n    '.join(text_type(ea) for ea in self.extract_actions))
-
-        exceptions = []
-        with signal_handler(conda_signal_handler):
-            for prec_or_spec, prec_actions in iteritems(self.paired_actions):
-                exc = self._execute_actions(prec_or_spec, prec_actions)
-                if exc:
-                    exceptions.append(exc)
-
-        if exceptions:
-            raise CondaMultiError(exceptions)
+        with signal_handler(conda_signal_handler), time_recorder("fetch_extract_execute"):
+            for action in concatv(self.cache_actions, self.extract_actions):
+                self._execute_action(action)
 
     @staticmethod
     def _execute_actions(prec_or_spec, actions):

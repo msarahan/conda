@@ -12,10 +12,9 @@ from .repodata import SubdirData, make_feature_record
 from .._vendor.boltons.setutils import IndexedSet
 from ..base.context import context
 from ..common.compat import iteritems, itervalues
-from ..common.io import backdown_thread_pool
-from ..exceptions import OperationNotAllowed
-from ..models import translate_feature_str
-from ..models.channel import Channel, all_channel_urls
+from ..common.io import time_recorder
+from ..gateways.disk.read import read_index_json
+from ..models.channel import prioritize_channels
 from ..models.dist import Dist
 from ..models.index_record import EMPTY_LINK
 from ..models.match_spec import MatchSpec
@@ -138,6 +137,7 @@ def calculate_channel_urls(channel_urls=(), prepend=True, platform=None, use_loc
     return all_channel_urls(channel_urls, subdirs=subdirs)
 
 
+@time_recorder("get_index")
 def get_index(channel_urls=(), prepend=True, platform=None,
               use_local=False, use_cache=False, unknown=None, prefix=None):
     """
