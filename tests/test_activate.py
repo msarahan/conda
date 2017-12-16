@@ -153,6 +153,9 @@ def gen_test_env_paths(envs, shell, num_test_folders=5):
 
                     assert builder['unset_vars'] == ()
 
+                    set_vars = {
+                        'PS1': ps1,
+                    }
                     export_vars = {
                         'CONDA_PYTHON_EXE': activator.path_conversion(sys.executable),
                         'PATH': new_path,
@@ -160,8 +163,8 @@ def gen_test_env_paths(envs, shell, num_test_folders=5):
                         'CONDA_SHLVL': 1,
                         'CONDA_DEFAULT_ENV': td,
                         'CONDA_PROMPT_MODIFIER': conda_prompt_modifier,
-                        'PS1': ps1,
                     }
+                    assert builder['set_vars'] == set_vars
                     assert builder['export_vars'] == export_vars
                     assert builder['activate_scripts'] == (activator.path_conversion(activate_d_1),)
                     assert builder['deactivate_scripts'] == ()
@@ -186,6 +189,9 @@ def gen_test_env_paths(envs, shell, num_test_folders=5):
 
                     assert builder['unset_vars'] == ()
 
+                    set_vars = {
+                        'PS1': ps1,
+                    }
                     export_vars = {
                         'PATH': new_path,
                         'CONDA_PREFIX': td,
@@ -193,8 +199,8 @@ def gen_test_env_paths(envs, shell, num_test_folders=5):
                         'CONDA_SHLVL': 2,
                         'CONDA_DEFAULT_ENV': td,
                         'CONDA_PROMPT_MODIFIER': conda_prompt_modifier,
-                        'PS1': ps1,
                     }
+                    assert builder['set_vars'] == set_vars
                     assert builder['export_vars'] == export_vars
                     assert builder['activate_scripts'] == (activator.path_conversion(activate_d_1),)
                     assert builder['deactivate_scripts'] == ()
@@ -225,13 +231,16 @@ def gen_test_env_paths(envs, shell, num_test_folders=5):
 
                     assert builder['unset_vars'] == ()
 
+                    set_vars = {
+                        'PS1': ps1,
+                    }
                     export_vars = {
                         'PATH': new_path,
                         'CONDA_PREFIX': td,
                         'CONDA_DEFAULT_ENV': td,
                         'CONDA_PROMPT_MODIFIER': conda_prompt_modifier,
-                        'PS1': ps1,
                     }
+                    assert builder['set_vars'] == set_vars
                     assert builder['export_vars'] == export_vars
                     assert builder['activate_scripts'] == (activator.path_conversion(activate_d_1),)
                     assert builder['deactivate_scripts'] == (activator.path_conversion(deactivate_d_1),)
@@ -263,6 +272,7 @@ def gen_test_env_paths(envs, shell, num_test_folders=5):
                     }
 
                     assert builder['unset_vars'] == ()
+                    assert builder['set_vars'] == {}
                     assert builder['export_vars'] == export_vars
                     assert builder['activate_scripts'] == (activator.path_conversion(activate_d_1),)
                     assert builder['deactivate_scripts'] == (activator.path_conversion(deactivate_d_1),)
@@ -297,14 +307,17 @@ def gen_test_env_paths(envs, shell, num_test_folders=5):
                         conda_prompt_modifier = "(%s) " % old_prefix
                         ps1 = conda_prompt_modifier + os.environ.get('PS1', '')
 
+                        set_vars = {
+                            'PS1': ps1,
+                        }
                         export_vars = {
                             'PATH': new_path,
                             'CONDA_SHLVL': 1,
                             'CONDA_PREFIX': old_prefix,
                             'CONDA_DEFAULT_ENV': old_prefix,
                             'CONDA_PROMPT_MODIFIER': conda_prompt_modifier,
-                            'PS1': ps1,
                         }
+                        assert builder['set_vars'] == set_vars
                         assert builder['export_vars'] == export_vars
                         assert builder['activate_scripts'] == (activator.path_conversion(activate_d_1),)
                         assert builder['deactivate_scripts'] == (activator.path_conversion(deactivate_d_1),)
@@ -332,10 +345,12 @@ def gen_test_env_paths(envs, shell, num_test_folders=5):
                     )
 
                     new_path = activator.pathsep_join(activator.path_conversion(original_path))
+                    assert builder['set_vars'] == {
+                        'PS1': os.environ.get('PS1', ''),
+                    }
                     assert builder['export_vars'] == {
                         'PATH': new_path,
                         'CONDA_SHLVL': 0,
-                        'PS1': os.environ.get('PS1', ''),
                     }
                     assert builder['activate_scripts'] == ()
                     assert builder['deactivate_scripts'] == (activator.path_conversion(deactivate_d_1),)
@@ -609,13 +624,13 @@ def test_activate_help(shell):
 
         new_path_parts = activator._add_prefix_to_path(self.prefix)
         assert activate_data == dals("""
+        PS1='%(ps1)s'
         export CONDA_DEFAULT_ENV='%(native_prefix)s'
         export CONDA_PREFIX='%(native_prefix)s'
         export CONDA_PROMPT_MODIFIER='(%(native_prefix)s) '
         export CONDA_PYTHON_EXE='%(sys_executable)s'
         export CONDA_SHLVL='1'
         export PATH='%(new_path)s'
-        export PS1='%(ps1)s'
         . "%(activate1)s"
         """) % {
             'converted_prefix': activator.path_conversion(self.prefix),
@@ -660,9 +675,9 @@ def test_activate_help(shell):
             unset CONDA_PREFIX
             unset CONDA_PROMPT_MODIFIER
             unset CONDA_PYTHON_EXE
+            PS1='%(ps1)s'
             export CONDA_SHLVL='0'
             export PATH='%(new_path)s'
-            export PS1='%(ps1)s'
             . "%(deactivate1)s"
             """) % {
                 'new_path': new_path,
@@ -761,6 +776,7 @@ def test_activate_help(shell):
 
         new_path_parts = activator._add_prefix_to_path(self.prefix)
         assert activate_data == dals("""
+        set prompt='%(prompt)s';
         setenv CONDA_DEFAULT_ENV "%(native_prefix)s";
         setenv CONDA_PREFIX "%(native_prefix)s";
         setenv CONDA_PROMPT_MODIFIER "(%(native_prefix)s) ";
@@ -774,6 +790,7 @@ def test_activate_help(shell):
             'new_path': activator.pathsep_join(new_path_parts),
             'sys_executable': activator.path_conversion(sys.executable),
             'activate1': activator.path_conversion(join(self.prefix, 'etc', 'conda', 'activate.d', 'activate1.csh')),
+            'prompt': '(%s) ' % self.prefix + os.environ.get('prompt', '')
         }
 
         with env_vars({
@@ -810,13 +827,14 @@ def test_activate_help(shell):
             unset CONDA_PREFIX;
             unset CONDA_PROMPT_MODIFIER;
             unset CONDA_PYTHON_EXE;
+            set prompt='%(prompt)s';
             setenv CONDA_SHLVL "0";
             setenv PATH "%(new_path)s";
             source "%(deactivate1)s";
             """) % {
                 'new_path': new_path,
                 'deactivate1': activator.path_conversion(join(self.prefix, 'etc', 'conda', 'deactivate.d', 'deactivate1.csh')),
-
+                'prompt': os.environ.get('prompt', ''),
             }
 
     def test_xonsh_basic(self):
@@ -1062,6 +1080,11 @@ class InteractiveShell(object):
             'init_command': None,
             'print_env_var': '@echo %%%s%%',
         },
+        'csh': {
+            'activator': 'csh',
+            'init_command': 'source shell/etc/csh/login.d/conda.csh',
+            'print_env_var': 'echo $%s',
+        },
     }
 
     def __init__(self, shell_name):
@@ -1186,6 +1209,28 @@ class ShellWrapperIntegrationTests(TestCase):
     def test_zsh_basic_integration(self):
         with InteractiveShell('zsh') as shell:
             self.basic_posix(shell)
+
+    @pytest.mark.skipif(not which('csh'), reason='csh not installed')
+    def test_csh_basic_integration(self):
+        with InteractiveShell('csh') as shell:
+            shell.assert_env_var('CONDA_SHLVL', '0')
+            shell.sendline('conda activate root')
+            shell.assert_env_var('prompt', '(base).*')
+            shell.assert_env_var('CONDA_SHLVL', '1')
+            shell.sendline('conda activate "%s"' % self.prefix)
+            shell.assert_env_var('CONDA_SHLVL', '2')
+            shell.assert_env_var('CONDA_PREFIX', self.prefix, True)
+            shell.sendline('conda deactivate')
+            shell.assert_env_var('CONDA_SHLVL', '1')
+            shell.sendline('conda deactivate')
+            shell.assert_env_var('CONDA_SHLVL', '0')
+
+            shell.sendline(shell.print_env_var % 'prompt')
+            shell.expect('.*\n')
+            assert 'CONDA_PROMPT_MODIFIER' not in str(shell.p.after)
+
+            shell.sendline('conda deactivate')
+            shell.assert_env_var('CONDA_SHLVL', '0')
 
     @pytest.mark.skipif(not which('cmd.exe'), reason='cmd.exe not installed')
     def test_cmd_exe_basic_integration(self):
