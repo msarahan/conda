@@ -360,10 +360,8 @@ conda_activate_test() {
 conda_build_smoke_test() {
     local prefix=${1:-$INSTALL_PREFIX}
 
-    . $prefix/etc/profile.d/conda.sh
-
-    conda config --add channels conda-canary
-    conda build conda.recipe
+    $prefix/bin/conda config --add channels conda-canary
+    $prefix/bin/conda build conda.recipe --no-activate
 }
 
 
@@ -417,21 +415,27 @@ run_setup() {
 
 run_tests() {
     set -e
-    if [ "$FLAKE8" = true ]; then
+    set -x
+    env | sort
+
+    export CONDA_INSTRUMENTATION_ENABLED=true
+    mkdir -p $HOME/.conda
+
+    if [[ $FLAKE8 == true ]]; then
         flake8 --statistics
-    elif [ -n "$CONDA_BUILD" ]; then
-        # conda_build_smoke_test
-        if ! [ -n "$ON_WIN" ]; then
-            conda_build_test
-        fi
-    elif [ -n "$SHELL_INTEGRATION" ]; then
-        conda_unit_test
-        conda_activate_test
-        # $INSTALL_PREFIX/$BIN_DIR/codecov --env PYTHON_VERSION --flags activate --required
+    elif [[ -n $CONDA_BUILD ]]; then
+        set_test_vars
+        conda_build_smoke_test
+        conda_build_unit_test
+        $PYTHON_EXE -m conda.common.io
     else
-        conda_unit_test
-        conda_integration_test
-        $INSTALL_PREFIX/$BIN_DIR/codecov --env PYTHON_VERSION --flags integration --required
+        set_test_vars
+        conda_main_test
+        if [[ "$(uname -s)" == "Linux" ]]; then
+            conda_activate_test
+        fi
+        $INSTALL_PREFIX/bin/codecov --env PYTHON_VERSION
+        $PYTHON_EXE -m conda.common.io
     fi
 }
 
