@@ -429,18 +429,21 @@ run_tests() {
 
     if [[ $FLAKE8 == true ]]; then
         flake8 --statistics
-    elif [[ -n $CONDA_BUILD ]]; then
-        set_test_vars
-        conda_build_smoke_test
-        conda_build_unit_test
+    elif [ -n "$CONDA_BUILD" ]; then
+        # conda_build_smoke_test
+        if ! [ -n "$ON_WIN" ]; then
+            conda_build_test
+            $PYTHON_EXE -m conda.common.io
+        fi
+    elif [ -n "$SHELL_INTEGRATION" ]; then
+        conda_unit_test
+        conda_activate_test
+        # $INSTALL_PREFIX/$BIN_DIR/codecov --env PYTHON_VERSION --flags activate --required
         $PYTHON_EXE -m conda.common.io
     else
-        set_test_vars
-        conda_main_test
-        if [[ "$(uname -s)" == "Linux" ]]; then
-            conda_activate_test
-        fi
-        $INSTALL_PREFIX/bin/codecov --env PYTHON_VERSION
+        conda_unit_test
+        conda_integration_test
+        $INSTALL_PREFIX/$BIN_DIR/codecov --env PYTHON_VERSION --flags integration --required
         $PYTHON_EXE -m conda.common.io
     fi
 }
