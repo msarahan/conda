@@ -10,8 +10,8 @@ from conda.gateways.disk.delete import rm_rf
 from .path_actions import CacheUrlAction, ExtractPackageAction
 from .. import CondaError, CondaMultiError, conda_signal_handler
 from .._vendor.auxlib.collection import first
-from .._vendor.auxlib.decorators import memoizemethod
-from ..base.constants import CONDA_TARBALL_EXTENSION, UNKNOWN_CHANNEL
+from .._vendor.auxlib.decorators import memoizedproperty
+from ..base.constants import CONDA_TARBALL_EXTENSION, PACKAGE_CACHE_MAGIC_FILE
 from ..base.context import context
 from ..common.compat import iteritems, iterkeys, itervalues, text_type, with_metaclass
 from ..common.io import time_recorder
@@ -206,9 +206,9 @@ class PackageCache(object):
         # don't actually populate _package_cache_records until we need it
         return self.__package_cache_records or self.load() or self.__package_cache_records
 
-    @property
+    @memoizedproperty
     def is_writable(self):
-        return self.__is_writable or self._check_writable()
+        return self.__is_writable if self.__is_writable is None else self._check_writable()
 
     def _check_writable(self):
         if isdir(self.pkgs_dir):

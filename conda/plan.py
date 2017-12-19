@@ -619,7 +619,7 @@ def augment_specs(prefix, specs, pinned=True):
     return list(specs)
 
 
-def _remove_actions(prefix, specs, index, force=False, pinned=True):
+def _remove_actions(prefix, specs, index, force=False, pinned=True):  # pragma: no cover
     r = Resolve(index)
     linked = linked_data(prefix)
     linked_dists = [d for d in linked]
