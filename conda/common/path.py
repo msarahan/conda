@@ -2,7 +2,7 @@
 from __future__ import absolute_import, division, print_function, unicode_literals
 
 import os
-from os.path import basename, dirname, join, split, splitext, expandvars, expanduser, abspath
+from os.path import abspath, basename, expanduser, expandvars, join, normpath, split, splitext
 import re
 
 from .compat import on_win, string_types
@@ -202,7 +202,7 @@ def ensure_pad(name, pad="_"):
     """
 
     Examples:
-        >>> ensure_pad(conda)
+        >>> ensure_pad('conda')
         '_conda_'
 
     """
