@@ -267,7 +267,7 @@ def add_unlink(actions, dist):
 # force_linked_actions has now been folded into this function, and is enabled by
 # supplying an index and setting force=True
 def ensure_linked_actions(dists, prefix, index=None, force=False,
-                          always_copy=False):
+                          always_copy=False):  # pragma: no cover
     assert all(isinstance(d, Dist) for d in dists)
     actions = defaultdict(list)
     actions[PREFIX] = prefix
@@ -619,7 +619,7 @@ def augment_specs(prefix, specs, pinned=True):
     return list(specs)
 
 
-def _remove_actions(prefix, specs, index, force=False, pinned=True):
+def _remove_actions(prefix, specs, index, force=False, pinned=True):  # pragma: no cover
     r = Resolve(index)
     linked = linked_data(prefix)
     linked_dists = [d for d in linked]
