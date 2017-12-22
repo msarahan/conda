@@ -3,6 +3,8 @@ from __future__ import absolute_import, division, print_function, unicode_litera
 
 from collections import defaultdict
 from contextlib import contextmanager
+from enum import Enum
+from errno import EPIPE, ESHUTDOWN
 from functools import wraps
 import json
 import logging
@@ -221,6 +223,182 @@ def attach_stderr_handler(level=WARN, logger_name=None, propagate=False, formatt
         logr.addHandler(new_stderr_handler)
         logr.setLevel(level)
         logr.propagate = propagate
+
+
+def timeout(timeout_secs, func, *args, **kwargs):
+    """Enforce a maximum time for a callable to complete.
+    Not yet implemented on Windows.
+    """
+    default_return = kwargs.pop('default_return', None)
+    if on_win:
+        # Why does Windows have to be so difficult all the time? Kind of gets old.
+        # Guess we'll bypass Windows timeouts for now.
+        try:
+            return func(*args, **kwargs)
+        except KeyboardInterrupt:  # pragma: no cover
+            return default_return
+    else:
+        class TimeoutException(Exception):
+            pass
+
+        def interrupt(signum, frame):
+            raise TimeoutException()
+
+        signal.signal(signal.SIGALRM, interrupt)
+        signal.alarm(timeout_secs)
+
+        try:
+            ret = func(*args, **kwargs)
+            signal.alarm(0)
+            return ret
+        except (TimeoutException,  KeyboardInterrupt):  # pragma: no cover
+            return default_return
+
+
+class Spinner(object):
+    # spinner_cycle = cycle("⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏")
+    spinner_cycle = cycle('/-\\|')
+
+    def __init__(self, enable_spin=True):
+        self._stop_running = Event()
+        self._spinner_thread = Thread(target=self._start_spinning)
+        self._indicator_length = len(next(self.spinner_cycle)) + 1
+        self.fh = sys.stdout
+        self.show_spin = enable_spin and hasattr(self.fh, "isatty") and self.fh.isatty()
+
+    def start(self):
+        if self.show_spin:
+            self._spinner_thread.start()
+        else:
+            self.fh.write("...working... ")
+            self.fh.flush()
+
+    def stop(self):
+        if self.show_spin:
+            self._stop_running.set()
+            self._spinner_thread.join()
+
+    def _start_spinning(self):
+        while not self._stop_running.is_set():
+            self.fh.write(next(self.spinner_cycle) + ' ')
+            self.fh.flush()
+            sleep(0.10)
+            self.fh.write('\b' * self._indicator_length)
+
+
+@contextmanager
+def spinner(message=None, enabled=True, json=False):
+    """
+    Args:
+        message (str, optional):
+            An optional message to prefix the spinner with.
+            If given, ': ' are automatically added.
+        enabled (bool):
+            If False, usage is a no-op.
+        json (bool):
+           If True, will not output non-json to stdout.
+
+    """
+    sp = Spinner(enabled)
+    exception_raised = False
+    try:
+        if message:
+            if json:
+                pass
+            else:
+                sys.stdout.write("%s: " % message)
+                sys.stdout.flush()
+        if not json:
+            sp.start()
+        yield
+    except:
+        exception_raised = True
+        raise
+    finally:
+        if not json:
+            sp.stop()
+        if message:
+            if json:
+                pass
+            else:
+                try:
+                    if exception_raised:
+                        sys.stdout.write("failed\n")
+                    else:
+                        sys.stdout.write("done\n")
+                    sys.stdout.flush()
+                except (IOError, OSError) as e:
+                    # Ignore BrokenPipeError and errors related to stdout or stderr being
+                    # closed by a downstream program.
+                    if e.errno not in (EPIPE, ESHUTDOWN):
+                        raise
+
+
+class ProgressBar(object):
+
+    def __init__(self, description, enabled=True, json=False):
+        """
+        Args:
+            description (str):
+                The name of the progress bar, shown on left side of output.
+            enabled (bool):
+                If False, usage is a no-op.
+            json (bool):
+                If true, outputs json progress to stdout rather than a progress bar.
+                Currently, the json format assumes this is only used for "fetch", which
+                maintains backward compatibility with conda 4.3 and earlier behavior.
+        """
+        self.description = description
+        self.enabled = enabled
+        self.json = json
+
+        if json:
+            pass
+        elif enabled:
+            bar_format = "{desc}{bar} | {percentage:3.0f}% "
+            self.pbar = tqdm(desc=description, bar_format=bar_format, ascii=True, total=1)
+
+    def update_to(self, fraction):
+        if self.json:
+            sys.stdout.write('{"fetch":"%s","finished":false,"maxval":1,"progress":%f}\n\0'
+                             % (self.description, fraction))
+        elif self.enabled:
+            self.pbar.update(fraction - self.pbar.n)
+
+    def finish(self):
+        self.update_to(1)
+
+    def close(self):
+        try:
+            if self.json:
+                sys.stdout.write('{"fetch":"%s","finished":true,"maxval":1,"progress":1}\n\0'
+                                 % self.description)
+                sys.stdout.flush()
+            elif self.enabled:
+                self.pbar.close()
+        except (IOError, OSError) as e:
+            # Ignore BrokenPipeError and errors related to stdout or stderr being
+            # closed by a downstream program.
+            if e.errno not in (EPIPE, ESHUTDOWN):
+                raise
+        self.enabled = False
+
+
+@contextmanager
+def backdown_thread_pool(max_workers=10):
+    """Tries to create an executor with max_workers, but will back down ultimately to a single
+    thread of the OS decides you can't have more than one.
+    """
+    try:
+        yield ThreadPoolExecutor(max_workers)
+    except RuntimeError as e:  # pragma: no cover
+        # RuntimeError is thrown if number of threads are limited by OS
+        log.debug(repr(e))
+        try:
+            yield ThreadPoolExecutor(floor(max_workers / 2))
+        except RuntimeError as e:
+            log.debug(repr(e))
+            yield ThreadPoolExecutor(1)
 
 
 class ContextDecorator(object):
