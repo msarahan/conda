@@ -33,9 +33,9 @@ def pip_args(prefix):
         major_ver = pip_version.split('.')[0]
         if int(major_ver) >= 6:
             ret.append('--disable-pip-version-check')
-        return ret
+        return ret, pip_version
     else:
-        return None
+        return None, None
 
 
 class PipPackage(dict):
@@ -50,7 +50,7 @@ class PipPackage(dict):
 
 
 def installed(prefix, output=True):
-    args = pip_args(prefix)
+    args, pip_version = pip_args(prefix)
     if args is None:
         return
     args.append('list')
