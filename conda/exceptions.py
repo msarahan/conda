@@ -593,12 +593,13 @@ class SafetyError(CondaError):
         super(SafetyError, self).__init__(message)
 
 
-class NotWritableError(CondaError):
+class NotWritableError(CondaError, OSError):
 
-    def __init__(self, path):
-        kwargs = {
+    def __init__(self, path, errno, **kwargs):
+        kwargs.update({
             'path': path,
-        }
+            'errno': errno,
+        })
         if on_win:
             message = dals("""
             The current user does not have write permissions to a required path.
@@ -614,7 +615,7 @@ class NotWritableError(CondaError):
             If you feel that permissions on this path are set incorrectly, you can manually
             change them by executing
 
-              $ sudo chmod %(uid)s:%(gid)s %(path)s
+              $ sudo chown %(uid)s:%(gid)s %(path)s
             """)
             import os
             kwargs.update({
