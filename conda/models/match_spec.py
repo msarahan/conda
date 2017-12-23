@@ -185,6 +185,19 @@ class MatchSpec(object):
         v = self._match_components.get(field_name)
         return v and v.raw_value
 
+    def get(self, field_name, default=None):
+        v = self.get_raw_value(field_name)
+        return default if v is None else v
+
+    @property
+    def is_name_only_spec(self):
+        return (len(self._match_components) == 1
+                and 'name' in self._match_components
+                and self.name != '*')
+
+    def dist_str(self):
+        return self.__str__()
+
     def match(self, rec):
         """
         Accepts an `IndexRecord` or a dict, and matches can pull from any field
