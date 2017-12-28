@@ -57,7 +57,7 @@ class ActivatorUnitTests(TestCase):
             activator = Activator('posix')
             assert activator._prompt_modifier(ROOT_ENV_NAME) == '(%s) ' % ROOT_ENV_NAME
 
-            instructions = activator.build_activate("root")
+            instructions = activator.build_activate("base")
             assert instructions['export_vars']['CONDA_PROMPT_MODIFIER'] == '(%s) ' % ROOT_ENV_NAME
 
     def test_PS1_no_changeps1(self):
@@ -65,7 +65,7 @@ class ActivatorUnitTests(TestCase):
             activator = Activator('posix')
             assert activator._prompt_modifier('root') == ''
 
-            instructions = activator.build_activate("root")
+            instructions = activator.build_activate("base")
             assert instructions['export_vars']['CONDA_PROMPT_MODIFIER'] == ''
 
     def test_add_prefix_to_path(self):
@@ -1185,7 +1185,7 @@ class ShellWrapperIntegrationTests(TestCase):
 
     def basic_posix(self, shell):
         shell.assert_env_var('CONDA_SHLVL', '0')
-        shell.sendline('conda activate root')
+        shell.sendline('conda activate base')
         shell.assert_env_var('PS1', '(base).*')
         shell.assert_env_var('CONDA_SHLVL', '1')
         shell.sendline('conda activate "%s"' % self.prefix)
@@ -1227,7 +1227,7 @@ class ShellWrapperIntegrationTests(TestCase):
 
     def basic_csh(self, shell):
         shell.assert_env_var('CONDA_SHLVL', '0')
-        shell.sendline('conda activate root')
+        shell.sendline('conda activate base')
         shell.assert_env_var('prompt', '(base).*')
         shell.assert_env_var('CONDA_SHLVL', '1')
         shell.sendline('conda activate "%s"' % self.prefix)
@@ -1263,7 +1263,7 @@ class ShellWrapperIntegrationTests(TestCase):
             # we aren't.  Haven't experienced this problem yet with any other shell...
 
             shell.assert_env_var('CONDA_SHLVL', '0')
-            shell.sendline('conda activate root')
+            shell.sendline('conda activate base')
             shell.assert_env_var('CONDA_SHLVL', '1')
             shell.sendline('conda activate "%s"' % self.prefix)
             shell.assert_env_var('CONDA_SHLVL', '2')
