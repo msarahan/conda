@@ -6,15 +6,15 @@ from logging import getLogger, DEBUG
 
 from .base.constants import DEFAULTS_CHANNEL_NAME, MAX_CHANNEL_PRIORITY
 from .base.context import context
-from .common.compat import iteritems, iterkeys, itervalues, odict, on_win, string_types, text_type
+from .common.compat import iteritems, iterkeys, itervalues, on_win, string_types
 from .common.io import time_recorder
 from .exceptions import CondaValueError, ResolvePackageNotFound, UnsatisfiableError
 from .logic import Clauses, minimal_unsatisfiable_subset
 from .models.dist import Dist
 from .models.enums import NoarchType
-from .models.index_record import PackageRef
-from .models.match_spec import MatchSpec
-from .models.version import VersionOrder
+from .models.index_record import IndexRecord
+from .toposort import toposort
+from .version import VersionSpec, normalized_version
 
 try:
     from cytoolz.itertoolz import concat, groupby
