@@ -705,7 +705,6 @@ class IntegrationTests(TestCase):
             assert_package_is_installed(prefix, 'mkl')
 
     @pytest.mark.skipif(on_win and context.bits == 32, reason="no 32-bit windows python on conda-forge")
-    @pytest.mark.xfail(on_win and datetime.now() < datetime(2018, 1, 1), reason="need to get vc-14.1 and vs2017_runtime worked out")
     def test_dash_c_usage_replacing_python(self):
         # Regression test for #2606
         with make_temp_env("-c conda-forge python=3.5") as prefix:
@@ -946,7 +945,7 @@ class IntegrationTests(TestCase):
             assert package_is_installed(prefix, 'itsdangerous-0.23')
             assert package_is_installed(prefix, 'flask')
 
-    @pytest.mark.xfail(datetime.now() < datetime(2018, 1, 1), reason="#5263", strict=True)
+    @pytest.mark.xfail(datetime.now() < datetime(2018, 3, 1), reason="#5263", strict=True)
     def test_update_deps_flag_present(self):
         with make_temp_env("python=2 itsdangerous=0.23") as prefix:
             assert package_is_installed(prefix, 'python-2')
