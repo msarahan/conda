@@ -1561,6 +1561,7 @@ class IntegrationTests(TestCase):
                 stdout, stderr = run_command(Commands.LIST, prefix, "--revisions")
                 print(stdout)
 
+                PrefixData._cache_.clear()
                 run_command(Commands.INSTALL, prefix, "--rev 3")
                 linked_data_.clear()
                 assert package_is_installed(prefix, "conda-4.3.27")
