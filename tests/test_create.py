@@ -30,7 +30,7 @@ from conda.gateways.anaconda_client import read_binstar_tokens
 import pytest
 import requests
 
-from conda import CondaError, CondaMultiError
+from conda import CondaError, CondaMultiError, plan, __version__ as CONDA_VERSION
 from conda._vendor.auxlib.entity import EntityEncoder
 from conda._vendor.auxlib.ish import dals
 from conda.base.constants import CONDA_TARBALL_EXTENSION, PACKAGE_CACHE_MAGIC_FILE, SafetyChecks
@@ -143,7 +143,8 @@ def run_command(command, prefix, *arguments, **kwargs):
 
 @contextmanager
 def make_temp_env(*packages, **kwargs):
-    prefix = kwargs.pop('prefix', None) or make_temp_prefix()
+    name = kwargs.pop('name', None)
+    prefix = kwargs.pop('prefix', None) or make_temp_prefix(name)
     assert isdir(prefix), prefix
     with disable_logger('fetch'), disable_logger('dotupdate'):
         try:
@@ -1528,6 +1529,53 @@ class IntegrationTests(TestCase):
                 with pytest.raises(CondaMultiError):
                     run_command(Commands.INSTALL, prefix, 'flask=0.11.1')
                 assert_package_is_installed(prefix, 'flask-0.10.1')
+
+    def test_conda_downgrade(self):
+        # Create an environment with the current conda under test, but include an earlier
+        # version of conda and other packages in that environment.
+        # Make sure we can flip back and forth.
+        conda_exe = join('Scripts', 'conda.exe') if on_win else join('bin', 'conda')
+        with env_var("CONDA_AUTO_UPDATE_CONDA", "false", reset_context):
+            with make_temp_env("conda=4.3.27 python=%s" % sys.version_info[0],
+                               name='_' + str(uuid4())[:8]) as prefix:  # rev 0
+                assert package_is_installed(prefix, "conda")
+
+                run_command(Commands.INSTALL, prefix, "mccabe")  # rev 1
+                assert package_is_installed(prefix, "mccabe")
+
+                subprocess_call("%s install -p %s -y itsdangerous" % (join(prefix, conda_exe), prefix))  # rev 2
+                linked_data_.clear()
+                assert package_is_installed(prefix, "itsdangerous")
+
+                run_command(Commands.INSTALL, prefix, "lockfile")  # rev 3
+                assert package_is_installed(prefix, "lockfile")
+
+                subprocess_call("%s install -p %s -y conda=4.3" % (join(prefix, conda_exe), prefix))  # rev 4
+                linked_data_.clear()
+                assert not package_is_installed(prefix, "conda-4.3.27")
+
+                subprocess_call("%s install -p %s -y colorama" % (join(prefix, conda_exe), prefix))  # rev 5
+                linked_data_.clear()
+                assert package_is_installed(prefix, "colorama")
+
+                stdout, stderr = run_command(Commands.LIST, prefix, "--revisions")
+                print(stdout)
+
+                run_command(Commands.INSTALL, prefix, "--rev 3")
+                linked_data_.clear()
+                assert package_is_installed(prefix, "conda-4.3.27")
+                assert not package_is_installed(prefix, "colorama")
+
+                subprocess_call("%s install -y -p %s --rev 1" % (join(prefix, conda_exe), prefix))
+                linked_data_.clear()
+                assert not package_is_installed(prefix, "itsdangerous")
+                linked_data_.clear()
+                assert package_is_installed(prefix, "conda-4.3.27")
+                assert package_is_installed(prefix, "python-%s" % sys.version_info[0])
+
+                result = subprocess_call("%s info --json" % join(prefix, conda_exe))
+                conda_info = json.loads(result.stdout)
+                assert conda_info["conda_version"] == "4.3.27"
 
     @pytest.mark.skipif(on_win, reason="openssl only has a postlink script on unix")
     def test_run_script_called(self):
