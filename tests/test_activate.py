@@ -684,6 +684,7 @@ def test_activate_help(shell):
             'CONDA_SHLVL': '1',
             'PATH': os.pathsep.join(concatv(new_path_parts, (os.environ['PATH'],))),
         }):
+            activator = Activator('posix')
             with captured() as c:
                 rc = activate_main(('', 'shell.posix', 'reactivate'))
             assert not c.stderr
@@ -762,6 +763,7 @@ def test_activate_help(shell):
             'CONDA_SHLVL': '1',
             'PATH': os.pathsep.join(concatv(new_path_parts, (os.environ['PATH'],))),
         }):
+            activator = Activator('cmd.exe')
             with captured() as c:
                 assert activate_main(('', 'shell.cmd.exe', 'reactivate')) == 0
             assert not c.stderr
@@ -839,6 +841,7 @@ def test_activate_help(shell):
             'CONDA_SHLVL': '1',
             'PATH': os.pathsep.join(concatv(new_path_parts, (os.environ['PATH'],))),
         }):
+            activator = Activator('csh')
             with captured() as c:
                 rc = activate_main(('', 'shell.csh', 'reactivate'))
             assert not c.stderr
@@ -914,6 +917,7 @@ def test_activate_help(shell):
             'CONDA_SHLVL': '1',
             'PATH': os.pathsep.join(concatv(new_path_parts, (os.environ['PATH'],))),
         }):
+            activator = Activator('xonsh')
             with captured() as c:
                 assert activate_main(('', 'shell.xonsh', 'reactivate')) == 0
             assert not c.stderr
@@ -989,6 +993,7 @@ def test_activate_help(shell):
             'CONDA_SHLVL': '1',
             'PATH': os.pathsep.join(concatv(new_path_parts, (os.environ['PATH'],))),
         }):
+            activator = Activator('fish')
             with captured() as c:
                 rc = activate_main(('', 'shell.fish', 'reactivate'))
             assert not c.stderr
@@ -1058,6 +1063,7 @@ def test_activate_help(shell):
             'CONDA_SHLVL': '1',
             'PATH': os.pathsep.join(concatv(new_path_parts, (os.environ['PATH'],))),
         }):
+            activator = Activator('powershell')
             with captured() as c:
                 rc = activate_main(('', 'shell.powershell', 'reactivate'))
             assert not c.stderr
