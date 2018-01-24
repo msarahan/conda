@@ -846,10 +846,10 @@ def revert_actions(prefix, revision=-1, index=None):
     link_dists = tuple(d for d in state if not is_linked(prefix, d))
     unlink_dists = set(curr) - set(state)
 
-    # dists = (Dist(s) for s in state)
-    # actions = ensure_linked_actions(dists, prefix)
-    # for dist in curr - state:
-    #     add_unlink(actions, Dist(dist))
+    dists = tuple(Dist(s) for s in state)
+    actions = ensure_linked_actions(dists, prefix)
+    for dist in curr - state:
+        add_unlink(actions, Dist(dist))
 
     # check whether it is a safe revision
     for dist in concatv(link_dists, unlink_dists):
@@ -857,12 +857,7 @@ def revert_actions(prefix, revision=-1, index=None):
             from .exceptions import CondaRevisionError
             msg = "Cannot revert to {}, since {} is not in repodata".format(revision, dist)
             raise CondaRevisionError(msg)
-
-    unlink_precs = tuple(index[d] for d in unlink_dists)
-    link_precs = tuple(index[d] for d in link_dists)
-    stp = PrefixSetup(prefix, unlink_precs, link_precs, (), user_requested_specs)
-    txn = UnlinkLinkTransaction(stp)
-    return txn
+    return actions
 
 
 # ---------------------------- EXECUTION --------------------------
