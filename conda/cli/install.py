@@ -254,19 +254,14 @@ def install(args, parser, command='install'):
 
     handle_txn(progressive_fetch_extract, unlink_link_transaction, prefix, args, newenv)
 
-
-def handle_txn(progressive_fetch_extract, unlink_link_transaction, prefix, args, newenv,
-               remove_op=False):
-    if unlink_link_transaction.nothing_to_do:
-        if remove_op:
-            # No packages found to remove from environment
-            raise PackagesNotFoundError(args.package_names)
-        elif not newenv:
-            if context.json:
-                common.stdout_json_success(message='All requested packages already installed.')
-            else:
-                print('\n# All requested packages already installed.\n')
-            return
+            spec_regex = r'^(%s)$' % '|'.join(re.escape(s.split()[0]) for s in ospecs)
+            print('\n# All requested packages already installed.')
+            for action in action_set:
+                print_packages(action.get("PREFIX", prefix), spec_regex)
+        else:
+            common.stdout_json_success(
+                message='All requested packages already installed.')
+        return
 
     if not context.json:
         unlink_link_transaction.display_actions(progressive_fetch_extract)
