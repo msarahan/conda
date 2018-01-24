@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 from __future__ import absolute_import, division, print_function, unicode_literals
 
-from concurrent.futures import as_completed
 from itertools import chain
 from logging import getLogger
 
@@ -11,9 +10,9 @@ from .repodata import SubdirData, make_feature_record
 from .._vendor.boltons.setutils import IndexedSet
 from ..base.context import context
 from ..common.compat import iteritems, itervalues
-from ..common.io import time_recorder
-from ..gateways.disk.read import read_index_json
-from ..models.channel import prioritize_channels
+from ..common.io import ThreadLimitedThreadPoolExecutor, as_completed, time_recorder
+from ..exceptions import OperationNotAllowed
+from ..models.channel import Channel, all_channel_urls
 from ..models.dist import Dist
 from ..models.index_record import EMPTY_LINK
 from ..models.match_spec import MatchSpec
@@ -216,7 +215,7 @@ def get_reduced_index(prefix, channels, subdirs, specs):
     #                 keep_specs.append(spec)
     #         consolidated_specs.update(keep_specs)
 
-    with backdown_thread_pool() as executor:
+    with ThreadLimitedThreadPoolExecutor() as executor:
 
         channel_urls = all_channel_urls(channels, subdirs=subdirs)
         check_whitelist(channel_urls)
