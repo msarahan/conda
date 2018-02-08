@@ -567,21 +567,22 @@ class Resolve(object):
         return sorted(dists, key=self.version_key)
 
     @staticmethod
-    def to_sat_name(val):
-        # val can be a Dist, PackageRef, or MatchSpec
-        if isinstance(val, Dist):
-            return val.full_name
-        elif isinstance(val, MatchSpec):
-            return '@s@' + text_type(val) + ('?' if val.optional else '')
-        elif isinstance(val, PackageRef):
-            return val.dist_str()
-        else:
-            raise NotImplementedError()
+    def to_ms_clause_id(ms):
+        ms = MatchSpec(ms)
+        return '@s@' + ms.spec + ('?' if ms.optional else '')
 
-    def push_MatchSpec(self, C, spec):
-        spec = MatchSpec(spec)
-        sat_name = self.to_sat_name(spec)
-        m = C.from_name(sat_name)
+    @staticmethod
+    def to_notd_ms_clause_id(ms):
+        return '!@s@'+ms.name
+
+    @staticmethod
+    def to_feature_metric_id(dist, feat):
+        return '@fm@%s@%s' % (dist, feat)
+
+    def push_MatchSpec(self, C, ms):
+        ms = MatchSpec(ms)
+        name = self.to_ms_clause_id(ms)
+        m = C.from_name(name)
         if m is not None:
             # the spec has already been pushed onto the clauses stack
             return sat_name
@@ -608,13 +609,12 @@ class Resolve(object):
                 ms2 = MatchSpec(provides_features=tf) if tf else MatchSpec(nm)
                 m = C.from_name(self.push_MatchSpec(C, ms2))
         if m is None:
-            dists = [dist.full_name for dist in libs]
-            if spec.optional:
-                ms2 = MatchSpec(provides_features=tf) if tf else MatchSpec(nm)
-                dists.append('!' + self.to_sat_name(ms2))
-            m = C.Any(dists)
-        C.name_var(m, sat_name)
-        return sat_name
+            libs = [dist.full_name for dist in libs]
+            if ms.optional:
+                libs.append(self.to_notd_ms_clause_id(ms))
+            m = C.Any(libs)
+        C.name_var(m, name)
+        return name
 
     def gen_clauses(self):
         C = Clauses()
@@ -624,8 +624,7 @@ class Resolve(object):
             for sat_name in group:
                 C.new_var(sat_name)
             # Create one variable for the group
-            m = C.new_var(self.to_sat_name(MatchSpec(name)))
-
+            m = C.new_var(self.to_ms_clause_id(name))
             # Exactly one of the package variables, OR
             # the negation of the group variable, is true
             C.Require(C.ExactlyOne, group + [C.Not(m)])
@@ -663,12 +662,12 @@ class Resolve(object):
             dist_feats = {dist.full_name: self.features(dist) for dist in group}
             active_feats = set.union(*dist_feats.values()).intersection(self.trackers)
             for feat in active_feats:
-                feat_spec = self.push_MatchSpec(C, '@' + feat)
+                clause_id_for_feature = self.push_MatchSpec(C, '@' + feat)
                 for dist, features in dist_feats.items():
                     if feat not in features:
-                        mname = '@fm@{}@{}'.format(dist, feat)
-                        C.name_var(C.And(dist, feat_spec), mname)
-                        eq[mname] = 1
+                        feature_metric_id = self.to_feature_metric_id(dist, feat)
+                        C.name_var(C.And(dist, clause_id_for_feature), feature_metric_id)
+                        eq[feature_metric_id] = 1
         return eq
 
     def generate_removal_count(self, C, specs):
@@ -1015,7 +1014,12 @@ class Resolve(object):
             log.debug('Track feature count: %d', obj1)
 
             # Featured packages: minimize number of featureless packages
-            # installed when a featured alternative is feasible
+            # installed when a featured alternative is feasible.
+            # For example, package name foo exists with two built packages. One with
+            # 'track_features: 'feat1', and one with 'track_features': 'feat2'.
+            # The previous "Track features" minimization pass has chosen 'feat1' for the
+            # environment, but not 'feat2'. In this case, the 'feat2' version of foo is
+            # considered "featureless."
             eq_feature_metric = r2.generate_feature_metric(C)
             solution, obj2 = C.minimize(eq_feature_metric, solution)
             log.debug('Package misfeature count: %d', obj2)
