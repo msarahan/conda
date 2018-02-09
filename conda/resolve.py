@@ -543,21 +543,22 @@ class Resolve(object):
         return sorted(dists, key=self.version_key)
 
     @staticmethod
-    def to_sat_name(val):
-        # val can be a Dist, PackageRef, or MatchSpec
-        if isinstance(val, Dist):
-            return val.full_name
-        elif isinstance(val, MatchSpec):
-            return '@s@' + text_type(val) + ('?' if val.optional else '')
-        elif isinstance(val, PackageRef):
-            return val.dist_str()
-        else:
-            raise NotImplementedError()
+    def to_ms_clause_id(ms):
+        ms = MatchSpec(ms)
+        return '@s@' + ms.spec + ('?' if ms.optional else '')
 
-    def push_MatchSpec(self, C, spec):
-        spec = MatchSpec(spec)
-        sat_name = self.to_sat_name(spec)
-        m = C.from_name(sat_name)
+    @staticmethod
+    def to_notd_ms_clause_id(ms):
+        return '!@s@'+ms.name
+
+    @staticmethod
+    def to_feature_metric_id(dist, feat):
+        return '@fm@%s@%s' % (dist, feat)
+
+    def push_MatchSpec(self, C, ms):
+        ms = MatchSpec(ms)
+        name = self.to_ms_clause_id(ms)
+        m = C.from_name(name)
         if m is not None:
             # the spec has already been pushed onto the clauses stack
             return sat_name
@@ -584,13 +585,12 @@ class Resolve(object):
                 ms2 = MatchSpec(track_features=tf) if tf else MatchSpec(nm)
                 m = C.from_name(self.push_MatchSpec(C, ms2))
         if m is None:
-            dists = [dist.full_name for dist in libs]
-            if spec.optional:
-                ms2 = MatchSpec(track_features=tf) if tf else MatchSpec(nm)
-                dists.append('!' + self.to_sat_name(ms2))
-            m = C.Any(dists)
-        C.name_var(m, sat_name)
-        return sat_name
+            libs = [dist.full_name for dist in libs]
+            if ms.optional:
+                libs.append(self.to_notd_ms_clause_id(ms))
+            m = C.Any(libs)
+        C.name_var(m, name)
+        return name
 
     def gen_clauses(self):
         C = Clauses()
@@ -600,8 +600,7 @@ class Resolve(object):
             for sat_name in group:
                 C.new_var(sat_name)
             # Create one variable for the group
-            m = C.new_var(self.to_sat_name(MatchSpec(name)))
-
+            m = C.new_var(self.to_ms_clause_id(name))
             # Exactly one of the package variables, OR
             # the negation of the group variable, is true
             C.Require(C.ExactlyOne, group + [C.Not(m)])
@@ -631,20 +630,22 @@ class Resolve(object):
 
     def generate_feature_metric(self, C):
         eq = {}  # a C.minimize() objective: Dict[varname, coeff]
-        total = 0
+        # Given a pair (dist, feature), assign a "1" score IF:
+        # - The dist is installed
+        # - The dist does NOT require the feature
+        # - At least one package in the group DOES require the feature
+        # - A package that tracks the feature is installed
         for name, group in iteritems(self.groups):
-            nf = [len(self.index[dist].features) for dist in group]
-            maxf = max(nf)
-            if maxf > 0:
-                eq.update({dist.full_name: maxf-fc for dist, fc in zip(group, nf) if maxf > fc})
-                # This entry causes conda to weight the absence of a package the same
-                # as if a non-featured version were instaslled. If this were not here,
-                # conda will sometimes select an earlier build of a requested package
-                # if doing so can eliminate this package as a dependency.
-                # https://github.com/conda/conda/issues/6765
-                eq['!' + self.push_MatchSpec(C, name)] = maxf
-            total += maxf
-        return eq, total
+            dist_feats = {dist.full_name: self.features(dist) for dist in group}
+            active_feats = set.union(*dist_feats.values()).intersection(self.trackers)
+            for feat in active_feats:
+                clause_id_for_feature = self.push_MatchSpec(C, '@' + feat)
+                for dist, features in dist_feats.items():
+                    if feat not in features:
+                        feature_metric_id = self.to_feature_metric_id(dist, feat)
+                        C.name_var(C.And(dist, clause_id_for_feature), feature_metric_id)
+                        eq[feature_metric_id] = 1
+        return eq
 
     def generate_removal_count(self, C, specs):
         return {'!'+self.push_MatchSpec(C, ms.name): 1 for ms in specs}
@@ -989,11 +990,16 @@ class Resolve(object):
             solution, obj1 = C.minimize(eq_feature_count, solution)
             log.debug('Track feature count: %d', obj1)
 
-            # Featured packages: maximize featured package count
-            eq_feature_metric, ftotal = r2.generate_feature_metric(C)
+            # Featured packages: minimize number of featureless packages
+            # installed when a featured alternative is feasible.
+            # For example, package name foo exists with two built packages. One with
+            # 'track_features: 'feat1', and one with 'track_features': 'feat2'.
+            # The previous "Track features" minimization pass has chosen 'feat1' for the
+            # environment, but not 'feat2'. In this case, the 'feat2' version of foo is
+            # considered "featureless."
+            eq_feature_metric = r2.generate_feature_metric(C)
             solution, obj2 = C.minimize(eq_feature_metric, solution)
-            obj2 = ftotal - obj2
-            log.debug('Package feature count: %d', obj2)
+            log.debug('Package misfeature count: %d', obj2)
 
             # Requested packages: maximize builds
             solution, obj4 = C.minimize(eq_req_b, solution)
