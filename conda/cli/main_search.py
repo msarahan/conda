@@ -2,12 +2,11 @@
 from __future__ import absolute_import, division, print_function, unicode_literals
 
 from collections import defaultdict
-import sys
 
 from .install import calculate_channel_urls
 from ..base.context import context
 from ..cli.common import stdout_json
-from ..common.io import spinner
+from ..common.io import Spinner
 from ..compat import text_type
 from ..core.repodata import SubdirData
 from ..models.match_spec import MatchSpec
@@ -25,7 +24,7 @@ def execute(args, parser):
     else:
         subdirs = context.subdirs
 
-    with spinner("Loading channels", not context.verbosity and not context.quiet, context.json):
+    with Spinner("Loading channels", not context.verbosity and not context.quiet, context.json):
         spec_channel = spec.get_exact_value('channel')
         channel_urls = (spec_channel,) if spec_channel else context.channels
 
@@ -96,101 +95,45 @@ def execute(args, parser):
     if args.canonical:
         json = []
     else:
-        json = {}
+        builder = ['%-25s  %-15s %15s  %-15s' % (
+            "Name",
+            "Version",
+            "Build",
+            "Channel",
+        )]
+        for record in matches:
+            builder.append('%-25s  %-15s %15s  %-15s' % (
+                record.name,
+                record.version,
+                record.build,
+                record.schannel,
+            ))
+        print('\n'.join(builder))
 
-    names = []
-    for name in sorted(r.groups):
-        if '@' in name:
-            continue
-        res = []
-        if args.reverse_dependency:
-            res = [dist for dist in r.get_dists_for_spec(name)
-                   if any(pat.search(dep.name) for dep in r.ms_depends(dist))]
-        elif ms is not None:
-            if ms.name == name:
-                res = r.get_dists_for_spec(ms)
-        elif pat is None or pat.search(name):
-            res = r.get_dists_for_spec(name)
-        if res:
-            names.append((name, res))
 
-    if not names:
-        raise ResolvePackageNotFound([(args.regex,)])
+def pretty_record(record):
+    def push_line(display_name, attr_name):
+        value = getattr(record, attr_name, None)
+        if value is not None:
+            builder.append("%-12s: %s" % (display_name, value))
 
-    for name, pkgs in names:
-        disp_name = name
+    builder = []
+    builder.append(record.name + " " + record.version + " " + record.build)
+    builder.append('-'*len(builder[0]))
 
-        if args.names_only and not args.outdated:
-            print(name)
-            continue
-
-        if not args.canonical:
-            json[name] = []
-
-        if args.outdated:
-            vers_inst = [dist.quad[1] for dist in linked if dist.quad[0] == name]
-            if not vers_inst:
-                continue
-            assert len(vers_inst) == 1, name
-            if not pkgs:
-                continue
-            latest = pkgs[-1]
-            if latest.version == vers_inst[0]:
-                continue
-            if args.names_only:
-                print(name)
-                continue
-
-        for dist in pkgs:
-            index_record = r.index[dist]
-            if args.canonical:
-                if not context.json:
-                    print(dist.dist_name)
-                else:
-                    json.append(dist.dist_name)
-                continue
-            if platform and platform != context.subdir:
-                inst = ' '
-            elif dist in linked:
-                inst = '*'
-            elif dist in extracted:
-                inst = '.'
-            else:
-                inst = ' '
-
-            features = r.features(dist)
-
-            if not context.json:
-                print('%-25s %s  %-15s %15s  %-15s %s' % (
-                    disp_name, inst,
-                    index_record.version,
-                    index_record.build,
-                    index_record.schannel,
-                    disp_features(features),
-                ))
-                disp_name = ''
-            else:
-                data = {}
-                data.update(index_record.dump())
-                data.update({
-                    'fn': index_record.fn,
-                    'installed': inst == '*',
-                    'extracted': inst in '*.',
-                    'version': index_record.version,
-                    'build': index_record.build,
-                    'build_number': index_record.build_number,
-                    'channel': index_record.schannel,
-                    'full_channel': index_record.channel,
-                    'features': list(features),
-                    'license': index_record.get('license'),
-                    'size': index_record.get('size'),
-                    'depends': index_record.get('depends'),
-                    'type': index_record.get('type')
-                })
-
-                if data['type'] == 'app':
-                    data['icon'] = make_icon_url(index_record.info)
-                json[name].append(data)
-
-    if context.json:
-        stdout_json(json)
+    push_line("file name", "fn")
+    push_line("name", "name")
+    push_line("version", "version")
+    push_line("build string", "build")
+    push_line("build number", "build_number")
+    builder.append("%-12s: %s" % ("size", human_bytes(record.size)))
+    push_line("arch", "arch")
+    push_line("constrains", "constrains")
+    push_line("platform", "platform")
+    push_line("license", "license")
+    push_line("subdir", "subdir")
+    push_line("url", "url")
+    push_line("md5", "md5")
+    builder.append("%-12s: %s" % ("dependencies", dashlist(record.depends)))
+    builder.append('\n')
+    print('\n'.join(builder))
