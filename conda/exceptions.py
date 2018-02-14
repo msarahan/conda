@@ -986,62 +986,17 @@ def print_unexpected_error_message(e):
                 "    $ conda config --set report_errors true\n"
                 "\n"
             )
-    elif ask_for_upload and stdin is None:
-        # means timeout was reached for `input`
-        sys.stderr.write('\nTimeout reached. No report sent.\n')
-    elif ask_for_upload:
-        sys.stderr.write(
-            "\n"
-            "No report sent. To permanently opt-out, use\n"
-            "\n"
-            "    $ conda config --set report_errors false\n"
-            "\n"
-        )
-
-
-def maybe_raise(error, context):
-    if isinstance(error, CondaMultiError):
-        groups = groupby(lambda e: isinstance(e, ClobberError), error.errors)
-        clobber_errors = groups.get(True, ())
-        non_clobber_errors = groups.get(False, ())
-        if clobber_errors:
-            if context.path_conflict == PathConflict.prevent and not context.clobber:
-                raise error
-            elif context.path_conflict == PathConflict.warn and not context.clobber:
-                print_conda_exception(CondaMultiError(clobber_errors))
-        if non_clobber_errors:
-            raise CondaMultiError(non_clobber_errors)
-    elif isinstance(error, ClobberError):
-        if context.path_conflict == PathConflict.prevent and not context.clobber:
-            raise error
-        elif context.path_conflict == PathConflict.warn and not context.clobber:
-            print_conda_exception(error)
-    else:
-        raise error
-
-
-def handle_exception(e):
-    return_code = getattr(e, 'return_code', None)
-    if return_code == 0:
-        return 0
-    elif isinstance(e, CondaRuntimeError):
-        print_unexpected_error_message(e)
-        return 1
-    elif isinstance(e, CondaError):
-        from .base.context import context
-        if context.debug or context.verbosity > 0:
-            sys.stderr.write('%r\n' % e)
-            sys.stderr.write(_format_exc())
-            sys.stderr.write('\n')
-        else:
-            print_conda_exception(e)
-        return return_code if return_code else 1
-    elif isinstance(e, KeyboardInterrupt):
-        print_conda_exception(CondaError("KeyboardInterrupt"))
-        return 1
-    else:
-        print_unexpected_error_message(e)
-        return return_code if return_code else 1
+        elif ask_for_upload:
+            self.out_stream.write(
+                "\n"
+                "No report sent. To permanently opt-out, use\n"
+                "\n"
+                "    $ conda config --set report_errors false\n"
+                "\n"
+            )
+        elif ask_response is None and ask_for_upload:
+            # means timeout was reached for `input`
+            self.out_stream.write('\nTimeout reached. No report sent.\n')  # NOQA lgtm [py/unreachable-statement]
 
 
 def conda_exception_handler(func, *args, **kwargs):

@@ -104,8 +104,7 @@ class _FeaturesField(ListField):
 class ChannelField(ComposableField):
 
     def __init__(self, aliases=()):
-        self._type = Channel
-        super(ComposableField, self).__init__(required=False, aliases=aliases)
+        super(ChannelField, self).__init__(Channel, required=False, aliases=aliases)
 
     def dump(self, instance, instance_type, val):
         if val:
