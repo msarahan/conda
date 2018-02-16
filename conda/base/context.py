@@ -162,7 +162,7 @@ class Context(Configuration):
     # #############################
     # channels
     # #############################
-    allow_non_channel_urls = PrimitiveParameter(True)
+    allow_non_channel_urls = PrimitiveParameter(False)
     _channel_alias = PrimitiveParameter(DEFAULT_CHANNEL_ALIAS,
                                         aliases=('channel_alias',),
                                         validation=channel_alias_validation)
