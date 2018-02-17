@@ -14,10 +14,11 @@ from .base.context import context
 from .common.compat import iteritems, iterkeys, itervalues, on_win, open
 from .common.path import expand, url_to_path, win_path_ok
 from .common.url import is_url, join_url, path_to_url, unquote
-from .core.index import _supplement_index_with_cache, get_index
-from .core.linked_data import linked_data
-from .core.package_cache import PackageCache, ProgressiveFetchExtract
-from .exceptions import CondaFileNotFoundError, PackageNotFoundError, ParseError
+from .core.index import get_index
+from .core.link import PrefixSetup, UnlinkLinkTransaction
+from .core.prefix_data import PrefixData, linked_data
+from .core.package_cache_data import PackageCacheData, ProgressiveFetchExtract
+from .exceptions import PackagesNotFoundError, ParseError
 from .gateways.disk.delete import rm_rf
 from .gateways.disk.link import islink, symlink, readlink
 from .models.dist import Dist
@@ -69,7 +70,8 @@ def explicit(specs, prefix, verbose=False, force_extract=True, index_args=None, 
 
     # now make an UnlinkLinkTransaction with the PackageCacheRecords as inputs
     # need to add package name to fetch_specs so that history parsing keeps track of them correctly
-    specs_pcrecs = tuple([spec, next(PackageCache.query_all(spec), None)] for spec in fetch_specs)
+    specs_pcrecs = tuple([spec, next(PackageCacheData.query_all(spec), None)]
+                         for spec in fetch_specs)
     assert not any(spec_pcrec[1] is None for spec_pcrec in specs_pcrecs)
 
     precs_to_remove = []
