@@ -2,7 +2,11 @@
 from __future__ import absolute_import, division, print_function, unicode_literals
 from logging import getLogger
 
-from conda.models.index_record import IndexRecord
+from conda.base.context import context
+from conda.common.compat import text_type
+from conda.models.channel import Channel
+from conda.models.records import IndexJsonRecord, PackageRecord
+from conda.models.prefix_record import PrefixRecord
 
 log = getLogger(__name__)
 
