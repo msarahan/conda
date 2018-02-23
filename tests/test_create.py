@@ -1503,6 +1503,7 @@ class IntegrationTests(TestCase):
                     stdout, stderr = run_command(Commands.INSTALL, prefix, "conda conda-build")
                     assert_package_is_installed(prefix, "conda-")
                     assert_package_is_installed(prefix, "pycosat-")
+                    assert_package_is_installed(prefix, "conda-build-")
 
                     with pytest.raises(CondaMultiError) as exc:
                         run_command(Commands.REMOVE, prefix, 'conda')
@@ -1517,6 +1518,7 @@ class IntegrationTests(TestCase):
                     assert any(isinstance(e, RemoveError) for e in exc.value.errors)
                     assert_package_is_installed(prefix, "conda-")
                     assert_package_is_installed(prefix, "pycosat-")
+                    assert_package_is_installed(prefix, "conda-build-")
 
     def test_dont_remove_conda_2(self):
         # regression test for #6904
@@ -1525,10 +1527,9 @@ class IntegrationTests(TestCase):
         with env_var('CONDA_ROOT_PREFIX', prefix, reset_context):
             with env_var('CONDA_PKGS_DIRS', ','.join(pkgs_dirs), reset_context):
                 with make_temp_env(prefix=prefix):
-                    stdout, stderr = run_command(Commands.INSTALL, prefix, "conda conda-build")
+                    stdout, stderr = run_command(Commands.INSTALL, prefix, "conda")
                     assert_package_is_installed(prefix, "conda")
                     assert_package_is_installed(prefix, "pycosat-")
-                    assert_package_is_installed(prefix, "conda-build-")
 
                     with pytest.raises(CondaMultiError) as exc:
                         run_command(Commands.REMOVE, prefix, 'pycosat')
@@ -1543,7 +1544,6 @@ class IntegrationTests(TestCase):
                     assert any(isinstance(e, RemoveError) for e in exc.value.errors)
                     assert_package_is_installed(prefix, "conda")
                     assert_package_is_installed(prefix, "pycosat-")
-                    assert_package_is_installed(prefix, "conda-build")
 
     def test_force_remove(self):
         with make_temp_env() as prefix:
