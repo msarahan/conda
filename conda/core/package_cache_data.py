@@ -546,6 +546,7 @@ class ProgressiveFetchExtract(object):
         self.paired_actions = odict()  # Map[pref, Tuple(CacheUrlAction, ExtractPackageAction)]
 
         self._prepared = False
+        self._executed = False
 
     @time_recorder("fetch_extract_prepare")
     def prepare(self):
@@ -565,13 +566,22 @@ class ProgressiveFetchExtract(object):
         return tuple(axns[1] for axns in itervalues(self.paired_actions) if axns[1])
 
     def execute(self):
+        if self._executed:
+            return
         if not self._prepared:
             self.prepare()
 
         assert not context.dry_run
         with signal_handler(conda_signal_handler), time_recorder("fetch_extract_execute"):
-            for action in concatv(self.cache_actions, self.extract_actions):
-                self._execute_action(action)
+            for prec_or_spec, prec_actions in iteritems(self.paired_actions):
+                exc = self._execute_actions(prec_or_spec, prec_actions)
+                if exc:
+                    log.debug('%r', exc, exc_info=True)
+                    exceptions.append(exc)
+
+        if exceptions:
+            raise CondaMultiError(exceptions)
+        self._executed = True
 
     @staticmethod
     def _execute_actions(prec_or_spec, actions):
