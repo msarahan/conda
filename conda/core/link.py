@@ -10,13 +10,13 @@ import sys
 from traceback import format_exception_only
 import warnings
 
-from .prefix_data import PrefixData, get_python_version_for_prefix, linked_data as get_linked_data
 from .package_cache_data import PackageCacheData
 from .path_actions import (CompilePycAction, CreateNonadminAction, CreatePrefixRecordAction,
                            CreatePythonEntryPointAction, LinkPathAction, MakeMenuAction,
                            RegisterEnvironmentLocationAction, RemoveLinkedPackageRecordAction,
                            RemoveMenuAction, UnlinkPathAction, UnregisterEnvironmentLocationAction,
                            UpdateHistoryAction)
+from .prefix_data import PrefixData, get_python_version_for_prefix, linked_data as get_linked_data
 from .. import CondaError, CondaMultiError, conda_signal_handler
 from .._vendor.auxlib.collection import first
 from .._vendor.auxlib.ish import dals
@@ -27,7 +27,7 @@ from ..common.io import Spinner, time_recorder
 from ..common.path import (explode_directories, get_all_directories, get_major_minor_version,
                            get_python_site_packages_short_path)
 from ..common.signals import signal_handler
-from ..exceptions import (KnownPackageClobberError, LinkError, RemoveError,
+from ..exceptions import (DisallowedPackageError, KnownPackageClobberError, LinkError, RemoveError,
                           SharedLinkPathClobberError, UnknownPackageClobberError, maybe_raise)
 from ..gateways.disk import mkdir_p
 from ..gateways.disk.delete import rm_rf
@@ -345,8 +345,7 @@ class UnlinkLinkTransaction(object):
         #   3. if the target is a private env, leased paths need to be verified
         #   4. make sure conda-meta/history file is writable
         #   5. make sure envs/catalog.json is writable; done with RegisterEnvironmentLocationAction
-        #   6. make sure we're not removing pinned packages without no-pin flag
-        # TODO: 3, 4, 6
+        # TODO: 3, 4
 
         unlink_action_groups = (axn_grp
                                 for action_groups in prefix_action_group
@@ -406,10 +405,29 @@ class UnlinkLinkTransaction(object):
                     context,
                 )
 
-    @time_recorder("unlink_link_prepare_and_verify")
-    def verify(self):
-        if not self._prepared:
-            self.prepare()
+    @staticmethod
+    def _verify_transaction_level(prefix_setups):
+        # 1. make sure we're not removing conda or a conda dependency from conda's env
+        # 2. make sure we're not removing a conda dependency from conda's env
+        # 3. enforce context.disallowed_packages
+        # 4. make sure we're not removing pinned packages without no-pin flag
+        # TODO: Verification 4
+
+        conda_prefixes = (join(context.root_prefix, 'envs', '_conda_'), context.root_prefix)
+        conda_setups = tuple(setup for setup in itervalues(prefix_setups)
+                             if setup.target_prefix in conda_prefixes)
+
+        conda_unlinked = any(prec.name == 'conda'
+                             for setup in conda_setups
+                             for prec in setup.unlink_precs)
+
+        conda_prec, conda_final_setup = next(
+            ((prec, setup)
+             for setup in conda_setups
+             for prec in setup.link_precs
+             if prec.name == 'conda'),
+            (None, None)
+        )
 
         if conda_unlinked and conda_final_setup is None:
             # means conda is being unlinked and not re-linked anywhere
@@ -444,6 +462,13 @@ class UnlinkLinkTransaction(object):
                 #  (dep_name in pkg_names_already_lnkd and dep_name not in pkg_names_being_unlnkd))
                 yield RemoveError("'%s' is a dependency of conda and cannot be removed from\n"
                                   "conda's operating environment." % dep_name)
+
+        # Verification 3. enforce disallowed_packages
+        disallowed = tuple(MatchSpec(s) for s in context.disallowed_packages)
+        for prefix_setup in itervalues(prefix_setups):
+            for prec in prefix_setup.link_precs:
+                if any(d.match(prec) for d in disallowed):
+                    yield DisallowedPackageError(prec)
 
     @classmethod
     def _verify(cls, prefix_setups, prefix_action_groups):
