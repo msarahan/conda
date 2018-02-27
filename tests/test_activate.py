@@ -1133,6 +1133,18 @@ def test_activate_help(shell):
 
             }
 
+    def test_unicode(self):
+        shell = 'shell.posix'
+        prompt = 'PS1'
+        prompt_value = u'%{\xc2\xbb'.encode(sys.getfilesystemencoding())
+        with env_vars({prompt: prompt_value}):
+            # use a file as output stream to simulate PY2 default stdout
+            with tempdir() as td:
+                with open(join(td, "stdout"), "wt") as stdout:
+                    with captured(stdout=stdout) as c:
+                        with pytest.raises(UnicodeEncodeError):
+                            rc = activate_main(('', shell, 'activate', self.prefix))
+
 
 class InteractiveShell(object):
     activator = None
