@@ -1142,8 +1142,7 @@ def test_activate_help(shell):
             with tempdir() as td:
                 with open(join(td, "stdout"), "wt") as stdout:
                     with captured(stdout=stdout) as c:
-                        with pytest.raises(UnicodeEncodeError):
-                            rc = activate_main(('', shell, 'activate', self.prefix))
+                        rc = activate_main(('', shell, 'activate', self.prefix))
 
 
 class InteractiveShell(object):
