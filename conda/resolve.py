@@ -12,9 +12,9 @@ from .exceptions import CondaValueError, ResolvePackageNotFound, UnsatisfiableEr
 from .logic import Clauses, minimal_unsatisfiable_subset
 from .models.dist import Dist
 from .models.enums import NoarchType
-from .models.index_record import IndexRecord
-from .toposort import toposort
-from .version import VersionSpec, normalized_version
+from .models.records import PackageRef
+from .models.match_spec import MatchSpec
+from .models.version import VersionOrder
 
 try:
     from cytoolz.itertoolz import concat, groupby
@@ -25,8 +25,8 @@ log = getLogger(__name__)
 stdoutlog = getLogger('conda.stdoutlog')
 
 # used in conda build
-Unsatisfiable = UnsatisfiableError  # lgtm [py/redundant-assignment]
-ResolvePackageNotFound = ResolvePackageNotFound  # lgtm [py/redundant-assignment]
+Unsatisfiable = UnsatisfiableError
+ResolvePackageNotFound = ResolvePackageNotFound
 
 
 def dashlist(iterable, indent=2):
