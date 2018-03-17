@@ -1179,7 +1179,7 @@ class InteractiveShell(object):
     shells = {
         'posix': {
             'activator': 'posix',
-            'init_command': 'set -u && . conda/shell/etc/profile.d/conda.sh',
+            'init_command': 'eval "$(python -m conda shell.posix hook)"',
             'print_env_var': 'echo "$%s"',
         },
         'bash': {
@@ -1198,7 +1198,7 @@ class InteractiveShell(object):
         },
         'csh': {
             'activator': 'csh',
-            'init_command': 'source conda/shell/etc/profile.d/conda.csh',
+            'init_command': 'eval `python -m conda shell.csh hook`',
             'print_env_var': 'echo "$%s"',
         },
         'tcsh': {
@@ -1206,7 +1206,7 @@ class InteractiveShell(object):
         },
         'fish': {
             'activator': 'fish',
-            'init_command': 'source shell/etc/fish/conf.d/conda.fish',
+            'init_command': 'eval (python -m conda shell.fish hook)',
             'print_env_var': 'echo $%s',
         },
     }
@@ -1227,7 +1227,7 @@ class InteractiveShell(object):
         env = os.environ.copy()
         joiner = os.pathsep.join if self.shell_name == 'fish' else self.activator.pathsep_join
         env['PATH'] = joiner(self.activator.path_conversion(concatv(
-            self.activator._get_path_dirs(join(cwd, 'conda', 'shell')),
+            # self.activator._get_path_dirs(join(cwd, 'conda', 'shell')),
             (dirname(sys.executable),),
             self.activator._get_starting_path_list(),
         )))
