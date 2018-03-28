@@ -3,7 +3,7 @@ from __future__ import absolute_import, print_function, unicode_literals
 
 from logging import getLogger
 import os
-from os.path import dirname, isdir, join, basename
+from os.path import dirname, isdir, join
 import sys
 from tempfile import gettempdir
 from unittest import TestCase
@@ -12,7 +12,8 @@ from uuid import uuid4
 from conda import CONDA_PACKAGE_ROOT
 from conda._vendor.auxlib.ish import dals
 from conda._vendor.toolz.itertoolz import concatv
-from conda.activate import Activator, main as activate_main, native_path_to_unix
+from conda.activate import CmdExeActivator, CshActivator, FishActivator, PosixActivator, \
+    PowershellActivator, XonshActivator, activator_map, main as activate_main, native_path_to_unix
 from conda.base.constants import ROOT_ENV_NAME
 from conda.base.context import context, reset_context
 from conda.common.compat import iteritems, on_win, string_types
@@ -61,7 +62,7 @@ class ActivatorUnitTests(TestCase):
         os.environ.update(self.hold_environ)
 
     def test_activate_environment_not_found(self):
-        activator = Activator('posix')
+        activator = PosixActivator()
 
         with tempdir() as td:
             with pytest.raises(EnvironmentLocationNotFound):
@@ -81,7 +82,7 @@ class ActivatorUnitTests(TestCase):
 
     def test_PS1(self):
         with env_var("CONDA_CHANGEPS1", "yes", reset_context):
-            activator = Activator('posix')
+            activator = PosixActivator()
             assert activator._prompt_modifier(ROOT_ENV_NAME) == '(%s) ' % ROOT_ENV_NAME
 
             instructions = activator.build_activate("base")
@@ -89,14 +90,14 @@ class ActivatorUnitTests(TestCase):
 
     def test_PS1_no_changeps1(self):
         with env_var("CONDA_CHANGEPS1", "no", reset_context):
-            activator = Activator('posix')
+            activator = PosixActivator()
             assert activator._prompt_modifier('root') == ''
 
             instructions = activator.build_activate("base")
             assert instructions['export_vars']['CONDA_PROMPT_MODIFIER'] == ''
 
     def test_add_prefix_to_path(self):
-        activator = Activator('posix')
+        activator = PosixActivator()
 
         path_dirs = activator.path_conversion(['/path1/bin', '/path2/bin', '/usr/local/bin', '/usr/bin', '/bin'])
         assert len(path_dirs) == 5
@@ -108,17 +109,23 @@ class ActivatorUnitTests(TestCase):
         new_path = activator._add_prefix_to_path(test_prefix, path_dirs)
         assert new_path == added_paths + path_dirs
 
-from conda.base.context import context
-from conda.cli.activate import _get_prefix_paths, binpath_from_arg
-from conda.compat import TemporaryDirectory
-from conda.config import platform, root_dir
-from conda.install import symlink_conda
-from conda.utils import on_win, shells, translate_stream
-from tests.helpers import assert_equals, assert_in, assert_not_in
+    def test_remove_prefix_from_path_1(self):
+        activator = PosixActivator()
+        original_path = tuple(activator._get_starting_path_list())
+        keep_path = activator.path_conversion('/keep/this/path')
+        final_path = (keep_path,) + original_path
+        final_path = activator.path_conversion(final_path)
 
 # ENVS_PREFIX = "envs" if PY2 else "envsßôç"
 ENVS_PREFIX = "envs"
 
+    def test_remove_prefix_from_path_2(self):
+        # this time prefix doesn't actually exist in path
+        activator = PosixActivator()
+        original_path = tuple(activator._get_starting_path_list())
+        keep_path = activator.path_conversion('/keep/this/path')
+        final_path = (keep_path,) + original_path
+        final_path = activator.path_conversion(final_path)
 
 def gen_test_env_paths(envs, shell, num_test_folders=5):
     """People need not use all the test folders listed here.
@@ -134,7 +141,7 @@ def gen_test_env_paths(envs, shell, num_test_folders=5):
     return paths
 
     def test_replace_prefix_in_path_1(self):
-        activator = Activator('posix')
+        activator = PosixActivator()
         original_path = tuple(activator._get_starting_path_list())
         new_prefix = join(os.getcwd(), 'mytestpath-new')
         new_paths = activator.path_conversion(activator._get_path_dirs(new_prefix))
@@ -152,7 +159,7 @@ def gen_test_env_paths(envs, shell, num_test_folders=5):
         assert final_path == new_path
 
     def test_default_env(self):
-        activator = Activator('posix')
+        activator = PosixActivator()
         assert ROOT_ENV_NAME == activator._default_env(context.root_prefix)
 
         with tempdir() as td:
@@ -172,7 +179,7 @@ def gen_test_env_paths(envs, shell, num_test_folders=5):
 
             with env_var('CONDA_SHLVL', '0'):
                 with env_var('CONDA_PREFIX', ''):
-                    activator = Activator('posix')
+                    activator = PosixActivator()
                     builder = activator.build_activate(td)
                     new_path = activator.pathsep_join(activator._add_prefix_to_path(td))
                     conda_prompt_modifier = "(%s) " % td
@@ -209,7 +216,7 @@ def gen_test_env_paths(envs, shell, num_test_folders=5):
             old_prefix = '/old/prefix'
             with env_var('CONDA_SHLVL', '1'):
                 with env_var('CONDA_PREFIX', old_prefix):
-                    activator = Activator('posix')
+                    activator = PosixActivator()
                     builder = activator.build_activate(td)
                     new_path = activator.pathsep_join(activator._add_prefix_to_path(td))
                     conda_prompt_modifier = "(%s) " % td
@@ -251,7 +258,7 @@ def gen_test_env_paths(envs, shell, num_test_folders=5):
 
             with env_var('CONDA_SHLVL', '2'):
                 with env_var('CONDA_PREFIX', old_prefix):
-                    activator = Activator('posix')
+                    activator = PosixActivator()
                     builder = activator.build_activate(td)
                     new_path = activator.pathsep_join(activator._add_prefix_to_path(td))
                     conda_prompt_modifier = "(%s) " % td
@@ -291,7 +298,7 @@ def gen_test_env_paths(envs, shell, num_test_folders=5):
 
             with env_var('CONDA_SHLVL', '1'):
                 with env_var('CONDA_PREFIX', old_prefix):
-                    activator = Activator('posix')
+                    activator = PosixActivator()
 
                     builder = activator.build_activate(td)
 
@@ -332,7 +339,7 @@ def gen_test_env_paths(envs, shell, num_test_folders=5):
             with env_var('CONDA_SHLVL', '2'):
                 with env_var('CONDA_PREFIX_1', old_prefix):
                     with env_var('CONDA_PREFIX', td):
-                        activator = Activator('posix')
+                        activator = PosixActivator()
                         original_path = tuple(activator._get_starting_path_list())
 
                         builder = activator.build_deactivate()
@@ -369,7 +376,7 @@ def gen_test_env_paths(envs, shell, num_test_folders=5):
 
             with env_var('CONDA_SHLVL', '1'):
                 with env_var('CONDA_PREFIX', td):
-                    activator = Activator('posix')
+                    activator = PosixActivator()
                     original_path = tuple(activator._get_starting_path_list())
                     builder = activator.build_deactivate()
 
@@ -662,7 +669,7 @@ def test_activate_help(shell):
             assert native_path_to_unix(paths) == paths
 
     def test_posix_basic(self):
-        activator = Activator('posix')
+        activator = PosixActivator()
         self.make_dot_d_files(activator.script_extension)
 
         with captured() as c:
@@ -697,7 +704,7 @@ def test_activate_help(shell):
             'CONDA_SHLVL': '1',
             'PATH': os.pathsep.join(concatv(new_path_parts, (os.environ['PATH'],))),
         }):
-            activator = Activator('posix')
+            activator = PosixActivator()
             with captured() as c:
                 rc = activate_main(('', 'shell.posix', 'reactivate'))
             assert not c.stderr
@@ -745,7 +752,7 @@ def test_activate_help(shell):
 
     @pytest.mark.skipif(not on_win, reason="cmd.exe only on Windows")
     def test_cmd_exe_basic(self):
-        activator = Activator('cmd.exe')
+        activator = CmdExeActivator()
         self.make_dot_d_files(activator.script_extension)
 
         with captured() as c:
@@ -784,7 +791,7 @@ def test_activate_help(shell):
             'CONDA_SHLVL': '1',
             'PATH': os.pathsep.join(concatv(new_path_parts, (os.environ['PATH'],))),
         }):
-            activator = Activator('cmd.exe')
+            activator = CmdExeActivator()
             with captured() as c:
                 assert activate_main(('', 'shell.cmd.exe', 'reactivate')) == 0
             assert not c.stderr
@@ -833,7 +840,7 @@ def test_activate_help(shell):
             }
 
     def test_csh_basic(self):
-        activator = Activator('csh')
+        activator = CshActivator()
         self.make_dot_d_files(activator.script_extension)
 
         with captured() as c:
@@ -868,7 +875,7 @@ def test_activate_help(shell):
             'CONDA_SHLVL': '1',
             'PATH': os.pathsep.join(concatv(new_path_parts, (os.environ['PATH'],))),
         }):
-            activator = Activator('csh')
+            activator = CshActivator()
             with captured() as c:
                 rc = activate_main(('', 'shell.csh', 'reactivate'))
             assert not c.stderr
@@ -915,7 +922,7 @@ def test_activate_help(shell):
             }
 
     def test_xonsh_basic(self):
-        activator = Activator('xonsh')
+        activator = XonshActivator()
         self.make_dot_d_files(activator.script_extension)
 
         with captured() as c:
@@ -952,7 +959,7 @@ def test_activate_help(shell):
             'CONDA_SHLVL': '1',
             'PATH': os.pathsep.join(concatv(new_path_parts, (os.environ['PATH'],))),
         }):
-            activator = Activator('xonsh')
+            activator = XonshActivator()
             with captured() as c:
                 assert activate_main(('', 'shell.xonsh', 'reactivate')) == 0
             assert not c.stderr
@@ -1001,7 +1008,7 @@ def test_activate_help(shell):
             }
 
     def test_fish_basic(self):
-        activator = Activator('fish')
+        activator = FishActivator()
         self.make_dot_d_files(activator.script_extension)
 
         with captured() as c:
@@ -1034,7 +1041,7 @@ def test_activate_help(shell):
             'CONDA_SHLVL': '1',
             'PATH': os.pathsep.join(concatv(new_path_parts, (os.environ['PATH'],))),
         }):
-            activator = Activator('fish')
+            activator = FishActivator()
             with captured() as c:
                 rc = activate_main(('', 'shell.fish', 'reactivate'))
             assert not c.stderr
@@ -1078,7 +1085,7 @@ def test_activate_help(shell):
             }
 
     def test_powershell_basic(self):
-        activator = Activator('powershell')
+        activator = PowershellActivator()
         self.make_dot_d_files(activator.script_extension)
 
         with captured() as c:
@@ -1110,7 +1117,7 @@ def test_activate_help(shell):
             'CONDA_SHLVL': '1',
             'PATH': os.pathsep.join(concatv(new_path_parts, (os.environ['PATH'],))),
         }):
-            activator = Activator('powershell')
+            activator = PowershellActivator()
             with captured() as c:
                 rc = activate_main(('', 'shell.powershell', 'reactivate'))
             assert not c.stderr
@@ -1211,7 +1218,7 @@ class InteractiveShell(object):
         shell_vals.update(self.shells[shell_name])
         for key, value in iteritems(shell_vals):
             setattr(self, key, value)
-        self.activator = Activator(shell_vals['activator'])
+        self.activator = activator_map[shell_vals['activator']]()
 
     def __enter__(self):
         from pexpect.popen_spawn import PopenSpawn
