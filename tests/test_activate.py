@@ -1231,7 +1231,7 @@ class InteractiveShell(object):
         for var_name in remove_these:
             del env[var_name]
 
-        p = PopenSpawn(self.shell_name, timeout=6, maxread=2000, searchwindowsize=None,
+        p = PopenSpawn(self.shell_name, timeout=12, maxread=2000, searchwindowsize=None,
                        logfile=sys.stdout, cwd=os.getcwd(), env=env, encoding=None,
                        codec_errors='strict')
 
