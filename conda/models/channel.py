@@ -14,11 +14,9 @@ from ..common.url import (Url, has_scheme, is_url, join_url, path_to_url,
                           urlparse)
 
 try:
-    from cytoolz.functoolz import excepts
-    from cytoolz.itertoolz import concat, concatv, topk
-except ImportError:
-    from .._vendor.toolz.functoolz import excepts  # NOQA
-    from .._vendor.toolz.itertoolz import concat, concatv, topk  # NOQA
+    from cytoolz.itertoolz import concat, concatv, drop
+except ImportError:  # pragma: no cover
+    from .._vendor.toolz.itertoolz import concat, concatv, drop  # NOQA
 
 log = getLogger(__name__)
 
