@@ -4,6 +4,7 @@ from __future__ import absolute_import, division, print_function, unicode_litera
 import bz2
 from contextlib import contextmanager
 from glob import glob
+from itertools import chain
 import json
 from json import loads as json_loads
 from logging import DEBUG, INFO, getLogger
@@ -414,7 +415,7 @@ class IntegrationTests(TestCase):
             assert_package_is_installed(prefix, 'python-3')
 
             # Test force reinstall
-            stdout, stderr = run_command(Commands.INSTALL, prefix, '--force', 'flask=0.10', '--json')
+            stdout, stderr = run_command(Commands.INSTALL, prefix, '--force-reinstall', 'flask=0.10', '--json')
             assert_json_parsable(stdout)
             assert not stderr
             assert_package_is_installed(prefix, 'flask-0.10.1')
@@ -854,8 +855,14 @@ class IntegrationTests(TestCase):
         with make_temp_env() as prefix:
             stdout, stderr = run_command(Commands.CONFIG, prefix, "--describe")
             assert not stderr
-            for param_name in context.list_parameters():
-                assert re.search(r'^# %s \(' % param_name, stdout, re.MULTILINE)
+            skip_categories = ('CLI-only', 'Hidden and Undocumented')
+            documented_parameter_names = chain.from_iterable((
+                parameter_names for category, parameter_names in iteritems(context.category_map)
+                if category not in skip_categories
+            ))
+
+            for param_name in documented_parameter_names:
+                assert re.search(r'^# # %s \(' % param_name, stdout, re.MULTILINE), param_name
 
             stdout, stderr = run_command(Commands.CONFIG, prefix, "--describe --json")
             assert not stderr
@@ -884,8 +891,8 @@ class IntegrationTests(TestCase):
             with open(join(prefix, 'condarc')) as fh:
                 data = fh.read()
 
-            for param_name in context.list_parameters():
-                assert re.search(r'^# %s \(' % param_name, data, re.MULTILINE)
+            for param_name in documented_parameter_names:
+                assert re.search(r'^# %s \(' % param_name, data, re.MULTILINE), param_name
 
             stdout, stderr = run_command(Commands.CONFIG, prefix, "--describe --json")
             assert not stderr
