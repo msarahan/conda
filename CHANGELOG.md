@@ -1,27 +1,8 @@
-## 4.6.0 (unreleased)
-
-### Deprecations/Breaking Changes
-* resolve #6915 remove 'conda env attach' and 'conda env upload' (#6916)
-
-### Improvements
-* import speedups (#7122)
-* --help cleanup (#7120)
-
-### Bug Fixes
-* fix #7107 verify hangs when a package is corrupted (#7131)
-* fix #7145 progress bar uses stderr instead of stdout (#7146)
-* fix typo in conda.fish (#7152)
-* fix #2154 conda remove should complain if requested removals don't exist (#7135)
-* fix #7094 exit early for --dry-run with explicit and clone (#7096)
-
-### Non-User-Facing Changes
-* resolve #6595 use OO inheritence in activate.py (#7049)
-
-
-## 4.5.1 (unreleased)
+## 4.5.1 (2018-04-13)
 
 ### Improvements
 * add anaconda.org search message to PackagesNotFoundError (#7075)
+* add CondaError details to auto-upload reports (#7060)
 
 ### Bug Fixes
 * fix #6703,#6981 index out of bound when running deactivate on fish shell (#6993)
@@ -31,6 +12,7 @@
 * add _file_created attribute (#7054)
 * fix handling of non-ascii characters in custom_multichannels (#7050)
 * fix #6877 handle non-zero return in CSH (#7042)
+* fix #7040 update tqdm to version 4.22.0 (#7157)
 
 
 ## 4.5.0 (2018-03-20)
