@@ -205,7 +205,7 @@ class _Activator(object):
         if old_conda_prefix == prefix and old_conda_shlvl > 0:
             return self.build_reactivate()
 
-        activate_scripts = sorted(self._get_activate_scripts(prefix))
+        activate_scripts = self._get_activate_scripts(prefix)
         conda_default_env = self._default_env(prefix)
         conda_prompt_modifier = self._prompt_modifier(prefix, conda_default_env)
 
