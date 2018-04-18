@@ -66,7 +66,7 @@ def init_loggers(context=None):
         log.debug("verbosity set to %s", context.verbosity)
 
 
-def _main(*args):
+def _main(*args, **kwargs):
     if len(args) == 1:
         args = args + ('-h',)
 
@@ -77,17 +77,23 @@ def _main(*args):
     context.__init__(argparse_args=args)
     init_loggers(context)
 
+    # used with main_pip.py
+    post_parse_hook = kwargs.pop('post_parse_hook', None)
+    if post_parse_hook:
+        post_parse_hook(args, p)
+
     from .conda_argparse import do_call
     exit_code = do_call(args, p)
     if isinstance(exit_code, int):
         return exit_code
 
 
-def main(*args):
+def main(*args, **kwargs):
     # conda.common.compat contains only stdlib imports
     from ..common.compat import ensure_text_type, init_std_stream_encoding
 
     init_std_stream_encoding()
+
     if not args:
         args = sys.argv
 
@@ -103,9 +109,6 @@ def main(*args):
                 import conda.cli.activate as activate
                 activate.main()
                 return
-            elif argv1 in ('activate', 'deactivate'):
-                from ..exceptions import CommandNotFoundError
-                raise CommandNotFoundError(argv1)
         except Exception as e:
             _, exc_val, exc_tb = sys.exc_info()
             init_loggers()
@@ -113,7 +116,7 @@ def main(*args):
             return ExceptionHandler().handle_exception(exc_val, exc_tb)
 
     from ..exceptions import conda_exception_handler
-    return conda_exception_handler(_main, *args)
+    return conda_exception_handler(_main, *args, **kwargs)
 
 
 if __name__ == '__main__':
