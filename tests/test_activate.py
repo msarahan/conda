@@ -204,6 +204,7 @@ def gen_test_env_paths(envs, shell, num_test_folders=5):
                     assert builder['activate_scripts'] == (activator.path_conversion(activate_d_1),)
                     assert builder['deactivate_scripts'] == ()
 
+    @pytest.mark.skipif(on_win, reason="cygpath isn't always on PATH")
     def test_build_activate_shlvl_1(self):
         with tempdir() as td:
             mkdir_p(join(td, 'conda-meta'))
@@ -277,6 +278,7 @@ def gen_test_env_paths(envs, shell, num_test_folders=5):
                     assert builder['activate_scripts'] == ()
                     assert builder['deactivate_scripts'] == ()
 
+    @pytest.mark.skipif(on_win, reason="cygpath isn't always on PATH")
     def test_build_stack_shlvl_1(self):
         with tempdir() as td:
             mkdir_p(join(td, 'conda-meta'))
@@ -393,6 +395,7 @@ def gen_test_env_paths(envs, shell, num_test_folders=5):
                     assert builder['activate_scripts'] == (activator.path_conversion(activate_d_1),)
                     assert builder['deactivate_scripts'] == (activator.path_conversion(deactivate_d_1),)
 
+    @pytest.mark.skipif(on_win, reason="cygpath isn't always on PATH")
     def test_build_deactivate_shlvl_2_from_stack(self):
         with tempdir() as td:
             mkdir_p(join(td, 'conda-meta'))
@@ -448,6 +451,7 @@ def gen_test_env_paths(envs, shell, num_test_folders=5):
                     assert builder['activate_scripts'] == (activator.path_conversion(activate_d_1),)
                     assert builder['deactivate_scripts'] == (activator.path_conversion(deactivate_d_1),)
 
+    @pytest.mark.skipif(on_win, reason="cygpath isn't always on PATH")
     def test_build_deactivate_shlvl_2_from_activate(self):
         with tempdir() as td:
             mkdir_p(join(td, 'conda-meta'))
