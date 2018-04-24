@@ -16,7 +16,8 @@ from conda.activate import CmdExeActivator, CshActivator, FishActivator, PosixAc
     PowershellActivator, XonshActivator, activator_map, main as activate_main, native_path_to_unix
 from conda.base.constants import ROOT_ENV_NAME
 from conda.base.context import context, reset_context
-from conda.common.compat import ensure_text_type, iteritems, on_win, string_types
+from conda.common.compat import ensure_text_type, iteritems, on_win, \
+    string_types
 from conda.common.io import captured, env_var, env_vars
 from conda.exceptions import EnvironmentLocationNotFound, EnvironmentNameNotFound
 from conda.gateways.disk.create import mkdir_p
@@ -1410,12 +1411,18 @@ class InteractiveShell(object):
             raise
 
     def get_env_var(self, env_var):
-        self.sendline('echo get_var_start')
-        self.sendline(self.print_env_var % env_var)
-        self.sendline('echo get_var_end')
-        self.expect('get_var_start(.*)get_var_end')
-        value = self.p.match.groups()[0]
-        return ensure_text_type(value).strip()
+        if self.shell_name == 'cmd.exe':
+            self.sendline("@echo %%%s%%" % env_var)
+            self.expect("@echo %%%s%%\r\n([^\r]*)\r" % env_var)
+            value = self.p.match.groups()[0]
+            return ensure_text_type(value).strip()
+        else:
+            self.sendline('echo get_var_start')
+            self.sendline(self.print_env_var % env_var)
+            self.sendline('echo get_var_end')
+            self.expect('get_var_start(.*)get_var_end')
+            value = self.p.match.groups()[0]
+            return ensure_text_type(value).strip()
 
 
 def which(executable):
@@ -1678,6 +1685,7 @@ class ShellWrapperIntegrationTests(TestCase):
     @pytest.mark.skipif(not which('cmd.exe'), reason='cmd.exe not installed')
     def test_legacy_activate_deactivate_cmd_exe(self):
         with InteractiveShell('cmd.exe') as shell:
+            shell.sendline("echo off")
             shell.sendline("SET \"PATH=%s\\shell\\Scripts;%%PATH%%\"" % CONDA_PACKAGE_ROOT)
             shell.sendline("activate \"%s\"" % self.prefix2)
             PATH = shell.get_env_var("PATH")
@@ -1692,6 +1700,5 @@ class ShellWrapperIntegrationTests(TestCase):
             assert 'charizard' in PATH
 
             shell.sendline("deactivate")
-            shell.sendline("@echo break_here")
-            shell.expect("break_here")
-            shell.assert_env_var('CONDA_SHLVL', '0')
+            conda_shlvl = shell.get_env_var('CONDA_SHLVL')
+            assert int(conda_shlvl) == 0, conda_shlvl
