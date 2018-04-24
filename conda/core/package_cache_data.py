@@ -29,6 +29,7 @@ from ..gateways.disk.test import file_path_is_writable
 from ..models.dist import Dist
 from ..models.match_spec import MatchSpec
 from ..models.records import PackageCacheRecord, PackageRecord, PackageRef
+from ..utils import human_bytes
 
 try:
     from cytoolz.itertoolz import concat, concatv, groupby
@@ -606,18 +607,25 @@ class ProgressiveFetchExtract(object):
         if cache_axn is None and extract_axn is None:
             return
 
-        max_tries = 3
-        exceptions = []
-        for q in range(max_tries):
-            try:
-                action.execute()
-            except Exception as e:
-                log.debug("Error in action %s", action, exc_info=True)
-                action.reverse()
-                exceptions.append(CondaError(repr(e)))
-            else:
-                action.cleanup()
-                return
+        desc = "%s-%s" % (prec_or_spec.name, prec_or_spec.version)
+        if len(desc) > 20:
+            desc = desc[:20]
+        size = getattr(prec_or_spec, 'size', None)
+        desc = "%-20s | %7s | " % (desc, size and human_bytes(size) or '')
+
+        progress_bar = ProgressBar(desc, not context.verbosity and not context.quiet, context.json)
+
+        download_total = 0.75  # fraction of progress for download; the rest goes to extract
+        try:
+            if cache_axn:
+                cache_axn.verify()
+
+                if not cache_axn.url.startswith('file:/'):
+                    def progress_update_cache_axn(pct_completed):
+                        progress_bar.update_to(pct_completed * download_total)
+                else:
+                    download_total = 0
+                    progress_update_cache_axn = None
 
                 cache_axn.execute(progress_update_cache_axn)
 
