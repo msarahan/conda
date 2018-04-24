@@ -520,7 +520,6 @@ def gen_test_env_paths(envs, shell, num_test_folders=5):
                         'CONDA_PREFIX',
                         'CONDA_DEFAULT_ENV',
                         'CONDA_PYTHON_EXE',
-                        'CONDA_EXE',
                         'CONDA_PROMPT_MODIFIER',
                     )
 
@@ -873,7 +872,6 @@ def test_activate_help(shell):
             assert deactivate_data == dals("""
             \\. "%(deactivate1)s"
             \\unset CONDA_DEFAULT_ENV
-            \\unset CONDA_EXE
             \\unset CONDA_PREFIX
             \\unset CONDA_PROMPT_MODIFIER
             \\unset CONDA_PYTHON_EXE
@@ -1043,11 +1041,10 @@ def test_activate_help(shell):
             new_path = activator.pathsep_join(activator._remove_prefix_from_path(self.prefix))
             assert deactivate_data == dals("""
             source "%(deactivate1)s";
-            unset CONDA_DEFAULT_ENV;
-            unset CONDA_EXE;
-            unset CONDA_PREFIX;
-            unset CONDA_PROMPT_MODIFIER;
-            unset CONDA_PYTHON_EXE;
+            unsetenv CONDA_DEFAULT_ENV;
+            unsetenv CONDA_PREFIX;
+            unsetenv CONDA_PROMPT_MODIFIER;
+            unsetenv CONDA_PYTHON_EXE;
             set prompt='%(prompt)s';
             setenv CONDA_SHLVL "0";
             setenv PATH "%(new_path)s";
@@ -1132,7 +1129,6 @@ def test_activate_help(shell):
             assert deactivate_data == dals("""
             source "%(deactivate1)s"
             del $CONDA_DEFAULT_ENV
-            del $CONDA_EXE
             del $CONDA_PREFIX
             del $CONDA_PROMPT_MODIFIER
             del $CONDA_PYTHON_EXE
@@ -1208,7 +1204,6 @@ def test_activate_help(shell):
             assert deactivate_data == dals("""
             source "%(deactivate1)s";
             set -e CONDA_DEFAULT_ENV;
-            set -e CONDA_EXE;
             set -e CONDA_PREFIX;
             set -e CONDA_PROMPT_MODIFIER;
             set -e CONDA_PYTHON_EXE;
@@ -1284,7 +1279,6 @@ def test_activate_help(shell):
             assert deactivate_data == dals("""
             . "%(deactivate1)s"
             Remove-Variable CONDA_DEFAULT_ENV
-            Remove-Variable CONDA_EXE
             Remove-Variable CONDA_PREFIX
             Remove-Variable CONDA_PROMPT_MODIFIER
             Remove-Variable CONDA_PYTHON_EXE
