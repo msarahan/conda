@@ -826,6 +826,7 @@ class Resolve(object):
             return specs
 
     def bad_installed(self, installed, new_specs):
+        assert all(isinstance(prec, PackageRecord) for prec in installed)
         log.debug('Checking if the current environment is consistent')
         if not installed:
             return None, []
@@ -874,6 +875,7 @@ class Resolve(object):
             pkgs.extend(p for p in preserve if self.package_name(p) not in sdict)
 
     def install_specs(self, specs, installed, update_deps=True):
+        assert all(isinstance(prec, PackageRecord) for prec in installed)
         specs = list(map(MatchSpec, specs))
         snames = {s.name for s in specs}
         log.debug('Checking satisfiability of current install')
@@ -896,12 +898,15 @@ class Resolve(object):
         return specs, preserve
 
     def install(self, specs, installed=None, update_deps=True, returnall=False):
+        if installed:
+            assert all(isinstance(prec, PackageRecord) for prec in installed)
         specs, preserve = self.install_specs(specs, installed or [], update_deps)
         pkgs = self.solve(specs, returnall=returnall, _remove=False)
         self.restore_bad(pkgs, preserve)
         return pkgs
 
     def remove_specs(self, specs, installed):
+        assert all(isinstance(prec, PackageRecord) for prec in installed)
         nspecs = []
         # There's an imperfect thing happening here. "specs" nominally contains
         # a list of package names or track_feature values to be removed. But
@@ -933,6 +938,7 @@ class Resolve(object):
         return nspecs, preserve
 
     def remove(self, specs, installed):
+        assert all(isinstance(prec, PackageRecord) for prec in installed)
         specs, preserve = self.remove_specs(specs, installed)
         pkgs = self.solve(specs, _remove=True)
         self.restore_bad(pkgs, preserve)
