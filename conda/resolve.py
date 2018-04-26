@@ -8,9 +8,10 @@ from .base.constants import DEFAULTS_CHANNEL_NAME, MAX_CHANNEL_PRIORITY
 from .base.context import context
 from .common.compat import iteritems, iterkeys, itervalues, on_win, string_types
 from .common.io import time_recorder
-from .exceptions import CondaValueError, ResolvePackageNotFound, UnsatisfiableError
-from .logic import Clauses, minimal_unsatisfiable_subset
-from .models.dist import Dist
+from .common.logic import Clauses, minimal_unsatisfiable_subset
+from .common.toposort import toposort
+from .exceptions import ResolvePackageNotFound, UnsatisfiableError
+from .models.channel import Channel, MultiChannel
 from .models.enums import NoarchType
 from .models.records import PackageRef, PackageRecord
 from .models.match_spec import MatchSpec
