@@ -1343,7 +1343,9 @@ class InteractiveShell(object):
         },
         'cmd.exe': {
             'activator': 'cmd.exe',
-            'init_command': 'conda\\shell\\condacmd\\conda-hook.bat',
+            'init_command': 'set CONDA_SHLVL= '
+                            '&& conda\\shell\\condacmd\\conda_hook.bat '
+                            '&& set CONDA_EXE="python -m conda"',
             'print_env_var': '@echo %%%s%%',
         },
         'csh': {
@@ -1712,7 +1714,6 @@ class ShellWrapperIntegrationTests(TestCase):
     def test_legacy_activate_deactivate_cmd_exe(self):
         with InteractiveShell('cmd.exe') as shell:
             shell.sendline("echo off")
-            shell.sendline("SET CONDA_EXE=python -m conda")
 
             shell.sendline("SET \"PATH=%s\\shell\\Scripts;%%PATH%%\"" % CONDA_PACKAGE_ROOT)
             shell.sendline("activate \"%s\"" % self.prefix2)
