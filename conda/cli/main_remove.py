@@ -2,24 +2,21 @@
 # Consult LICENSE.txt or http://opensource.org/licenses/BSD-3-Clause.
 from __future__ import absolute_import, division, print_function, unicode_literals
 
-from collections import defaultdict
 import logging
 from os.path import isdir
 import sys
 
-from .common import check_non_admin, confirm_yn, specs_from_args, stdout_json
+from .common import check_non_admin, specs_from_args, stdout_json
 from .install import handle_txn
 from ..base.context import context
-from ..common.compat import iteritems, iterkeys
 from ..core.envs_manager import unregister_env
-from ..core.prefix_data import linked_data
+from ..core.link import PrefixSetup, UnlinkLinkTransaction
+from ..core.prefix_data import PrefixData
 from ..core.solve import Solver
 from ..exceptions import CondaEnvironmentError, CondaValueError
 from ..gateways.disk.delete import delete_trash, rm_rf
 from ..gateways.disk.test import is_conda_environment
-from ..instructions import PREFIX
 from ..models.match_spec import MatchSpec
-from ..plan import (add_unlink, display_actions)
 
 log = logging.getLogger(__name__)
 
@@ -51,48 +48,19 @@ def execute(args, parser):
                                         '       add -n NAME or -p PREFIX option')
         print("\nRemove all packages in environment %s:\n" % prefix, file=sys.stderr)
 
-        index = linked_data(prefix)
-        index = {dist: info for dist, info in iteritems(index)}
+        stp = PrefixSetup(
+            target_prefix=prefix,
+            unlink_precs=tuple(PrefixData(prefix).iter_records()),
+            link_precs=(),
+            remove_specs=(),
+            update_specs=(),
+        )
+        txn = UnlinkLinkTransaction(stp)
+        handle_txn(txn, prefix, args, False, True)
 
-        actions = defaultdict(list)
-        actions[PREFIX] = prefix
-        for dist in sorted(iterkeys(index)):
-            add_unlink(actions, dist)
-        actions['ACTION'] = 'REMOVE_ALL'
-        action_groups = (actions, index),
-
-    delete_trash()
-    if any(nothing_to_do(actions) for actions in action_groups):
-        if args.all:
-            print("\nRemove all packages in environment %s:\n" % prefix, file=sys.stderr)
-            if not args.json:
-                confirm_yn(args)
-            rm_rf(prefix)
-
-            if context.json:
-                stdout_json({
-                    'success': True,
-                    'actions': action_groups
-                })
-            return
-
-        pkg = str(args.package_names).replace("['", "")
-        pkg = pkg.replace("']", "")
-
-        raise PackageNotFoundError(pkg)
-
-    for action in action_groups:
-        if not context.json:
-            display_actions(actions, index)
-            confirm_yn()
         rm_rf(prefix)
         unregister_env(prefix)
 
-        if context.json:
-            stdout_json({
-                'success': True,
-                'actions': tuple(x[0] for x in action_groups)
-            })
         return
 
     else:
