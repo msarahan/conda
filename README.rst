@@ -2,7 +2,7 @@
    conda.pydata.org. If you update this file, be sure to cd to the web
    directory and run ``make html; make live``
 
-.. image:: https://s3.amazonaws.com/conda-dev/conda_logo_2.svg
+.. image:: https://s3.amazonaws.com/conda-dev/conda_logo.svg
    :alt: Conda Logo
 
 ----------------------------------------
@@ -23,6 +23,13 @@
    :alt: latest release version
    :target: https://github.com/conda/conda/releases
 
+|
+
+.. image:: https://s3.amazonaws.com/conda-dev/conda-announce-signup-button.svg
+   :alt: Join the Conda Announcment List
+   :target: https://conda.io/docs/help-support.html#conda-announcements-list
+
+|
 
 Conda is a cross-platform, language-agnostic binary package manager. It is the
 package manager used by `Anaconda
