@@ -23,6 +23,13 @@
    :alt: latest release version
    :target: https://github.com/conda/conda/releases
 
+|
+
+.. image:: https://s3.amazonaws.com/conda-dev/conda-announce-signup-button.svg
+   :alt: Join the Conda Announcment List
+   :target: https://conda.io/docs/help-support.html#conda-announcements-list
+
+|
 
 Conda is a cross-platform, language-agnostic binary package manager. It is the
 package manager used by `Anaconda

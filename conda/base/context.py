@@ -651,7 +651,6 @@ class Context(Configuration):
             'env_prompt',
             'envs_dirs',
             'pkgs_dirs',
-            'max_shlvl',
         )),
         ('Network Configuration', (
             'client_ssl_cert',
@@ -911,9 +910,6 @@ class Context(Configuration):
                 respected). For a value of True or 1, respect the HTTP Cache-Control max-age
                 header. Any other positive integer values is the number of seconds to locally
                 cache repodata before checking the remote server for an update.
-                """),
-            'max_shlvl': dals("""
-                The maximum number of stacked active conda environments.
                 """),
             'migrated_channel_aliases': dals("""
                 A list of previously-used channel_alias values. Useful when switching between
