@@ -4,16 +4,15 @@ from __future__ import absolute_import, division, print_function, unicode_litera
 from itertools import chain
 from logging import getLogger
 
-from .linked_data import PrefixData, linked_data
-from .package_cache import PackageCache
-from .repodata import SubdirData, make_feature_record
+from .package_cache_data import PackageCacheData
+from .prefix_data import PrefixData
+from .subdir_data import SubdirData, make_feature_record
 from .._vendor.boltons.setutils import IndexedSet
 from ..base.context import context
-from ..common.compat import iteritems, itervalues
+from ..common.compat import itervalues
 from ..common.io import ThreadLimitedThreadPoolExecutor, as_completed, time_recorder
 from ..exceptions import OperationNotAllowed
 from ..models.channel import Channel, all_channel_urls
-from ..models.dist import Dist
 from ..models.match_spec import MatchSpec
 from ..models.records import EMPTY_LINK, PackageCacheRecord, PrefixRecord
 from ..resolve import dashlist
@@ -79,27 +78,31 @@ def get_index(channel_urls=(), prepend=True, platform=None,
 
 def fetch_index(channel_urls, use_cache=False, index=None):
     log.debug('channel_urls=' + repr(channel_urls))
-
-    use_cache = use_cache or context.use_index_cache
-
-    # channel_urls reversed to build up index in correct order
-    from .subdir_data import collect_all_repodata_as_index
-    index = collect_all_repodata_as_index(use_cache, channel_urls)
-
+    index = {}
+    for url in channel_urls:
+        sd = SubdirData(Channel(url))
+        index.update((rec, rec) for rec in sd.iter_records())
     return index
+
+
+def dist_str_in_index(index, dist_str):
+    match_spec = MatchSpec.from_dist_str(dist_str)
+    return any(match_spec.match(prec) for prec in itervalues(index))
 
 
 def _supplement_index_with_prefix(index, prefix):
     # supplement index with information from prefix/conda-meta
     assert prefix
-    for dist, prefix_record in iteritems(linked_data(prefix)):
-        if dist in index:
+    for prefix_record in PrefixData(prefix).iter_records():
+        if prefix_record in index:
             # The downloaded repodata takes priority, so we do not overwrite.
             # We do, however, copy the link information so that the solver (i.e. resolve)
             # knows this package is installed.
-            current_record = index[dist]
+            current_record = index[prefix_record]
             link = prefix_record.get('link') or EMPTY_LINK
-            index[dist] = PrefixRecord.from_objects(current_record, prefix_record, link=link)
+            index[prefix_record] = PrefixRecord.from_objects(
+                current_record, prefix_record, link=link
+            )
         else:
             # If the package is not in the repodata, use the local data.
             # If the channel is known but the package is not in the index, it
@@ -108,25 +111,24 @@ def _supplement_index_with_prefix(index, prefix):
             # other version of the package to this one. On the other hand, if
             # it is in a channel we don't know about, assign it a value just
             # above the priority of all known channels.
-            index[dist] = prefix_record
+            index[prefix_record] = prefix_record
 
 
 def _supplement_index_with_cache(index):
     # supplement index with packages from the cache
     for pcrec in PackageCacheData.get_all_extracted_entries():
-        dist = Dist(pcrec)
-        if dist in index:
+        if pcrec in index:
             # The downloaded repodata takes priority
-            current_record = index[dist]
-            index[dist] = PackageCacheRecord.from_objects(current_record, pcrec)
+            current_record = index[pcrec]
+            index[pcrec] = PackageCacheRecord.from_objects(current_record, pcrec)
         else:
-            index[dist] = pcrec
+            index[pcrec] = pcrec
 
 
 def _supplement_index_with_features(index, features=()):
     for feature in chain(context.track_features, features):
         rec = make_feature_record(feature)
-        index[Dist(rec)] = rec
+        index[rec] = rec
 
 
 def calculate_channel_urls(channel_urls=(), prepend=True, platform=None, use_local=False):
@@ -137,60 +139,6 @@ def calculate_channel_urls(channel_urls=(), prepend=True, platform=None, use_loc
 
     subdirs = (platform, 'noarch') if platform is not None else context.subdirs
     return all_channel_urls(channel_urls, subdirs=subdirs)
-
-
-@time_recorder("get_index")
-def get_index(channel_urls=(), prepend=True, platform=None,
-              use_local=False, use_cache=False, unknown=None, prefix=None):
-    """
-    Return the index of packages available on the channels
-
-    If prepend=False, only the channels passed in as arguments are used.
-    If platform=None, then the current platform is used.
-    If prefix is supplied, then the packages installed in that prefix are added.
-    """
-
-    if context.offline and unknown is None:
-        unknown = True
-
-    channel_priority_map = get_channel_priority_map(channel_urls, prepend, platform, use_local)
-
-    index = fetch_index(channel_priority_map, use_cache=use_cache)
-
-    if prefix or unknown:
-        known_channels = {chnl for chnl, _ in itervalues(channel_priority_map)}
-    if prefix:
-        _supplement_index_with_prefix(index, prefix, known_channels)
-    if unknown:
-        _supplement_index_with_cache(index, known_channels)
-    return index
-
-
-def fetch_index(channel_urls, use_cache=False, index=None):
-    # type: (prioritize_channels(), bool, bool, Dict[Dist, IndexRecord]) -> Dict[Dist, IndexRecord]
-    log.debug('channel_urls=' + repr(channel_urls))
-    if not context.json and not context.quiet:
-        stdoutlog.info("Fetching package metadata ...")
-
-    CollectTask = namedtuple('CollectTask', ('url', 'schannel', 'priority'))
-    tasks = [CollectTask(url, *cdata) for url, cdata in iteritems(channel_urls)]
-    repodatas = collect_all_repodata(use_cache, tasks)
-    # type: List[Sequence[str, Option[Dict[Dist, IndexRecord]]]]
-    #   this is sorta a lie; actually more primitve types
-
-    if index is None:
-        index = {}
-    for _, repodata in reversed(repodatas):
-        if repodata:
-            index.update(repodata.get('packages', {}))
-
-    if not context.json:
-        stdoutlog.info('\n')
-    return index
-
-
-def dist_str_in_index(index, dist_str):
-    return Dist(dist_str) in index
 
 
 def get_reduced_index(prefix, channels, subdirs, specs):
@@ -280,7 +228,7 @@ def get_reduced_index(prefix, channels, subdirs, specs):
                     push_record(record)
                 records.update(new_records)
 
-        reduced_index = {Dist(rec): rec for rec in records}
+        reduced_index = {rec: rec for rec in records}
 
         if prefix is not None:
             _supplement_index_with_prefix(reduced_index, prefix)
@@ -299,6 +247,6 @@ def get_reduced_index(prefix, channels, subdirs, specs):
         known_features.update(context.track_features)
         for ftr_str in known_features:
             rec = make_feature_record(ftr_str)
-            reduced_index[Dist(rec)] = rec
+            reduced_index[rec] = rec
 
         return reduced_index
