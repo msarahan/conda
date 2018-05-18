@@ -32,4 +32,3 @@ Miniconda*.sh
 miniconda*.sh
 miniconda*.exe
 .pytest_cache/
-squid/
