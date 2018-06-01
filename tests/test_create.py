@@ -1231,50 +1231,10 @@ class IntegrationTests(TestCase):
                                          use_exception_handler=True)
             assert "not-a-real-package" in stderr
 
-    def test_conda_pip_interop_dependency_satisfied_by_pip(self):
-        with make_temp_env("python") as prefix:
-            check_call(PYTHON_BINARY + " -m pip install itsdangerous",
-                       cwd=prefix, shell=True)
-
-            PrefixData._cache_.clear()
-            stdout, stderr = run_command(Commands.LIST, prefix)
-            assert 'itsdangerous' in stdout
-            assert not stderr
-
-            stdout, stderr = run_command(Commands.INSTALL, prefix, 'flask --dry-run --json',
+            stdout, stderr = run_command(Commands.SEARCH, prefix, "not-a-real-package", "--json",
                                          use_exception_handler=True)
-            json_obj = json.loads(stdout)
-            print(json_obj)
-            assert any(rec["name"] == "flask" for rec in json_obj["actions"]["LINK"])
-            assert not any(rec["name"] == "itsdangerous" for rec in json_obj["actions"]["LINK"])
             assert not stderr
-
-    @pytest.mark.skipif(datetime.now() < datetime(2018, 6, 1), reason="TODO")
-    def test_conda_pip_interop_pip_clobbers_conda(self):
-        # 1. conda install old six
-        # 2. pip install -U six
-        # 3. conda list shows new six and deletes old conda record
-        # 4. probably need to purge something with the history file too?
-        assert False
-
-    @pytest.mark.skipif(datetime.now() < datetime(2018, 6, 1), reason="TODO")
-    def test_conda_pip_interop_conda_updates_pip_package(self):
-        assert False
-
-    @pytest.mark.skipif(datetime.now() < datetime(2018, 6, 1), reason="TODO")
-    def test_conda_pip_interop_conda_doesnt_update_ancient_distutils_package(self):
-        # probably easiest just to use a conda package and remove the conda-meta record
-        assert False
-
-    @pytest.mark.skipif(datetime.now() < datetime(2018, 6, 1), reason="TODO")
-    def test_conda_pip_interop_conda_doesnt_update_editable_package(self):
-        assert False
-
-    @pytest.mark.skipif(on_win, reason="gawk is a windows only package")
-    def test_search_gawk_not_win_1(self):
-        with make_temp_env() as prefix:
-            stdout, stderr = run_command(Commands.SEARCH, prefix, "gawk", "--json", use_exception_handler=True)
-            json_obj = json_loads(stdout.replace("Fetching package metadata ...", "").strip())
+            json_obj = json_loads(stdout.strip())
             assert json_obj['exception_name'] == 'PackagesNotFoundError'
             assert not len(json_obj.keys()) == 0
 
