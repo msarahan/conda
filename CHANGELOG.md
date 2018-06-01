@@ -1,3 +1,56 @@
+## 4.6.0 (unreleased)
+
+### New Feature Highlights
+* resolve #7194 add '--stack' flag to 'conda activate'; remove max_shlvl
+  config (#7195, #7226, #7233)
+* resolve #7087 add non-conda-installed python packages into PrefixData (#7067)
+
+### Deprecations/Breaking Changes
+* resolve #6915 remove 'conda env attach' and 'conda env upload' (#6916)
+* resolve #7061 remove pkgs/pro from defaults (#7162)
+* resolve #7078 add deprecation warnings for 'conda.cli.activate',
+  'conda.compat', and 'conda.install' (#7079)
+* resolve #7194 add '--stack' flag to 'conda activate'; remove max_shlvl
+  config (#7195)
+* resolve #6979, #7086 remove Dist from majority of project (#7216, #7252)
+
+### Improvements
+* import speedups (#7122)
+* --help cleanup (#7120)
+* fish autocompletion for conda env (#7101)
+* remove reference to 'system' channel (#7163)
+* add http error body to debug information (#7160)
+* warn creating env name with space is not supported (#7168)
+* support complete MatchSpec syntax in environment.yml files (#7178)
+* resolve #4274 add option to remove an existing environment with 'conda create' (#7133)
+* add ability for conda prompt customization via 'env_prompt' config param (#7047)
+* resolve #7063 add license and license_family to MatchSpec for 'conda search' (#7064)
+* resolve #7189 progress bar formatting improvement (#7191)
+* raise log level for errors to error (#7229)
+* add to conda.exports (#7217)
+* resolve #6845 add option -S / --satisfied-skip-solve to exit early for satisfied specs (#7291)
+
+### Bug Fixes
+* fix #7107 verify hangs when a package is corrupted (#7131)
+* fix #7145 progress bar uses stderr instead of stdout (#7146)
+* fix typo in conda.fish (#7152)
+* fix #2154 conda remove should complain if requested removals don't exist (#7135)
+* fix #7094 exit early for --dry-run with explicit and clone (#7096)
+* fix activation script sort order (#7176)
+* fix #7109 incorrect chown with sudo (#7180)
+* fix #7210 add suppressed --mkdir back to 'conda create' (fix for 4.6.0a1) (#7211)
+
+### Non-User-Facing Changes
+* resolve #6595 use OO inheritance in activate.py (#7049)
+* resolve #7220 pep8 project renamed to pycodestyle (#7221)
+* proxy test routine (#7308)
+
+### Preview Releases
+
+* 4.6.0a1 at d5bec21d1f64c3bc66c2999cfc690681e9c46177 on 2018-04-20
+* 4.6.0a2 at c467517ca652371ebc4224f0d49315b7ec225108 on 2018-05-01
+
+
 ## 4.5.3 (2018-05-07)
 
 ### Bug Fixes
