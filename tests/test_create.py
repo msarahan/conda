@@ -1238,6 +1238,27 @@ class IntegrationTests(TestCase):
             assert json_obj['exception_name'] == 'PackagesNotFoundError'
             assert not len(json_obj.keys()) == 0
 
+    @pytest.mark.skipif(datetime.now() < datetime(2018, 7, 1), reason="TODO")
+    def test_conda_pip_interop_pip_clobbers_conda(self):
+        # 1. conda install old six
+        # 2. pip install -U six
+        # 3. conda list shows new six and deletes old conda record
+        # 4. probably need to purge something with the history file too?
+        assert False
+
+    @pytest.mark.skipif(datetime.now() < datetime(2018, 7, 1), reason="TODO")
+    def test_conda_pip_interop_conda_updates_pip_package(self):
+        assert False
+
+    @pytest.mark.skipif(datetime.now() < datetime(2018, 7, 1), reason="TODO")
+    def gittest_conda_pip_interop_conda_doesnt_update_ancient_distutils_package(self):
+        # probably easiest just to use a conda package and remove the conda-meta record
+        assert False
+
+    @pytest.mark.skipif(datetime.now() < datetime(2018, 7, 1), reason="TODO")
+    def test_conda_pip_interop_conda_doesnt_update_editable_package(self):
+        assert False
+
     @pytest.mark.skipif(on_win, reason="gawk is a windows only package")
     def test_search_gawk_not_win_filter(self):
         with make_temp_env() as prefix:
