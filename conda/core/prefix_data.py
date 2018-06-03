@@ -54,16 +54,21 @@ class PrefixDataType(type):
 class PrefixData(object):
     _cache_ = {}
 
-    def __init__(self, prefix_path):
+    def __init__(self, prefix_path, pip_interop_enabled=None):
+        # pip_interop_enabled is a temporary paramater; DO NOT USE
         self.prefix_path = prefix_path
         self.__prefix_records = None
         self.__is_writable = NULL
+        self._pip_interop_enabled = (context.pip_interop_enabled
+                                     if pip_interop_enabled is None
+                                     else pip_interop_enabled)
 
     def load(self):
         self.__prefix_records = {}
         for meta_file in glob(join(self.prefix_path, 'conda-meta', '*.json')):
             self._load_single_record(meta_file)
-        self._load_site_packages()
+        if self._pip_interop_enabled:
+            self._load_site_packages()
 
     def reload(self):
         self.load()
@@ -377,42 +382,3 @@ def delete_prefix_from_linked_data(path):
         del PrefixData._cache_[linked_data_path]
         return True
     return False
-
-
-# exports
-def linked_data(prefix, ignore_channels=False):
-    """
-    Return a dictionary of the linked packages in prefix.
-    """
-    pd = PrefixData(prefix)
-    return {Dist(prefix_record): prefix_record for prefix_record in itervalues(pd._prefix_records)}
-
-
-# exports
-def linked(prefix, ignore_channels=False):
-    """
-    Return the set of canonical names of linked packages in prefix.
-    """
-    return set(linked_data(prefix, ignore_channels=ignore_channels).keys())
-
-
-# exports
-def is_linked(prefix, dist):
-    """
-    Return the install metadata for a linked package in a prefix, or None
-    if the package is not linked in the prefix.
-    """
-    # FIXME Functions that begin with `is_` should return True/False
-    pd = PrefixData(prefix)
-    prefix_record = pd.get(dist.name, None)
-    if prefix_record is None:
-        return None
-    elif MatchSpec(dist).match(prefix_record):
-        return prefix_record
-    else:
-        return None
-
-
-if __name__ == '__main__':
-    pd = PrefixData('/Users/kfranz/anaconda')
-    pd._load_site_packages()
