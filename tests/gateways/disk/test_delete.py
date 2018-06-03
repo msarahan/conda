@@ -15,6 +15,7 @@ from test_permissions import tempdir, _try_open, _make_read_only
 
 from conda.common.compat import text_type
 from conda.compat import TemporaryDirectory
+from conda.common.compat import on_win
 from conda.gateways.disk.create import create_link
 from conda.gateways.disk.delete import rm_rf
 
@@ -26,6 +27,7 @@ import pytest
 
 from conda.gateways.disk.delete import move_to_trash, rm_rf
 from conda.gateways.disk.link import islink, symlink
+from conda.gateways.disk.test import softlink_supported
 from conda.gateways.disk.update import touch
 from .test_permissions import _make_read_only, _try_open, tempdir
 
@@ -80,6 +82,9 @@ def test_remove_link_to_file():
         dst_link = join(td, "test_link")
         src_file = join(td, "test_file")
         _write_file(src_file, "welcome to the ministry of silly walks")
+        if not softlink_supported(src_file, td) and on_win:
+            pytest.skip("softlink not supported")
+
         symlink(src_file, dst_link)
         assert isfile(src_file)
         assert not islink(src_file)
@@ -121,6 +126,9 @@ def test_rm_rf_does_not_follow_symlinks():
         os.makedirs(subdir)
         # link to the file in the subfolder
         link_path = join(subdir, 'file_link')
+        if not softlink_supported(real_file, tmp) and on_win:
+            pytest.skip("softlink not supported")
+
         create_link(real_file, link_path, link_type=LinkType.softlink)
         assert islink(link_path)
         # rm_rf the subfolder
