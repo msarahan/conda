@@ -4,7 +4,8 @@
 from __future__ import absolute_import, division, print_function, unicode_literals
 
 import os
-from os.path import abspath, basename, expanduser, expandvars, join, normpath, split, splitext
+from os.path import abspath, basename, expanduser, expandvars, join, normpath, split, splitext, \
+    normcase
 import re
 
 from .compat import PY2, ensure_fs_path_encoding, on_win, string_types
@@ -55,7 +56,10 @@ def paths_equal(path1, path2):
         True
 
     """
-    return normpath(abspath(path1)) == normpath(abspath(path2))
+    if on_win:
+        return normcase(abspath(path1)) == normcase(abspath(path2))
+    else:
+        return abspath(path1) == abspath(path2)
 
 
 @memoize
