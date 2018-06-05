@@ -4,8 +4,7 @@
 from __future__ import absolute_import, division, print_function, unicode_literals
 
 import os
-from os.path import abspath, basename, expanduser, expandvars, join, normpath, split, splitext, \
-    normcase
+from os.path import abspath, basename, expanduser, expandvars, join, normcase, split, splitext
 import re
 
 from .compat import PY2, ensure_fs_path_encoding, on_win, string_types
