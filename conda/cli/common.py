@@ -265,7 +265,7 @@ def create_prefix_spec_map_with_deps(r, specs, default_prefix):
 
 
 def check_non_admin():
-    from ..common.platform import is_admin
+    from ..common.os import is_admin
     if not context.non_admin_enabled and not is_admin():
         from ..exceptions import OperationNotAllowed
         raise OperationNotAllowed(dals("""

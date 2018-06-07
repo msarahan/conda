@@ -26,6 +26,7 @@ from ..common.configuration import (Configuration, LoadError, MapParameter, Prim
                                     SequenceParameter, ValidationError)
 from ..common.disk import conda_bld_ensure_dir
 from ..common.path import expand
+from ..common.os.linux import linux_get_libc_version
 from ..common.url import has_scheme, path_to_url, split_scheme_auth_token
 
 try:
