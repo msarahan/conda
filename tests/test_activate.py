@@ -1525,7 +1525,7 @@ class ShellWrapperIntegrationTests(TestCase):
         shell.expect('3\.21\..*\n')
 
         # conda run integration test
-        shell.sendline('conda run sqlite3 -- -version')
+        shell.sendline('conda run sqlite3 -version')
         shell.expect('3\.21\..*\n')
 
         # regression test for #6840
@@ -1677,7 +1677,7 @@ class ShellWrapperIntegrationTests(TestCase):
             shell.expect('3\.21\..*\n')
 
             # conda run integration test
-            shell.sendline('conda run sqlite3 -- -version')
+            shell.sendline('conda run sqlite3 -version')
             shell.expect('3\.21\..*\n')
 
             shell.sendline('conda deactivate')
