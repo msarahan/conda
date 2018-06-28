@@ -4,13 +4,16 @@ from __future__ import absolute_import, division, print_function, unicode_litera
 from errno import ENOENT
 from glob import glob
 import os
-from os.path import abspath, basename, dirname, expanduser, expandvars, isdir, join, normpath
+from os.path import (abspath, basename, dirname, expanduser, expandvars, isdir, join, normcase,
+                     normpath)
 import re
 import sys
 from tempfile import NamedTemporaryFile
 
 from . import CONDA_PACKAGE_ROOT, CondaError
 from .base.context import ROOT_ENV_NAME, context, locate_prefix_by_name
+
+context.__init__()  # oOn import, context does not include SEARCH_PATH. This line fixes that.
 
 try:
     from cytoolz.itertoolz import concatv, drop
@@ -64,6 +67,89 @@ class _Activator(object):
                             for k, v in iteritems(os.environ)}
         else:
             self.environ = os.environ.copy()
+
+        if shell == 'posix':
+            self.pathsep_join = ':'.join
+            self.sep = '/'
+            self.path_conversion = native_path_to_unix
+            self.script_extension = '.sh'
+            self.tempfile_extension = None  # write instructions to stdout rather than a temp file
+            self.shift_args = 0
+            self.command_join = '\n'
+
+            self.unset_var_tmpl = '\\unset %s'
+            self.export_var_tmpl = "\\export %s='%s'"
+            self.set_var_tmpl = "%s='%s'"
+            self.run_script_tmpl = '\\. "%s"'
+
+        elif shell == 'csh':
+            self.pathsep_join = ':'.join
+            self.sep = '/'
+            self.path_conversion = native_path_to_unix
+            self.script_extension = '.csh'
+            self.tempfile_extension = None  # write instructions to stdout rather than a temp file
+            self.shift_args = 0
+            self.command_join = ';\n'
+
+            self.unset_var_tmpl = 'unsetenv %s'
+            self.export_var_tmpl = 'setenv %s "%s"'
+            self.set_var_tmpl = "set %s='%s'"
+            self.run_script_tmpl = 'source "%s"'
+
+        elif shell == 'xonsh':
+            self.pathsep_join = ':'.join
+            self.sep = '/'
+            self.path_conversion = native_path_to_unix
+            self.script_extension = '.xsh'
+            self.tempfile_extension = '.xsh'
+            self.shift_args = 0
+            self.command_join = '\n'
+
+            self.unset_var_tmpl = 'del $%s'
+            self.export_var_tmpl = "$%s = '%s'"
+            self.run_script_tmpl = 'source "%s"'
+
+        elif shell == 'cmd.exe':
+            self.pathsep_join = ';'.join
+            self.sep = '\\'
+            self.path_conversion = path_identity
+            self.script_extension = '.bat'
+            self.tempfile_extension = '.bat'
+            self.shift_args = 1
+            self.command_join = '\r\n' if on_win else '\n'
+
+            self.unset_var_tmpl = '@SET %s='
+            self.export_var_tmpl = '@SET "%s=%s"'
+            self.run_script_tmpl = '@CALL "%s"'
+
+        elif shell == 'fish':
+            self.pathsep_join = '" "'.join
+            self.sep = '/'
+            self.path_conversion = native_path_to_unix
+            self.script_extension = '.fish'
+            self.tempfile_extension = None  # write instructions to stdout rather than a temp file
+            self.shift_args = 0
+            self.command_join = ';\n'
+
+            self.unset_var_tmpl = 'set -e %s'
+            self.export_var_tmpl = 'set -gx %s "%s"'
+            self.run_script_tmpl = 'source "%s"'
+
+        elif shell == 'powershell':
+            self.pathsep_join = ';'.join
+            self.sep = '\\'
+            self.path_conversion = path_identity
+            self.script_extension = '.ps1'
+            self.tempfile_extension = None  # write instructions to stdout rather than a temp file
+            self.shift_args = 0
+            self.command_join = '\n'
+
+            self.unset_var_tmpl = 'Remove-Variable %s'
+            self.export_var_tmpl = '$env:%s = "%s"'
+            self.run_script_tmpl = '. "%s"'
+
+        else:
+            raise NotImplementedError()
 
     def _finalize(self, commands, ext):
         commands = concatv(commands, ('',))  # add terminating newline
@@ -384,7 +470,7 @@ class _Activator(object):
             path_split = path.split(os.pathsep)
             library_bin = r"%s\Library\bin" % (sys.prefix)
             # ^^^ deliberately the same as: https://github.com/AnacondaRecipes/python-feedstock/blob/8e8aee4e2f4141ecfab082776a00b374c62bb6d6/recipe/0005-Win32-Ensure-Library-bin-is-in-os.environ-PATH.patch#L20  # NOQA
-            if normpath(path_split[0]) == normpath(library_bin):
+            if paths_equal(path_split[0], library_bin):
                 return path_split[1:]
             else:
                 return path_split
@@ -403,27 +489,36 @@ class _Activator(object):
         else:
             yield join(prefix, 'bin')
 
+    def _get_path_dirs2(self, prefix):
+        if on_win:  # pragma: unix no cover
+            yield prefix
+            yield self.sep.join((prefix, 'Library', 'mingw-w64', 'bin'))
+            yield self.sep.join((prefix, 'Library', 'usr', 'bin'))
+            yield self.sep.join((prefix, 'Library', 'bin'))
+            yield self.sep.join((prefix, 'Scripts'))
+            yield self.sep.join((prefix, 'bin'))
+        else:
+            yield self.sep.join((prefix, 'bin'))
+
     def _add_prefix_to_path(self, prefix, starting_path_dirs=None):
         prefix = self.path_conversion(prefix)
         if starting_path_dirs is None:
-            starting_path_dirs = self._get_starting_path_list()
-        return self.path_conversion(concatv(
-            self._get_path_dirs(prefix),
-            starting_path_dirs,
-        ))
+            path_list = list(self.path_conversion(self._get_starting_path_list()))
+        else:
+            path_list = list(self.path_conversion(starting_path_dirs))
+        path_list[0:0] = list(self._get_path_dirs2(prefix))
+        return tuple(path_list)
 
     def _remove_prefix_from_path(self, prefix, starting_path_dirs=None):
         return self._replace_prefix_in_path(prefix, None, starting_path_dirs)
 
     def _replace_prefix_in_path(self, old_prefix, new_prefix, starting_path_dirs=None):
         old_prefix = self.path_conversion(old_prefix)
+        new_prefix = self.path_conversion(new_prefix)
         if starting_path_dirs is None:
             path_list = list(self.path_conversion(self._get_starting_path_list()))
         else:
             path_list = list(self.path_conversion(starting_path_dirs))
-
-        def paths_equal(path1, path2):
-            return normpath(abspath(path1.lower())) == normpath(abspath(path2.lower()))
 
         def index_of_path(paths, test_path):
             for q, path in enumerate(paths):
@@ -432,7 +527,7 @@ class _Activator(object):
             return None
 
         if old_prefix is not None:
-            prefix_dirs = self.path_conversion(tuple(self._get_path_dirs(old_prefix)))
+            prefix_dirs = tuple(self._get_path_dirs2(old_prefix))
             first_idx = index_of_path(path_list, prefix_dirs[0])
             if first_idx is None:
                 first_idx = 0
@@ -444,9 +539,9 @@ class _Activator(object):
             first_idx = 0
 
         if new_prefix is not None:
-            path_list[first_idx:first_idx] = list(self._get_path_dirs(new_prefix))
+            path_list[first_idx:first_idx] = list(self._get_path_dirs2(new_prefix))
 
-        return self.path_conversion(path_list)
+        return tuple(path_list)
 
     def _build_activate_shell_custom(self, export_vars):
         # A method that can be overriden by shell-specific implementations.
@@ -506,7 +601,7 @@ def native_path_to_unix(paths):  # pragma: unix no cover
     # on windows, uses cygpath to convert windows native paths to posix paths
     if not on_win:
         return path_identity(paths)
-    elif paths is None:
+    if paths is None:
         return None
     from subprocess import CalledProcessError, PIPE, Popen
     from shlex import split
@@ -549,7 +644,19 @@ def native_path_to_unix(paths):  # pragma: unix no cover
 
 
 def path_identity(paths):
-    return paths if isinstance(paths, string_types) else tuple(paths)
+    if isinstance(paths, string_types):
+        return paths
+    elif paths is None:
+        return None
+    else:
+        return tuple(paths)
+
+
+def paths_equal(path1, path2):
+    if on_win:
+        return normcase(abspath(path1)) == normcase(abspath(path2))
+    else:
+        return abspath(path1) == abspath(path2)
 
 
 on_win = bool(sys.platform == "win32")
