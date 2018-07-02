@@ -6,13 +6,16 @@ from __future__ import absolute_import, division, print_function, unicode_litera
 from errno import ENOENT
 from glob import glob
 import os
-from os.path import abspath, basename, dirname, expanduser, expandvars, isdir, join, normcase
+from os.path import (abspath, basename, dirname, expanduser, expandvars, isdir, join, normcase,
+                     normpath)
 import re
 import sys
 from tempfile import NamedTemporaryFile
 
 from . import CONDA_PACKAGE_ROOT, CondaError
 from .base.context import ROOT_ENV_NAME, context, locate_prefix_by_name
+
+context.__init__()  # oOn import, context does not include SEARCH_PATH. This line fixes that.
 
 try:
     from cytoolz.itertoolz import concatv, drop
@@ -65,6 +68,89 @@ class _Activator(object):
                             for k, v in iteritems(os.environ)}
         else:
             self.environ = os.environ.copy()
+
+        if shell == 'posix':
+            self.pathsep_join = ':'.join
+            self.sep = '/'
+            self.path_conversion = native_path_to_unix
+            self.script_extension = '.sh'
+            self.tempfile_extension = None  # write instructions to stdout rather than a temp file
+            self.shift_args = 0
+            self.command_join = '\n'
+
+            self.unset_var_tmpl = '\\unset %s'
+            self.export_var_tmpl = "\\export %s='%s'"
+            self.set_var_tmpl = "%s='%s'"
+            self.run_script_tmpl = '\\. "%s"'
+
+        elif shell == 'csh':
+            self.pathsep_join = ':'.join
+            self.sep = '/'
+            self.path_conversion = native_path_to_unix
+            self.script_extension = '.csh'
+            self.tempfile_extension = None  # write instructions to stdout rather than a temp file
+            self.shift_args = 0
+            self.command_join = ';\n'
+
+            self.unset_var_tmpl = 'unsetenv %s'
+            self.export_var_tmpl = 'setenv %s "%s"'
+            self.set_var_tmpl = "set %s='%s'"
+            self.run_script_tmpl = 'source "%s"'
+
+        elif shell == 'xonsh':
+            self.pathsep_join = ':'.join
+            self.sep = '/'
+            self.path_conversion = native_path_to_unix
+            self.script_extension = '.xsh'
+            self.tempfile_extension = '.xsh'
+            self.shift_args = 0
+            self.command_join = '\n'
+
+            self.unset_var_tmpl = 'del $%s'
+            self.export_var_tmpl = "$%s = '%s'"
+            self.run_script_tmpl = 'source "%s"'
+
+        elif shell == 'cmd.exe':
+            self.pathsep_join = ';'.join
+            self.sep = '\\'
+            self.path_conversion = path_identity
+            self.script_extension = '.bat'
+            self.tempfile_extension = '.bat'
+            self.shift_args = 1
+            self.command_join = '\r\n' if on_win else '\n'
+
+            self.unset_var_tmpl = '@SET %s='
+            self.export_var_tmpl = '@SET "%s=%s"'
+            self.run_script_tmpl = '@CALL "%s"'
+
+        elif shell == 'fish':
+            self.pathsep_join = '" "'.join
+            self.sep = '/'
+            self.path_conversion = native_path_to_unix
+            self.script_extension = '.fish'
+            self.tempfile_extension = None  # write instructions to stdout rather than a temp file
+            self.shift_args = 0
+            self.command_join = ';\n'
+
+            self.unset_var_tmpl = 'set -e %s'
+            self.export_var_tmpl = 'set -gx %s "%s"'
+            self.run_script_tmpl = 'source "%s"'
+
+        elif shell == 'powershell':
+            self.pathsep_join = ';'.join
+            self.sep = '\\'
+            self.path_conversion = path_identity
+            self.script_extension = '.ps1'
+            self.tempfile_extension = None  # write instructions to stdout rather than a temp file
+            self.shift_args = 0
+            self.command_join = '\n'
+
+            self.unset_var_tmpl = 'Remove-Variable %s'
+            self.export_var_tmpl = '$env:%s = "%s"'
+            self.run_script_tmpl = '. "%s"'
+
+        else:
+            raise NotImplementedError()
 
     def _finalize(self, commands, ext):
         commands = concatv(commands, ('',))  # add terminating newline
