@@ -800,7 +800,6 @@ class IntegrationTests(TestCase):
             stdout, stderr = run_command(Commands.INSTALL, prefix,
                                          "--json --dry-run --force-reinstall python",
                                          use_exception_handler=True)
-            assert not stderr
             output_obj = json.loads(stdout.strip())
             unlink_actions = output_obj['actions']['UNLINK']
             link_actions = output_obj['actions']['LINK']
@@ -1229,6 +1228,23 @@ class IntegrationTests(TestCase):
             stdout, stderr = run_command(Commands.INSTALL, prefix, "not-a-real-package",
                                          use_exception_handler=True)
             assert "not-a-real-package" in stderr
+
+    def test_conda_pip_interop_dependency_satisfied_by_pip(self):
+        with make_temp_env("python") as prefix:
+            check_call(PYTHON_BINARY + " -m pip install itsdangerous",
+                       cwd=prefix, shell=True)
+
+            PrefixData._cache_.clear()
+            stdout, stderr = run_command(Commands.LIST, prefix)
+            assert 'itsdangerous' in stdout
+            assert not stderr
+
+            stdout, stderr = run_command(Commands.INSTALL, prefix, 'flask --dry-run --json',
+                                         use_exception_handler=True)
+            json_obj = json.loads(stdout)
+            print(json_obj)
+            assert any(rec["name"] == "flask" for rec in json_obj["actions"]["LINK"])
+            assert not any(rec["name"] == "itsdangerous" for rec in json_obj["actions"]["LINK"])
 
             stdout, stderr = run_command(Commands.SEARCH, prefix, "not-a-real-package", "--json",
                                          use_exception_handler=True)
