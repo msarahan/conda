@@ -1,73 +1,26 @@
-## 4.6.0 (unreleased)
-
-### New Feature Highlights
-* resolve #7194 add '--stack' flag to 'conda activate'; remove max_shlvl
-  config (#7195, #7226, #7233)
-* resolve #7087 add non-conda-installed python packages into PrefixData (#7067, #7370)
-* conda initialize (#6518, #7388)
-* resolve #2682 add conda run experimental support (#7320)
-
-### Deprecations/Breaking Changes
-* resolve #6915 remove 'conda env attach' and 'conda env upload' (#6916)
-* resolve #7061 remove pkgs/pro from defaults (#7162)
-* resolve #7078 add deprecation warnings for 'conda.cli.activate',
-  'conda.compat', and 'conda.install' (#7079)
-* resolve #7194 add '--stack' flag to 'conda activate'; remove max_shlvl
-  config (#7195)
-* resolve #6979, #7086 remove Dist from majority of project (#7216, #7252)
-* fix #7362 remove --license from conda info and related code paths (#7386)
-
-### Improvements
-* import speedups (#7122)
-* --help cleanup (#7120)
-* fish autocompletion for conda env (#7101)
-* remove reference to 'system' channel (#7163)
-* add http error body to debug information (#7160)
-* warn creating env name with space is not supported (#7168)
-* support complete MatchSpec syntax in environment.yml files (#7178)
-* resolve #4274 add option to remove an existing environment with 'conda create' (#7133)
-* add ability for conda prompt customization via 'env_prompt' config param (#7047)
-* resolve #7063 add license and license_family to MatchSpec for 'conda search' (#7064)
-* resolve #7189 progress bar formatting improvement (#7191)
-* raise log level for errors to error (#7229)
-* add to conda.exports (#7217)
-* resolve #6845 add option -S / --satisfied-skip-solve to exit early for satisfied specs (#7291)
-* add NoBaseEnvironmentError and DirectoryNotACondaEnvironmentError (#7378)
-* replace menuinst subprocessing by ctypes win elevation (4.6.0a3) (#7426)
-* bump minimum requests version to stable, unbundled release (#7528)
+## 4.5.8 (2018-07-10)
 
 ### Bug Fixes
-* fix #7107 verify hangs when a package is corrupted (#7131)
-* fix #7145 progress bar uses stderr instead of stdout (#7146)
-* fix typo in conda.fish (#7152)
-* fix #2154 conda remove should complain if requested removals don't exist (#7135)
-* fix #7094 exit early for --dry-run with explicit and clone (#7096)
-* fix activation script sort order (#7176)
-* fix #7109 incorrect chown with sudo (#7180)
-* fix #7210 add suppressed --mkdir back to 'conda create' (fix for 4.6.0a1) (#7211)
-* fix #5681 conda env create / update when --file does not exist (#7385)
-* resolve #7375 enable conda config --set update_modifier (#7377)
-* fix #5885 improve conda env error messages and add extra tests (#7395)
-* msys2 path conversion (#7389)
 
-### Non-User-Facing Changes
-* resolve #6595 use OO inheritance in activate.py (#7049)
-* resolve #7220 pep8 project renamed to pycodestyle (#7221)
-* proxy test routine (#7308)
-* add .mailmap and .cla-signers (#7361)
-* add copyright headers (#7367)
-* rename common.platform to common.os and split among windows, linux, and unix utils (#7396)
-* fix windows test failures when symlink not available (#7369)
-
-### Preview Releases
-
-* 4.6.0a1 at d5bec21d1f64c3bc66c2999cfc690681e9c46177 on 2018-04-20
-* 4.6.0a2 at c467517ca652371ebc4224f0d49315b7ec225108 on 2018-05-01
+* fix #7524 should_bypass_proxies for requests 2.13.0 and earlier (#7525)
 
 ### Contributors
-* @goanpeca
-* @kalefranz
-* @mbargull
+@kalefranz
+
+
+## 4.5.7 (2018-07-09)
+
+### Improvements
+* resolve #7423 add upgrade error for unsupported repodata_version (#7415)
+* raise CondaUpgradeError for conda version downgrades on environments (#7517)
+
+### Bug Fixes
+* fix #7505 temp directory for UnlinkLinkTransaction should be in target prefix (#7516)
+* fix #7506 requests monkeypatch fallback for old requests versions (#7515)
+
+### Contributors
+@kalefranz
+@nehaljwani
 
 
 ## 4.5.6 (2018-07-06)
