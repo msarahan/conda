@@ -11,7 +11,7 @@ from enum import Enum
 from errno import EPIPE, ESHUTDOWN
 from functools import wraps
 import json
-import logging
+import logging  # lgtm [py/import-and-import-from]
 from logging import CRITICAL, Formatter, NOTSET, StreamHandler, WARN, getLogger
 import os
 from os import chdir, getcwd
