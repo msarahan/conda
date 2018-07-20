@@ -7,7 +7,7 @@ from errno import ENOENT
 from logging import getLogger
 import os
 from os.path import abspath, basename, expanduser, isdir, isfile, join, split as path_split
-from platform import machine
+import platform
 import sys
 
 from .constants import (APP_NAME, DEFAULTS_CHANNEL_NAME, DEFAULT_AGGRESSIVE_UPDATE_PACKAGES,
@@ -329,7 +329,7 @@ class Context(Configuration):
 
     @property
     def arch_name(self):
-        m = machine()
+        m = platform.machine()
         if self.platform == 'linux' and m in non_x86_linux_machines:
             return m
         else:
@@ -347,7 +347,7 @@ class Context(Configuration):
     def subdir(self):
         if self._subdir:
             return self._subdir
-        m = machine()
+        m = platform.machine()
         if m in non_x86_linux_machines:
             return 'linux-%s' % m
         elif self.platform == 'zos':
@@ -1006,7 +1006,6 @@ def reset_context(search_path=SEARCH_PATH, argparse_args=None):
 
 @memoize
 def _get_user_agent(context_platform):
-    import platform
     try:
         from requests import __version__ as REQUESTS_VERSION
     except ImportError:  # pragma: no cover
