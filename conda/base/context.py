@@ -202,7 +202,7 @@ class Context(Configuration):
     shortcuts = PrimitiveParameter(True)
     _verbosity = PrimitiveParameter(0, aliases=('verbose', 'verbosity'), element_type=int)
 
-    featureless_minimization_feature_flag_enabled = PrimitiveParameter(True)
+    featureless_minimization_disabled_feature_flag = PrimitiveParameter(False)
     target_prefix_override = PrimitiveParameter('')
 
     # conda_build
