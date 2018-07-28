@@ -714,7 +714,7 @@ class Context(Configuration):
             'default_python',
             'enable_private_envs',
             'error_upload_url',  # should remain undocumented
-            'featureless_minimization_feature_flag_enabled',
+            'featureless_minimization_disabled_feature_flag',
             'force_32bit',
             'root_prefix',
             'subdir',
