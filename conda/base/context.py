@@ -202,19 +202,7 @@ class Context(Configuration):
     shortcuts = PrimitiveParameter(True)
     _verbosity = PrimitiveParameter(0, aliases=('verbose', 'verbosity'), element_type=int)
 
-    # ######################################################
-    # ##               Solver Configuration               ##
-    # ######################################################
-    no_deps = PrimitiveParameter(False)  # CLI-only
-    only_deps = PrimitiveParameter(False)   # CLI-only
-    update_deps = PrimitiveParameter(False, aliases=('update_dependencies',))
-    update_all = PrimitiveParameter(False)
-    freeze_installed = PrimitiveParameter(False)
-
-    prune = PrimitiveParameter(False)
-    force_remove = PrimitiveParameter(False)
-    force_reinstall = PrimitiveParameter(False)
-
+    featureless_minimization_disabled_feature_flag = PrimitiveParameter(False)
     target_prefix_override = PrimitiveParameter('')
 
     # conda_build
@@ -726,6 +714,7 @@ class Context(Configuration):
             'default_python',
             'enable_private_envs',
             'error_upload_url',  # should remain undocumented
+            'featureless_minimization_disabled_feature_flag',
             'force_32bit',
             'root_prefix',
             'subdir',

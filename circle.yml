@@ -38,6 +38,15 @@ conda_build_test: &conda_build_test
   steps:
     - checkout
     - run:
+        name: install conda full
+        command: |
+          sudo su root -c ". utils/functions.sh && install_conda_shell_scripts /opt/conda ."
+          sudo su root -c ". utils/functions.sh && make_conda_entrypoint /opt/conda/bin/conda /opt/conda/bin/python ~circleci/conda 'from conda.cli import main'"
+          sudo su root -c ". utils/functions.sh && make_conda_entrypoint /opt/conda/bin/conda-env /opt/conda/bin/python ~circleci/conda 'from conda_env.cli.main import main'"
+          site_packages=$(/opt/conda/bin/python -c "from distutils.sysconfig import get_python_lib as g; print(g())")
+          sudo su -c "echo /home/circleci/conda > $site_packages/conda.pth"
+          sudo /opt/conda/bin/conda install -yq 'conda-verify<3'
+    - run:
         name: checkout conda-build
         # TODO: transfer conda-verify install to Dockerfile
         command: |
