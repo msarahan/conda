@@ -359,6 +359,7 @@ class Resolve(object):
 
         raise UnsatisfiableError(bad_deps)
 
+    @time_recorder(module_name=__name__)
     def get_reduced_index(self, specs):
         # TODO: fix this import; this is bad
         from .core.subdir_data import make_feature_record
@@ -590,6 +591,7 @@ class Resolve(object):
         C.name_var(m, sat_name)
         return sat_name
 
+    @time_recorder(module_name=__name__)
     def gen_clauses(self):
         C = Clauses()
         for name, group in iteritems(self.groups):
