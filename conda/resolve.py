@@ -359,6 +359,7 @@ class Resolve(object):
 
         raise UnsatisfiableError(bad_deps)
 
+    @time_recorder(module_name=__name__)
     def get_reduced_index(self, specs):
         # TODO: fix this import; this is bad
         from .core.subdir_data import make_feature_record
@@ -590,6 +591,7 @@ class Resolve(object):
         C.name_var(m, sat_name)
         return sat_name
 
+    @time_recorder(module_name=__name__)
     def gen_clauses(self):
         C = Clauses()
         for name, group in iteritems(self.groups):
@@ -609,18 +611,24 @@ class Resolve(object):
             for ms in self.ms_depends(prec):
                 C.Require(C.Or, nkey, self.push_MatchSpec(C, ms))
 
-        log.debug("gen_clauses returning with clause count: %s", len(C.clauses))
+        if log.isEnabledFor(DEBUG):
+            log.debug("gen_clauses returning with clause count: %d", C.get_clause_count())
         return C
 
     def generate_spec_constraints(self, C, specs):
         result = [(self.push_MatchSpec(C, ms),) for ms in specs]
-        log.debug("generate_spec_constraints returning with clause count: %s", len(C.clauses))
+        if log.isEnabledFor(DEBUG):
+            log.debug(
+                "generate_spec_constraints returning with clause count: %d",
+                C.get_clause_count())
         return result
 
     def generate_feature_count(self, C):
         result = {self.push_MatchSpec(C, MatchSpec(track_features=name)): 1
                   for name in iterkeys(self.trackers)}
-        log.debug("generate_feature_count returning with clause count: %s", len(C.clauses))
+        if log.isEnabledFor(DEBUG):
+            log.debug(
+                "generate_feature_count returning with clause count: %d", C.get_clause_count())
         return result
 
     def generate_update_count(self, C, specs):
@@ -900,7 +908,7 @@ class Resolve(object):
         self.restore_bad(pkgs, preserve)
         return pkgs
 
-    @time_recorder("resolve_solve")
+    @time_recorder(module_name=__name__)
     def solve(self, specs, returnall=False, _remove=False):
         # type: (List[str], bool) -> List[PackageRecord]
         if log.isEnabledFor(DEBUG):
