@@ -10,6 +10,7 @@ import re
 from .compat import PY2, ensure_fs_path_encoding, on_win, string_types
 from .. import CondaError
 from .._vendor.auxlib.decorators import memoize
+from .._vendor.toolz import accumulate, concat, take
 
 try:
     # Python 3
@@ -19,11 +20,7 @@ except ImportError:  # pragma: no cover
     from urllib import unquote  # NOQA
     from urlparse import urlsplit  # NOQA
 
-try:
-    from cytoolz.itertoolz import accumulate, concat, take
-except ImportError:  # pragma: no cover
-    from .._vendor.toolz.itertoolz import accumulate, concat, take
-
+log = getLogger(__name__)
 
 PATH_MATCH_REGEX = (
     r"\./"              # ./

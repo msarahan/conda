@@ -17,7 +17,8 @@ from .. import CondaError, __version__ as CONDA_VERSION
 from .._vendor.auxlib.decorators import memoizedproperty
 from .._vendor.auxlib.ish import dals
 from .._vendor.boltons.setutils import IndexedSet
-from ..base.constants import UNKNOWN_CHANNEL
+from .._vendor.toolz import concat, concatv, groupby
+from ..base.constants import DepsModifier, UNKNOWN_CHANNEL, UpdateModifier
 from ..base.context import context
 from ..common.compat import iteritems, itervalues, odict, text_type
 from ..common.constants import NULL
@@ -32,11 +33,6 @@ from ..models.match_spec import MatchSpec
 from ..models.prefix_graph import PrefixGraph
 from ..models.version import VersionOrder
 from ..resolve import Resolve, dashlist
-
-try:
-    from cytoolz.itertoolz import concat, concatv, groupby
-except ImportError:
-    from .._vendor.toolz.itertoolz import concat, concatv, groupby  # NOQA
 
 log = getLogger(__name__)
 
