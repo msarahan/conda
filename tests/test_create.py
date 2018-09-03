@@ -742,9 +742,9 @@ class IntegrationTests(TestCase):
             # packages associated with the track_features base package are completely removed
             # and not replaced with equivalent non-variant packages as before.
             run_command(Commands.REMOVE, prefix, '--features', 'nomkl')
-            # assert package_is_installed(prefix, 'numpy')   # removed per above comment
+            # assert assert_package_is_installed(prefix, 'numpy')  # removed per above comment
             assert not package_is_installed(prefix, 'nomkl')
-            # assert package_is_installed(prefix, 'mkl')  # removed per above comment
+            # assert_package_is_installed(prefix, 'mkl')  # removed per above comment
 
     @pytest.mark.skipif(on_win and context.bits == 32, reason="no 32-bit windows python on conda-forge")
     @pytest.mark.skipif(on_win and datetime.now() <= datetime(2018, 10, 1), reason="conda-forge repodata needs vc patching")
@@ -828,50 +828,6 @@ class IntegrationTests(TestCase):
                 assert package_is_installed(prefix, 'openssl')
             assert package_is_installed(prefix, 'itsdangerous')
 
-    def test_install_update_deps_flag(self):
-        with make_temp_env("flask==0.12 jinja2==2.8") as prefix:
-            assert package_is_installed(prefix, "python=3.6")
-            assert package_is_installed(prefix, "flask==0.12")
-            assert package_is_installed(prefix, "jinja2=2.8")
-
-            run_command(Commands.INSTALL, prefix, "flask --update-deps")
-            assert package_is_installed(prefix, "python=3.6")
-            assert package_is_installed(prefix, "flask>0.12")
-            assert package_is_installed(prefix, "jinja2>2.8")
-
-    def test_install_only_deps_flag(self):
-        with make_temp_env("flask==0.12 jinja2==2.8") as prefix:
-            assert package_is_installed(prefix, "python=3.6")
-            assert package_is_installed(prefix, "flask==0.12")
-            assert package_is_installed(prefix, "jinja2=2.8")
-
-            run_command(Commands.INSTALL, prefix, "flask --only-deps")
-            assert package_is_installed(prefix, "python=3.6")
-            assert package_is_installed(prefix, "flask==0.12")
-            assert package_is_installed(prefix, "jinja2=2.8")
-
-        with make_temp_env("flask==0.12 --only-deps") as prefix:
-            assert not package_is_installed(prefix, "flask")
-
-    def test_install_update_deps_only_deps_flags(self):
-        with make_temp_env("flask==0.12 jinja2==2.8") as prefix:
-            assert package_is_installed(prefix, "python=3.6")
-            assert package_is_installed(prefix, "flask==0.12")
-            assert package_is_installed(prefix, "jinja2=2.8")
-
-            run_command(Commands.INSTALL, prefix, "flask python=3.6 --update-deps --only-deps")
-            assert package_is_installed(prefix, "python=3.6")
-            assert package_is_installed(prefix, "flask==0.12")
-            assert package_is_installed(prefix, "jinja2>2.8")
-
-    @pytest.mark.skipif(on_win, reason="tensorflow package used in test not available on Windows")
-    def test_install_freeze_installed_flag(self):
-        with make_temp_env("bleach") as prefix:
-            assert package_is_installed(prefix, "bleach=2")
-            with pytest.raises(UnsatisfiableError):
-                run_command(Commands.INSTALL, prefix,
-                            "conda-forge::tensorflow>=1.4 --dry-run --freeze-installed")
-
     @pytest.mark.xfail(on_win and datetime.now() < datetime(2018, 9, 15),
                        reason="need to talk with @msarahan about blas patches on Windows",
                        strict=True)
@@ -896,11 +852,6 @@ class IntegrationTests(TestCase):
             assert package_is_installed(prefix, "mkl")  # it's fine for mkl to still be here I guess
             numpy_prec = PrefixData(prefix).get("numpy")
             assert "nomkl" in numpy_prec.build
-
-            run_command(Commands.INSTALL, prefix, "nomkl --prune")
-            assert not package_is_installed(prefix, "mkl")
-            assert not package_is_installed(prefix, "mkl_fft")
-            assert not package_is_installed(prefix, "mkl_random")
 
     def test_clone_offline_simple(self):
         with make_temp_env("python flask=0.10.1") as prefix:
