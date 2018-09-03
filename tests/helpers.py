@@ -6,7 +6,7 @@ from __future__ import absolute_import, division, print_function
 from contextlib import contextmanager
 import json
 import os
-from os.path import dirname, join
+from os.path import dirname, join, abspath
 import re
 from shlex import split
 import sys
@@ -38,6 +38,8 @@ except ImportError:
 from contextlib import contextmanager
 
 from conda.common.compat import StringIO, iteritems, itervalues
+
+TEST_DATA_DIR = abspath(join(dirname(__file__), "..", "test_data"))
 
 expected_error_prefix = 'Using Anaconda Cloud api site https://api.anaconda.org'
 def strip_expected(stderr):
