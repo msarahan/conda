@@ -4,30 +4,8 @@
 from __future__ import absolute_import, division, print_function, unicode_literals
 
 from contextlib import contextmanager
-from logging import getLogger
-from os import W_OK, access, chmod, getpid, listdir, lstat, makedirs, rename, unlink, walk
-from os.path import abspath, basename, dirname, isdir, join, lexists
-from shutil import rmtree
-from stat import S_IEXEC, S_IMODE, S_ISDIR, S_ISLNK, S_ISREG, S_IWRITE
-from time import sleep
-from uuid import uuid4
-
-from ..compat import lchmod, text_type
-from ..utils import on_win
-
-__all__ = ["rm_rf", "exp_backoff_fn", "try_write"]
-
-log = getLogger(__name__)
-
-
-def conda_bld_ensure_dir(path):
-    # this can fail in parallel operation, depending on timing.  Just try to make the dir,
-    #    but don't bail if fail.
-    if not isdir(path):
-        try:
-            makedirs(path)
-        except OSError:  # pragma: no cover
-            pass
+from os import unlink
+from tempfile import NamedTemporaryFile
 
 
 @contextmanager
