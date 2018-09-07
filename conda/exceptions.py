@@ -856,7 +856,7 @@ class EnvironmentNotWritableError(CondaError):
                 'gid': os.getegid(),
             })
         super(EnvironmentNotWritableError, self).__init__(message, **kwargs)
-    
+
 
 class CondaDependencyError(CondaError):
     def __init__(self, message):
