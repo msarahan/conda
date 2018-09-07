@@ -6,6 +6,7 @@ from contextlib import contextmanager
 from glob import glob
 
 from conda._vendor.toolz.itertoolz import groupby
+from conda.gateways.disk.permissions import make_read_only
 from conda.models.channel import Channel
 from conda.resolve import Resolve
 from itertools import chain
@@ -39,7 +40,8 @@ from conda import CondaError, CondaMultiError, plan, __version__ as CONDA_VERSIO
     CONDA_PACKAGE_ROOT
 from conda._vendor.auxlib.entity import EntityEncoder
 from conda._vendor.auxlib.ish import dals
-from conda.base.constants import CONDA_TARBALL_EXTENSION, PACKAGE_CACHE_MAGIC_FILE, SafetyChecks
+from conda.base.constants import CONDA_TARBALL_EXTENSION, PACKAGE_CACHE_MAGIC_FILE, SafetyChecks, \
+    PREFIX_MAGIC_FILE
 from conda.base.context import Context, context, reset_context
 from conda.cli.conda_argparse import do_call
 from conda.cli.main import generate_parser, init_loggers
@@ -451,6 +453,13 @@ class IntegrationTests(TestCase):
             assert package_is_installed(prefix, 'python=3')
         finally:
             rmtree(prefix, ignore_errors=True)
+
+    def test_not_writable_env_raises_EnvironmentNotWritableError(self):
+        with make_temp_env() as prefix:
+            make_read_only(join(prefix, PREFIX_MAGIC_FILE))
+            stdout, stderr = run_command(Commands.INSTALL, prefix, "openssl", use_exception_handler=True)
+            assert "EnvironmentNotWritableError" in stderr
+            assert prefix in stderr
 
     def test_conda_update_package_not_installed(self):
         with make_temp_env() as prefix:
