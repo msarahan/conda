@@ -872,7 +872,51 @@ class IntegrationTests(TestCase):
                 assert package_is_installed(prefix, 'openssl')
             assert package_is_installed(prefix, 'itsdangerous')
 
-    @pytest.mark.xfail(on_win and datetime.now() < datetime(2018, 9, 15),
+    def test_install_update_deps_flag(self):
+        with make_temp_env("flask==0.12 jinja2==2.8") as prefix:
+            assert package_is_installed(prefix, "python=3.6")
+            assert package_is_installed(prefix, "flask==0.12")
+            assert package_is_installed(prefix, "jinja2=2.8")
+
+            run_command(Commands.INSTALL, prefix, "flask --update-deps")
+            assert package_is_installed(prefix, "python=3.6")
+            assert package_is_installed(prefix, "flask>0.12")
+            assert package_is_installed(prefix, "jinja2>2.8")
+
+    def test_install_only_deps_flag(self):
+        with make_temp_env("flask==0.12 jinja2==2.8") as prefix:
+            assert package_is_installed(prefix, "python=3.6")
+            assert package_is_installed(prefix, "flask==0.12")
+            assert package_is_installed(prefix, "jinja2=2.8")
+
+            run_command(Commands.INSTALL, prefix, "flask --only-deps")
+            assert package_is_installed(prefix, "python=3.6")
+            assert package_is_installed(prefix, "flask==0.12")
+            assert package_is_installed(prefix, "jinja2=2.8")
+
+        with make_temp_env("flask==0.12 --only-deps") as prefix:
+            assert not package_is_installed(prefix, "flask")
+
+    def test_install_update_deps_only_deps_flags(self):
+        with make_temp_env("flask==0.12 jinja2==2.8") as prefix:
+            assert package_is_installed(prefix, "python=3.6")
+            assert package_is_installed(prefix, "flask==0.12")
+            assert package_is_installed(prefix, "jinja2=2.8")
+
+            run_command(Commands.INSTALL, prefix, "flask python=3.6 --update-deps --only-deps")
+            assert package_is_installed(prefix, "python=3.6")
+            assert package_is_installed(prefix, "flask==0.12")
+            assert package_is_installed(prefix, "jinja2>2.8")
+
+    @pytest.mark.skipif(on_win, reason="tensorflow package used in test not available on Windows")
+    def test_install_freeze_installed_flag(self):
+        with make_temp_env("bleach") as prefix:
+            assert package_is_installed(prefix, "bleach=2")
+            with pytest.raises(UnsatisfiableError):
+                run_command(Commands.INSTALL, prefix,
+                            "conda-forge::tensorflow>=1.4 --dry-run --freeze-installed")
+
+    @pytest.mark.xfail(on_win and datetime.now() < datetime(2018, 10, 1),
                        reason="need to talk with @msarahan about blas patches on Windows",
                        strict=True)
     def test_install_features(self):
