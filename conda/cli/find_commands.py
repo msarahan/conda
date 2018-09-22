@@ -10,7 +10,7 @@ import sys
 import sysconfig
 
 from ..common.compat import on_win
-from ..utils import memoized
+from .conda_argparse import generate_parser
 
 
 def find_executable(executable, include_others=True):
@@ -45,7 +45,14 @@ def find_executable(executable, include_others=True):
     return None
 
 
-@memoized
+def find_builtin_commands():
+    # ArgumentParser doesn't have an API for getting back what subparsers
+    # exist, so we need to use internal properties to do so.
+    p = generate_parser()
+    return list(p._subparsers._group_actions[0].choices.keys())
+
+
+@memoize
 def find_commands(include_others=True):
 
     if include_others:
