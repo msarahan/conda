@@ -1319,10 +1319,10 @@ def test_activate_help(shell):
             new_path = activator.pathsep_join(activator._remove_prefix_from_path(self.prefix))
             assert deactivate_data == dals("""
             . "%(deactivate1)s"
-            Remove-Variable CONDA_DEFAULT_ENV
-            Remove-Variable CONDA_PREFIX
-            Remove-Variable CONDA_PROMPT_MODIFIER
-            Remove-Variable CONDA_PYTHON_EXE
+            Remove-Item Env:/CONDA_DEFAULT_ENV
+            Remove-Item Env:/CONDA_PREFIX
+            Remove-Item Env:/CONDA_PROMPT_MODIFIER
+            Remove-Item Env:/CONDA_PYTHON_EXE
             $env:CONDA_SHLVL = "0"
             $env:PATH = "%(new_path)s"
             """) % {
