@@ -1388,17 +1388,20 @@ class InteractiveShell(object):
         'powershell': {
             'activator': 'powershell',
             'init_command': 'python -m conda shell.powershell hook | Out-String | Invoke-Expression',
-            'print_env_var': '$Env:%s'
+            'print_env_var': '$Env:%s',
+            'exit_cmd': 'exit'
         },
         'pwsh': {
             'activator': 'powershell',
             'init_command': 'python -m conda shell.powershell hook | Out-String | Invoke-Expression',
-            'print_env_var': '$Env:%s'
+            'print_env_var': '$Env:%s',
+            'exit_cmd': 'exit'
         },
         'pwsh-preview': {
             'activator': 'powershell',
             'init_command': 'python -m conda shell.powershell hook | Out-String | Invoke-Expression',
-            'print_env_var': '$Env:%s'
+            'print_env_var': '$Env:%s',
+            'exit_cmd': 'exit'
         },
     }
 
@@ -1410,6 +1413,7 @@ class InteractiveShell(object):
         for key, value in iteritems(shell_vals):
             setattr(self, key, value)
         self.activator = activator_map[shell_vals['activator']]()
+        self.exit_cmd = self.shells[shell_name].get('exit_cmd', None)
 
     def __enter__(self):
         from pexpect.popen_spawn import PopenSpawn
@@ -1447,6 +1451,8 @@ class InteractiveShell(object):
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         if self.p:
+            if self.exit_cmd:
+                self.sendline(self.exit_cmd)
             import signal
             self.p.kill(signal.SIGINT)
 
