@@ -1455,6 +1455,8 @@ class InteractiveShell(object):
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
+        if exc_type is not None:
+            print("Exception encountered: {}".format(exc_val))
         if self.p:
             if self.exit_cmd:
                 self.sendline(self.exit_cmd)
@@ -1739,9 +1741,9 @@ class ShellWrapperIntegrationTests(TestCase):
 
             print('## [PowerShell integration] Activating.')
             shell.sendline('conda activate "%s"' % charizard)
-            shell.assert_env_var('CONDA_SHLVL', '1\r')
+            shell.assert_env_var('CONDA_SHLVL', '1')
             shell.sendline('conda activate "%s"' % self.prefix)
-            shell.assert_env_var('CONDA_SHLVL', '2\r')
+            shell.assert_env_var('CONDA_SHLVL', '2')
             shell.assert_env_var('CONDA_PREFIX', self.prefix, True)
 
             print('## [PowerShell integration] Installing.')
@@ -1758,15 +1760,15 @@ class ShellWrapperIntegrationTests(TestCase):
             # conda run integration test
             print('## [PowerShell integration] Checking conda run.')
             shell.sendline('conda run sqlite3 -version')
-            shell.expect('3\.21\..*\n')
+            shell.expect('3\.21\..*')
 
             print('## [PowerShell integration] Deactivating')
             shell.sendline('conda deactivate')
-            shell.assert_env_var('CONDA_SHLVL', '1\r')
+            shell.assert_env_var('CONDA_SHLVL', '1')
             shell.sendline('conda deactivate')
-            shell.assert_env_var('CONDA_SHLVL', '0\r')
+            shell.assert_env_var('CONDA_SHLVL', '0')
             shell.sendline('conda deactivate')
-            shell.assert_env_var('CONDA_SHLVL', '0\r')
+            shell.assert_env_var('CONDA_SHLVL', '0')
 
 
 
