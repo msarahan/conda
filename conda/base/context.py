@@ -202,6 +202,26 @@ class Context(Configuration):
     shortcuts = PrimitiveParameter(True)
     _verbosity = PrimitiveParameter(0, aliases=('verbose', 'verbosity'), element_type=int)
 
+    # ######################################################
+    # ##               Solver Configuration               ##
+    # ######################################################
+    deps_modifier = PrimitiveParameter(DepsModifier.NOT_SET)
+    update_modifier = PrimitiveParameter(UpdateModifier.UPDATE_SPECS)
+    sat_solver = PrimitiveParameter(None, element_type=string_types + (NoneType,))
+
+    # no_deps = PrimitiveParameter(NULL, element_type=(type(NULL), bool))  # CLI-only
+    # only_deps = PrimitiveParameter(NULL, element_type=(type(NULL), bool))   # CLI-only
+    #
+    # freeze_installed = PrimitiveParameter(False)
+    # update_deps = PrimitiveParameter(False, aliases=('update_dependencies',))
+    # update_specs = PrimitiveParameter(False)
+    # update_all = PrimitiveParameter(False)
+
+    prune = PrimitiveParameter(False)
+    force_remove = PrimitiveParameter(False)
+    force_reinstall = PrimitiveParameter(False)
+
+    target_prefix_override = PrimitiveParameter('')
     featureless_minimization_disabled_feature_flag = PrimitiveParameter(False)
     target_prefix_override = PrimitiveParameter('')
 
@@ -725,6 +745,7 @@ class Context(Configuration):
             'force_32bit',
             'pip_interop_enabled',  # temporary feature flag
             'root_prefix',
+            'sat_solver',
             'subdir',
             'subdirs',
             # https://conda.io/docs/config.html#disable-updating-of-dependencies-update-dependencies # NOQA
