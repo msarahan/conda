@@ -10,7 +10,9 @@ from conda.models.channel import Channel
 from conda.models.dist import Dist
 from conda.models.index_record import IndexRecord
 from conda.resolve import MatchSpec, Resolve, ResolvePackageNotFound
-from .helpers import get_index_r_1, get_index_r_3, raises
+from helpers import get_index_r_1, get_index_r_3, raises
+
+import pytest
 
 index, r, = get_index_r_1()
 f_mkl = set(['mkl'])
@@ -105,6 +107,7 @@ class TestSolve(unittest.TestCase):
             r.install(['accelerate']),
             r.install(['accelerate', MatchSpec(track_features='mkl')]))
 
+    @pytest.mark.benchmark
     def test_scipy_mkl(self):
         dists = r.install(['scipy', 'python 2.7*', 'numpy 1.7*', MatchSpec(track_features='mkl')])
         self.assert_have_mkl(dists, ('numpy', 'scipy'))
@@ -116,6 +119,20 @@ class TestSolve(unittest.TestCase):
         self.assertTrue(Dist('channel-1::scipy-0.12.0-np17py27_0.tar.bz2') in dists)
 
 
+class TestFindSubstitute(unittest.TestCase):
+
+    def test1(self):
+        installed = r.install(['anaconda 1.5.0', 'python 2.7*', 'numpy 1.7*', 'mkl@'])
+        for old, new in [('numpy-1.7.1-py27_p0.tar.bz2',
+                          'numpy-1.7.1-py27_0.tar.bz2'),
+                         ('scipy-0.12.0-np17py27_p0.tar.bz2',
+                          'scipy-0.12.0-np17py27_0.tar.bz2'),
+                         ('mkl-rt-11.0-p0.tar.bz2', None)]:
+            self.assertTrue(old in installed)
+            self.assertEqual(r.find_substitute(installed, f_mkl, old), new)
+
+
+@pytest.mark.benchmark
 def test_pseudo_boolean():
     # The latest version of iopro, 1.5.0, was not built against numpy 1.5
     assert r.install(['iopro', 'python 2.7*', 'numpy 1.5*'], returnall=True) == [[
@@ -154,7 +171,8 @@ def test_get_dists():
     assert Dist('channel-1::dynd-python-0.3.0-np17py33_0.tar.bz2') in dists
 
 
-def test_generate_eq_1():
+@pytest.mark.benchmark
+def test_generate_eq():
     reduced_index = r.get_reduced_index(['anaconda'])
     r2 = Resolve(reduced_index, True, True)
     C = r2.gen_clauses()
@@ -387,6 +405,7 @@ def test_generate_eq_1():
     assert eqt == {}
 
 
+@pytest.mark.benchmark
 def test_unsat():
     # scipy 0.12.0b1 is not built for numpy 1.5, only 1.6 and 1.7
     assert raises(UnsatisfiableError, lambda: r.install(['numpy 1.5*', 'scipy 0.12.0b1']))
@@ -444,6 +463,7 @@ def test_timestamps_and_deps():
     installed5 = r.install(['mypackage'])
     assert installed2 == installed5
 
+@pytest.mark.benchmark
 def test_nonexistent_deps():
     index2 = index.copy()
     index2['mypackage-1.0-py33_0.tar.bz2'] = IndexRecord(**{
@@ -688,6 +708,7 @@ def test_nonexistent_deps():
     ]]
 
 
+@pytest.mark.benchmark
 def test_install_package_with_feature():
     index2 = index.copy()
     index2['mypackage-1.0-featurepy33_0.tar.bz2'] = IndexRecord(**{
@@ -744,6 +765,7 @@ def test_unintentional_feature_downgrade():
     assert any(d.name == 'numpy' for d in install)
 
 
+@pytest.mark.benchmark
 def test_circular_dependencies():
     index2 = index.copy()
     index2['package1-1.0-0.tar.bz2'] = IndexRecord(**{

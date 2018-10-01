@@ -285,7 +285,8 @@ class IntegrationTests(TestCase):
             packages = json.loads(stdout)
             assert len(packages) >= 1
 
-    def test_create_install_update_remove_smoketest(self):
+    @pytest.mark.benchmark
+    def test_create_install_update_remove(self):
         with make_temp_env("python=3.5") as prefix:
             assert exists(join(prefix, PYTHON_BINARY))
             assert_package_is_installed(prefix, 'python-3')
@@ -742,6 +743,15 @@ class IntegrationTests(TestCase):
                 assert_package_is_installed(clone_prefix, 'python-3.5')
                 assert_package_is_installed(clone_prefix, 'decorator')
 
+
+    @pytest.mark.benchmark
+    def test_python2_pandas(self):
+        with make_temp_env("python=2 pandas") as prefix:
+            assert exists(join(prefix, PYTHON_BINARY))
+            assert_package_is_installed(prefix, 'numpy')
+
+
+    @pytest.mark.benchmark
     def test_install_prune(self):
         with make_temp_env("python=3 flask") as prefix:
             assert package_is_installed(prefix, 'flask')
@@ -774,6 +784,7 @@ class IntegrationTests(TestCase):
                 assert package_is_installed(prefix, 'openssl')
             assert package_is_installed(prefix, 'itsdangerous')
 
+    @pytest.mark.benchmark
     @pytest.mark.skipif(on_win, reason="mkl package not available on Windows")
     def test_install_features(self):
         with make_temp_env("python=2 numpy nomkl") as prefix:
