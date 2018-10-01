@@ -1,0 +1,18 @@
+{
+    "version": 1,
+    "project": "conda",
+    "project_url": "http://github.com/conda/conda",
+    "repo": ".",
+    "branches": ["master"],
+    "dvcs": "git",
+    "environment_type": "conda",
+    "show_commit_url": "http://github.com/conda/conda/commit/",
+    "pythons": ["3.6", "3.7"],
+    "matrix": {
+        "pytest": [],
+        "mock": []
+    },
+    "env_dir": ".asv/env",
+    "results_dir": ".asv/results",
+    "html_dir": ".asv/html"
+}

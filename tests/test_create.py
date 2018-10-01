@@ -277,6 +277,7 @@ class IntegrationTests(TestCase):
     def setUp(self):
         PackageCacheData.clear()
 
+    @pytest.mark.benchmark
     def test_install_python2_and_search(self):
         with env_var('CONDA_ALLOW_NON_CHANNEL_URLS', 'true', reset_context):
             with make_temp_env("python=2") as prefix:
@@ -327,6 +328,7 @@ class IntegrationTests(TestCase):
             assert not package_is_installed(prefix, 'flask')
             assert package_is_installed(prefix, 'python=3')
 
+    @pytest.mark.benchmark
     def test_safety_checks(self):
         # This test uses https://anaconda.org/conda-test/spiffy-test-app/0.5/download/noarch/spiffy-test-app-0.5-pyh6afbcc8_0.tar.bz2
         # which is a modification of https://anaconda.org/conda-test/spiffy-test-app/1.0/download/noarch/spiffy-test-app-1.0-pyh6afabb7_0.tar.bz2
@@ -554,6 +556,7 @@ class IntegrationTests(TestCase):
         assert len(json.loads(stdout)["flask"]) < 3
         assert json.loads(stdout)["flask"][0]["noarch"] == "python"
 
+    @pytest.mark.benchmark
     def test_create_empty_env(self):
         with make_temp_env() as prefix:
             assert exists(join(prefix, 'conda-meta/history'))
@@ -574,6 +577,7 @@ class IntegrationTests(TestCase):
             assert stderr == ''
             self.assertIsInstance(stdout, str)
 
+    @pytest.mark.benchmark
     @pytest.mark.skipif(on_win and context.subdir == "win-32", reason="conda-forge doesn't do win-32")
     def test_strict_channel_priority(self):
         stdout, stderr = run_command(
@@ -655,6 +659,7 @@ class IntegrationTests(TestCase):
             assert not isdir(prefix)
             assert prefix not in PrefixData._cache_
 
+    @pytest.mark.benchmark
     def test_install_tarball_from_local_channel(self):
         # Regression test for #2812
         # install from local channel
@@ -742,6 +747,7 @@ class IntegrationTests(TestCase):
                 PrefixData._cache_ = {}
                 assert not package_is_installed(prefix, 'xz')
 
+    @pytest.mark.benchmark
     @pytest.mark.skipif(on_win, reason="windows python doesn't depend on readline")
     def test_update_with_pinned_packages(self):
         # regression test for #6914
@@ -782,6 +788,7 @@ class IntegrationTests(TestCase):
                     get_python_version_for_prefix(prefix)), 'pip', '__init__.py'))
         hardlink_supported_mock._result_cache.clear()
 
+    @pytest.mark.benchmark
     @pytest.mark.skipif(on_win, reason="nomkl not present on windows")
     def test_remove_features(self):
         with make_temp_env("python=2 numpy=1.13 nomkl") as prefix:
@@ -828,6 +835,7 @@ class IntegrationTests(TestCase):
                 assert package_is_installed(clone_prefix, 'python=3.5')
                 assert package_is_installed(clone_prefix, 'decorator')
 
+    @pytest.mark.benchmark
     def test_install_prune_flag(self):
         with make_temp_env("python=3 flask") as prefix:
             assert package_is_installed(prefix, 'flask')
@@ -865,6 +873,7 @@ class IntegrationTests(TestCase):
             assert unlink_actions[0] == link_actions[0]
             assert unlink_actions[0]['name'] == 'python'
 
+    @pytest.mark.benchmark
     def test_create_no_deps_flag(self):
         with make_temp_env("python=2 flask --no-deps") as prefix:
             assert package_is_installed(prefix, 'flask')
@@ -872,6 +881,7 @@ class IntegrationTests(TestCase):
             assert not package_is_installed(prefix, 'openssl')
             assert not package_is_installed(prefix, 'itsdangerous')
 
+    @pytest.mark.benchmark
     def test_create_only_deps_flag(self):
         with make_temp_env("python=2 flask --only-deps") as prefix:
             assert not package_is_installed(prefix, 'flask')
@@ -881,6 +891,7 @@ class IntegrationTests(TestCase):
                 assert package_is_installed(prefix, 'openssl')
             assert package_is_installed(prefix, 'itsdangerous')
 
+    @pytest.mark.benchmark
     def test_install_update_deps_flag(self):
         with make_temp_env("flask==0.12 jinja2==2.8") as prefix:
             assert package_is_installed(prefix, "python=3.6")
@@ -892,6 +903,7 @@ class IntegrationTests(TestCase):
             assert package_is_installed(prefix, "flask>0.12")
             assert package_is_installed(prefix, "jinja2>2.8")
 
+    @pytest.mark.benchmark
     def test_install_only_deps_flag(self):
         with make_temp_env("flask==0.12 jinja2==2.8") as prefix:
             assert package_is_installed(prefix, "python=3.6")
