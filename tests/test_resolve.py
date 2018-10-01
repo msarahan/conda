@@ -125,6 +125,7 @@ class TestSolve(unittest.TestCase):
     def test_explicit0(self):
         self.assertEqual(r.explicit([]), [])
 
+    @pytest.mark.benchmark
     def test_explicit1(self):
         self.assertEqual(r.explicit(['pycosat 0.6.0 py27_0']), None)
         self.assertEqual(r.explicit(['zlib']), None)
@@ -133,6 +134,7 @@ class TestSolve(unittest.TestCase):
         self.assertEqual(r.explicit(['zlib 1.2.7 0']),
                          ['zlib-1.2.7-0.tar.bz2'])
 
+    @pytest.mark.benchmark
     def test_explicit2(self):
         self.assertEqual(r.explicit(['pycosat 0.6.0 py27_0',
                                      'zlib 1.2.7 0']),
@@ -194,6 +196,7 @@ class TestSolve(unittest.TestCase):
             r.install(['accelerate']),
             r.install(['accelerate', 'mkl@']))
 
+    @pytest.mark.benchmark
     def test_scipy_mkl(self):
         dists = r.install(['scipy', 'python 2.7*', 'numpy 1.7*', 'mkl@'])
         self.assert_have_mkl(dists, ('numpy', 'scipy'))
@@ -204,6 +207,7 @@ class TestSolve(unittest.TestCase):
         self.assertEqual(len(dists), 107)
         self.assertTrue('scipy-0.12.0-np17py27_0.tar.bz2' in dists)
 
+    @pytest.mark.benchmark
     def test_anaconda_mkl_2(self):
         # to test "with_features_depends"
         dists = r.install(['anaconda 1.5.0', 'python 2.7*', 'numpy 1.7*', 'mkl@'])
@@ -216,6 +220,7 @@ class TestSolve(unittest.TestCase):
         self.assertTrue(set(dists) <= set(dists2))
         self.assertEqual(len(dists2), 110)
 
+    @pytest.mark.benchmark
     def test_anaconda_mkl_3(self):
         # to test "with_features_depends"
         dists = r.install(['anaconda 1.5.0', 'python 3*', 'mkl@'])
@@ -238,6 +243,7 @@ class TestFindSubstitute(unittest.TestCase):
             self.assertEqual(r.find_substitute(installed, f_mkl, old), new)
 
 
+@pytest.mark.benchmark
 def test_pseudo_boolean():
     # The latest version of iopro, 1.5.0, was not built against numpy 1.5
     assert r.install(['iopro', 'python 2.7*', 'numpy 1.5*'], returnall=True) == [[
@@ -272,6 +278,7 @@ def test_get_dists():
     assert 'anaconda-1.5.0-np17py27_0.tar.bz2' in dists
     assert 'dynd-python-0.3.0-np17py33_0.tar.bz2' in dists
 
+@pytest.mark.benchmark
 def test_generate_eq():
     specs = ['anaconda']
     dists, specs = r.get_dists(specs)
@@ -351,6 +358,7 @@ def test_generate_eq():
         'system-5.8-0.tar.bz2': 1,
         'zeromq-2.2.0-0.tar.bz2': 1}
 
+@pytest.mark.benchmark
 def test_unsat():
     # scipy 0.12.0b1 is not built for numpy 1.5, only 1.6 and 1.7
     assert raises(Unsatisfiable, lambda: r.install(['numpy 1.5*', 'scipy 0.12.0b1']))
@@ -364,6 +372,7 @@ def test_nonexistent():
     # This exact version of NumPy does not exist
     assert raises(NoPackagesFound, lambda: r.install(['numpy 1.5']))
 
+@pytest.mark.benchmark
 def test_nonexistent_deps():
     index2 = index.copy()
     index2['mypackage-1.0-py33_0.tar.bz2'] = {
@@ -567,6 +576,7 @@ def test_nonexistent_deps():
     ]
 
 
+@pytest.mark.benchmark
 def test_install_package_with_feature():
     index2 = index.copy()
     index2['mypackage-1.0-featurepy33_0.tar.bz2'] = {
@@ -592,6 +602,7 @@ def test_install_package_with_feature():
     r.install(['mypackage','feature 1.0'])
 
 
+@pytest.mark.benchmark
 def test_circular_dependencies():
     index2 = index.copy()
     index2['package1-1.0-0.tar.bz2'] = {
