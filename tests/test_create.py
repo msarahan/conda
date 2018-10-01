@@ -207,6 +207,7 @@ class IntegrationTests(TestCase):
     def tearDown(self):
         reenable_dotlog(self.saved_dotlog_handlers)
 
+    @pytest.mark.benchmark
     @pytest.mark.timeout(900)
     def test_create_install_update_remove(self):
         with make_temp_env("python=3") as prefix:
@@ -337,6 +338,7 @@ class IntegrationTests(TestCase):
             assert not package_is_installed(prefix, 'flask', exact=True)
             assert_package_is_installed(prefix, 'flask-0.')
 
+    @pytest.mark.benchmark
     @pytest.mark.timeout(600)
     def test_install_python2_and_env_symlinks(self):
         with make_temp_env("python=2") as prefix:
@@ -396,12 +398,14 @@ class IntegrationTests(TestCase):
                 assert_package_is_installed(clone_prefix, 'python-3.5')
                 assert_package_is_installed(clone_prefix, 'decorator')
 
+    @pytest.mark.benchmark
     @pytest.mark.timeout(600)
     def test_python2_pandas(self):
         with make_temp_env("python=2 pandas") as prefix:
             assert exists(join(prefix, PYTHON_BINARY))
             assert_package_is_installed(prefix, 'numpy')
 
+    @pytest.mark.benchmark
     @pytest.mark.timeout(300)
     def test_install_prune(self):
         with make_temp_env("python=2 decorator") as prefix:
@@ -419,6 +423,7 @@ class IntegrationTests(TestCase):
             assert_package_is_installed(prefix, 'flask')
             assert not package_is_installed(prefix, 'decorator')
 
+    @pytest.mark.benchmark
     @pytest.mark.skipif(on_win, reason="mkl package not available on Windows")
     @pytest.mark.timeout(300)
     def test_install_features(self):
