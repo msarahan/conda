@@ -135,11 +135,10 @@ def _list_classes_with_test_methods(filename):
     return _top_level_test_classes(body)
 
 
-def _reclassify_test(klass, new_prefix):
+def _reclassify_test(klass, new_prefix, benchmark_funcs):
     new_attrs = {}
-    benchmark_funcs = _get_decorators(klass)
     for attr, val in klass.__dict__.items():
-        if attr.startswith("test_") and benchmark_funcs[attr]:
+        if attr.startswith("test_") and attr in benchmark_funcs:
             new_attrs[attr.replace("test", new_prefix, 1)] = val
         else:
             new_attrs[attr] = val
@@ -155,11 +154,13 @@ def _add_renamed_classes_from_test_file(dest_module, test_file_path, repl_name):
     for cls_name in class_names:
         new_class_name = repl_name.capitalize() + cls_name
         old_class = getattr(test_module, cls_name)
-        attrs = _reclassify_test(old_class, repl_name)
-        print("Adding class {} to module {} with attrs:".format(new_class_name, dest_module_name))
-        pprint(attrs)
-        setattr(sys.modules[dest_module.__name__], new_class_name,
-                type(new_class_name, (old_class, ), attrs))
+        benchmark_funcs = {k: v for k, v in _get_decorators(old_class).items() if 'benchmark' in v}
+        if benchmark_funcs:
+            attrs = _reclassify_test(old_class, repl_name, benchmark_funcs)
+            print("Adding class {} to module {} with attrs:".format(new_class_name, dest_module_name))
+            pprint(attrs)
+            setattr(sys.modules[dest_module.__name__], new_class_name,
+                    type(new_class_name, (old_class, ), attrs))
 
 
 def add_renamed_classes_to_module(module, repl_name):
