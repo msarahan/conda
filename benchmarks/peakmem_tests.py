@@ -34,5 +34,3 @@ del add_test_funcs_to_module
 
 print("Final modified module dict:")
 pprint(this_module.__dict__)
-
-del pprint

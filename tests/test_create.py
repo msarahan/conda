@@ -577,7 +577,6 @@ class IntegrationTests(TestCase):
             assert stderr == ''
             self.assertIsInstance(stdout, str)
 
-    @pytest.mark.benchmark
     @pytest.mark.skipif(on_win and context.subdir == "win-32", reason="conda-forge doesn't do win-32")
     def test_strict_channel_priority(self):
         stdout, stderr = run_command(
@@ -659,7 +658,6 @@ class IntegrationTests(TestCase):
             assert not isdir(prefix)
             assert prefix not in PrefixData._cache_
 
-    @pytest.mark.benchmark
     def test_install_tarball_from_local_channel(self):
         # Regression test for #2812
         # install from local channel
@@ -788,7 +786,6 @@ class IntegrationTests(TestCase):
                     get_python_version_for_prefix(prefix)), 'pip', '__init__.py'))
         hardlink_supported_mock._result_cache.clear()
 
-    @pytest.mark.benchmark
     @pytest.mark.skipif(on_win, reason="nomkl not present on windows")
     def test_remove_features(self):
         with make_temp_env("python=2 numpy=1.13 nomkl") as prefix:
@@ -1065,6 +1062,7 @@ class IntegrationTests(TestCase):
             finally:
                 reset_context()
 
+    @pytest.mark.benchmark
     def test_rpy_search(self):
         with make_temp_env("python=3.5") as prefix:
             run_command(Commands.CONFIG, prefix, "--add channels https://repo.anaconda.com/pkgs/free")
@@ -1865,6 +1863,7 @@ class IntegrationTests(TestCase):
         finally:
             SubdirData._cache_.clear()
 
+    @pytest.mark.benchmark
     def test_create_from_extracted(self):
         with make_temp_package_cache() as pkgs_dir:
             assert context.pkgs_dirs == (pkgs_dir,)
@@ -2093,6 +2092,7 @@ class IntegrationTests(TestCase):
                 assert result.rc == 1
                 assert "NoBaseEnvironmentError: This conda installation has no default base environment." in result.stderr
 
+    @pytest.mark.benchmark
     def test_conda_downgrade(self):
         # Create an environment with the current conda under test, but include an earlier
         # version of conda and other packages in that environment.

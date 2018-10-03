@@ -112,6 +112,7 @@ class TestSolve(unittest.TestCase):
         dist_strs = [prec.dist_str() for prec in precs]
         assert 'channel-1::scipy-0.12.0-np17py27_p0' in dist_strs
 
+    @pytest.mark.benchmark
     def test_anaconda_nomkl(self):
         precs = r.install(['anaconda 1.5.0', 'python 2.7*', 'numpy 1.7*'])
         assert len(precs) == 107
@@ -178,6 +179,7 @@ def test_get_reduced_index_unmanageable():
     assert len(new_r2.groups["requests"]) == 1, new_r2.groups["requests"]
 
 
+@pytest.mark.benchmark
 def test_generate_eq_1():
     reduced_index = r.get_reduced_index([MatchSpec('anaconda')])
     r2 = Resolve(reduced_index, True, True)
@@ -470,6 +472,7 @@ def test_timestamps_and_deps():
     installed5 = r.install(['mypackage'])
     assert installed2 == installed5
 
+@pytest.mark.benchmark
 def test_nonexistent_deps():
     index2 = index.copy()
     p1 = PackageRecord(**{
@@ -779,6 +782,7 @@ def test_unintentional_feature_downgrade():
     assert any(d.name == 'numpy' for d in install)
 
 
+@pytest.mark.benchmark
 def test_circular_dependencies():
     index2 = index.copy()
     package1 = PackageRecord(**{
@@ -1042,6 +1046,7 @@ def test_multiple_solution():
 #    assert len(res) <= len(res1)
 
 
+@pytest.mark.benchmark
 def test_broken_install():
     installed = r.install(['pandas', 'python 2.7*', 'numpy 1.6*'])
     _installed = [rec.dist_str() for rec in installed]
@@ -1091,6 +1096,7 @@ def test_broken_install():
     # always insure installed packages _are_ in the index
 
 
+@pytest.mark.benchmark
 def test_remove():
     installed = r.install(['pandas', 'python 2.7*'])
     _installed = [rec.dist_str() for rec in installed]
@@ -1697,6 +1703,7 @@ def test_dependency_sort():
     assert [prec.dist_str() for prec in installed] == results_should_be
 
 
+@pytest.mark.benchmark
 def test_update_deps():
     installed = r.install(['python 2.7*', 'numpy 1.6*', 'pandas 0.10.1'])
     result = [rec.dist_str() for rec in installed]
