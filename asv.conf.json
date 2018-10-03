@@ -10,7 +10,11 @@
     "pythons": ["3.6", "3.7"],
     "matrix": {
         "pytest": [],
-        "mock": []
+        "mock": [],
+        "pycosat": [],
+        "ruamel_yaml": [],
+        "requests": [],
+        "chardet": []
     },
     "env_dir": ".asv/env",
     "results_dir": ".asv/results",
