@@ -10,7 +10,6 @@ import sys
 import sysconfig
 
 from ..common.compat import on_win
-from ..utils import memoized
 
 
 def find_executable(executable, include_others=True):
@@ -45,7 +44,7 @@ def find_executable(executable, include_others=True):
     return None
 
 
-@memoized
+@memoize
 def find_commands(include_others=True):
 
     if include_others:
