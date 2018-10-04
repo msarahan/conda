@@ -20,7 +20,7 @@ __all__ = (
 )
 
 __name__ = "conda"
-__version__ = get_version(__file__)
+__version__ = "4.3.34"
 __author__ = "Anaconda, Inc."
 __email__ = "conda@continuum.io"
 __license__ = "BSD-3-Clause"

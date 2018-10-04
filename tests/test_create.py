@@ -621,7 +621,6 @@ class IntegrationTests(TestCase):
             assert not package_is_installed(prefix, 'decorator')
 
     @pytest.mark.benchmark
-    @pytest.mark.skipif(on_win, reason="mkl package not available on Windows")
     def test_install_features(self):
         with make_temp_env("python=2 numpy") as prefix:
             numpy_details = get_conda_list_tuple(prefix, "numpy")

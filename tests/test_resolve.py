@@ -9,7 +9,9 @@ from conda.exceptions import UnsatisfiableError
 from conda.models.dist import Dist
 from conda.models.index_record import IndexRecord
 from conda.resolve import MatchSpec, Resolve, ResolvePackageNotFound, dashlist
-from tests.helpers import get_index_r_1, get_index_r_3, raises
+from helpers import get_index_r_1, get_index_r_3, raises
+
+import pytest
 
 index, r, = get_index_r_1()
 
