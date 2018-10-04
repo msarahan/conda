@@ -131,7 +131,6 @@ class IntegrationTests(TestCase):
         reenable_dotlog(self.saved_dotlog_handlers)
 
     @pytest.mark.benchmark
-    @pytest.mark.timeout(900)
     def test_create_install_update_remove(self):
         with make_temp_env("python=3") as prefix:
             assert exists(join(prefix, PYTHON_BINARY))
@@ -226,7 +225,6 @@ class IntegrationTests(TestCase):
                 assert_package_is_installed(clone_prefix, 'decorator')
 
     @pytest.mark.benchmark
-    @pytest.mark.timeout(600)
     def test_python2_pandas(self):
         with make_temp_env("python=2 pandas") as prefix:
             assert exists(join(prefix, PYTHON_BINARY))
