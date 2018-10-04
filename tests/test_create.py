@@ -194,7 +194,6 @@ def get_conda_list_tuple(prefix, package_name):
 
 class IntegrationTests(TestCase):
     @pytest.mark.benchmark
-    @pytest.mark.timeout(900)
     def test_create_install_update_remove(self):
         with make_temp_env("python=3") as prefix:
             assert exists(join(prefix, PYTHON_BINARY))
@@ -257,7 +256,6 @@ class IntegrationTests(TestCase):
             assert any(line.endswith("<pip>") for line in stdout_lines
                        if line.lower().startswith("flask"))
 
-    @pytest.mark.timeout(300)
     def test_list_with_pip_wheel(self):
         with make_temp_env("python=3 pip") as prefix:
             check_call(PYTHON_BINARY + " -m pip install flask==0.10.1",
@@ -357,7 +355,6 @@ class IntegrationTests(TestCase):
             assert_package_is_installed(prefix, 'flask-0.')
 
     @pytest.mark.benchmark
-    @pytest.mark.timeout(600)
     def test_install_python2_and_env_symlinks(self):
         with make_temp_env("python=2") as prefix:
             assert exists(join(prefix, PYTHON_BINARY))
@@ -377,7 +374,6 @@ class IntegrationTests(TestCase):
                 assert islink(join(prefix, BIN_DIRECTORY, 'deactivate'))
                 assert islink(join(prefix, BIN_DIRECTORY, 'conda'))
 
-    @pytest.mark.timeout(300)
     def test_remove_all(self):
         with make_temp_env("python=2") as prefix:
             assert exists(join(prefix, PYTHON_BINARY))
@@ -415,14 +411,12 @@ class IntegrationTests(TestCase):
                 assert_package_is_installed(clone_prefix, 'decorator')
 
     @pytest.mark.benchmark
-    @pytest.mark.timeout(600)
     def test_python2_pandas(self):
         with make_temp_env("python=2 pandas") as prefix:
             assert exists(join(prefix, PYTHON_BINARY))
             assert_package_is_installed(prefix, 'numpy')
 
     @pytest.mark.benchmark
-    @pytest.mark.timeout(300)
     def test_install_prune(self):
         with make_temp_env("python=2 decorator") as prefix:
             assert_package_is_installed(prefix, 'decorator')
@@ -440,8 +434,6 @@ class IntegrationTests(TestCase):
             assert not package_is_installed(prefix, 'decorator')
 
     @pytest.mark.benchmark
-    @pytest.mark.skipif(on_win, reason="mkl package not available on Windows")
-    @pytest.mark.timeout(300)
     def test_install_features(self):
         with make_temp_env("python=2 numpy") as prefix:
             numpy_details = get_conda_list_tuple(prefix, "numpy")
@@ -451,7 +443,6 @@ class IntegrationTests(TestCase):
             numpy_details = get_conda_list_tuple(prefix, "numpy")
             assert len(numpy_details) == 4 and 'nomkl' in numpy_details[3]
 
-    @pytest.mark.timeout(300)
     def test_clone_offline(self):
         with make_temp_env("python flask=0.10.1") as prefix:
             assert_package_is_installed(prefix, 'flask-0.10.1')
@@ -464,7 +455,6 @@ class IntegrationTests(TestCase):
 
     @pytest.mark.xfail(datetime.now() < datetime(2016, 10, 1), reason="configs are borked")
     @pytest.mark.skipif(on_win, reason="r packages aren't prime-time on windows just yet")
-    @pytest.mark.timeout(600)
     def test_clone_offline_multichannel_with_untracked(self):
         with make_temp_env("python") as prefix:
             assert_package_is_installed(prefix, 'python')

@@ -9,7 +9,9 @@ from os.path import dirname, join
 from conda.base.context import reset_context
 from conda.exceptions import NoPackagesFoundError, UnsatisfiableError
 from conda.resolve import MatchSpec, Package, Resolve
-from tests.helpers import raises
+from helpers import raises
+
+import pytest
 
 with open(join(dirname(__file__), 'index.json')) as fi:
     index = json.load(fi)
