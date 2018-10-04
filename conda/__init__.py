@@ -16,7 +16,7 @@ __all__ = [
 
 
 __name__ = "conda"
-__version__ = get_version(__file__)
+__version__ = "4.1.12"
 __author__ = "Continuum Analytics, Inc."
 __email__ = "conda@continuum.io"
 __license__ = "BSD"
