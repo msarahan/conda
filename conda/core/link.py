@@ -7,7 +7,6 @@ import os
 from os.path import basename, dirname, isdir, join
 from subprocess import CalledProcessError
 import sys
-from tempfile import mkdtemp
 from traceback import format_exception_only
 import warnings
 
@@ -312,14 +311,15 @@ class UnlinkLinkTransaction(object):
         # run all per-action verify methods
         #   one of the more important of these checks is to verify that a file listed in
         #   the packages manifest (i.e. info/files) is actually contained within the package
-        for axn in all_actions:
-            if axn.verified:
-                continue
-            error_result = axn.verify()
-            if error_result:
-                formatted_error = ''.join(format_exception_only(type(error_result), error_result))
-                log.debug("Verification error in action %s\n%s", axn, formatted_error)
-                yield error_result
+        for _, pkg_actions in all_actions:
+            for axn in pkg_actions:
+                if axn.verified:
+                    continue
+                error_result = axn.verify()
+                if error_result:
+                    formatted = ''.join(format_exception_only(type(error_result), error_result))
+                    log.debug("Verification error in action %s\n%s", axn, formatted)
+                    yield error_result
 
     @staticmethod
     def _verify_prefix_level(target_prefix, prefix_action_group):

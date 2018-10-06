@@ -174,6 +174,18 @@ def make_menu(prefix, file_path, remove=False):
         stdoutlog.error("menuinst Exception", exc_info=True)
 
 
+def mkdir_p(path):
+    try:
+        log.trace('making directory %s', path)
+        if path:
+            makedirs(path)
+    except OSError as e:
+        if e.errno == EEXIST and isdir(path):
+            return path
+        else:
+            raise
+
+
 def create_hard_link_or_copy(src, dst):
     if islink(src):
         message = dals("""
