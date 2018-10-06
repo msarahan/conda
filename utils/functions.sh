@@ -94,10 +94,8 @@ remove_conda() {
        $site_packages/idna* \
        $site_packages/ruamel*
 
-       # leave these until appveyor gets its compilers worked out for py36
        # $site_packages/pycrypto* \
        # $site_packages/pycosat*
-    ls -al $site_packages
     hash -r
 }
 
