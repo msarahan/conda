@@ -3,8 +3,7 @@ from __future__ import absolute_import, division, print_function, unicode_litera
 
 import os
 from functools import reduce
-from logging import getLogger
-from os.path import join, split, splitext
+from os.path import basename, dirname, join
 
 from .compat import string_types
 from ..utils import on_win
@@ -13,9 +12,6 @@ try:
     from cytoolz.itertoolz import accumulate, concat, take
 except ImportError:
     from .._vendor.toolz.itertoolz import accumulate, concat, take
-
-
-log = getLogger(__name__)
 
 
 def tokenized_startswith(test_iterable, startswith_iterable):

@@ -8,10 +8,11 @@ from os.path import basename, isdir, isfile, islink, join
 import tarfile
 
 from .base.context import context
-from .core.link import UnlinkLinkTransaction
+from .core.install import PackageUninstaller, get_package_installer
 from .core.package_cache import extract, fetch_pkg, is_extracted, rm_extracted, rm_fetched
 from .exceptions import CondaFileIOError, CondaIOError
 from .models.dist import Dist
+from .models.enums import LinkType
 
 from .file_permissions import FilePermissions
 from .exceptions import CondaIOError
