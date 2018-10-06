@@ -48,57 +48,6 @@ class Platform(Enum):
             p = 'linux'
         return cls(p)
 
-    def __json__(self):
-        return self.value
-
-
-class FileMode(Enum):
-    text = 'text'
-    binary = 'binary'
-
-    def __str__(self):
-        return "%s" % self.value
-
-
-class LinkType(Enum):
-    # LINK_HARD = 1
-    # LINK_SOFT = 2
-    # LINK_COPY = 3
-    # link_name_map = {
-    #     LINK_HARD: 'hard-link',
-    #     LINK_SOFT: 'soft-link',
-    #     LINK_COPY: 'copy',
-    # }
-    hard_link = 1
-    soft_link = 2
-    copy = 3
-    directory = 4
-
-    @classmethod
-    def from_string(cls, string):
-        return cls[string.replace('-', '_')]
-
-    @classmethod
-    def make(cls, value):
-        if isinstance(value, string_types):
-            return cls.from_string(value)
-        elif isinstance(value, cls):
-            return value
-        else:
-            return cls(value)
-
-    def __int__(self):
-        return self.value
-
-    def __str__(self):
-        return self.name.replace('_', '-')
-
-
-PREFIX_PLACEHOLDER = ('/opt/anaconda1anaconda2'
-                      # this is intentionally split into parts,
-                      # such that running this program on itself
-                      # will leave it unchanged
-                      'anaconda3')
 
 machine_bits = 8 * tuple.__itemsize__
 
