@@ -21,5 +21,6 @@ record.txt
 tempfile.rc
 conda-build/
 conda_build_test_recipe/
+record.txt
 .vagrant/
 Vagrantfile

@@ -6,9 +6,8 @@ import re
 import sys
 import sysconfig
 
-from .._vendor.auxlib.decorators import memoize
 from ..common.compat import on_win
-from ..utils import sys_prefix_unfollowed
+from ..utils import memoized
 
 
 def find_executable(executable, include_others=True):
@@ -16,6 +15,7 @@ def find_executable(executable, include_others=True):
     global dir_paths
 
     if include_others:
+        from ..utils import sys_prefix_unfollowed
         prefixes = [sys_prefix_unfollowed()]
         if sys.prefix != prefixes[0]:
             prefixes.append(sys.prefix)
@@ -42,10 +42,11 @@ def find_executable(executable, include_others=True):
     return None
 
 
-@memoize
+@memoized
 def find_commands(include_others=True):
 
     if include_others:
+        from ..utils import sys_prefix_unfollowed
         prefixes = [sys_prefix_unfollowed()]
         if sys.prefix != prefixes[0]:
             prefixes.append(sys.prefix)

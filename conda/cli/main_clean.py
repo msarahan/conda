@@ -106,6 +106,7 @@ def rm_tarballs(args, pkgs_dirs, totalsize, verbose=True):
         return
 
     if verbose:
+        from ..utils import human_bytes
         print("Will remove the following tarballs:")
         print()
 
@@ -121,7 +122,7 @@ def rm_tarballs(args, pkgs_dirs, totalsize, verbose=True):
         print(fmt % ('Total:', human_bytes(totalsize)))
         print()
 
-    if not context.json or not context.yes:
+    if not context.json or not context.always_yes:
         confirm_yn(args)
     if context.json and args.dry_run:
         return
@@ -129,6 +130,7 @@ def rm_tarballs(args, pkgs_dirs, totalsize, verbose=True):
     for pkgs_dir in pkgs_dirs:
         for fn in pkgs_dirs[pkgs_dir]:
             try:
+                from ..gateways.disk.delete import rm_rf
                 if rm_rf(os.path.join(pkgs_dir, fn)):
                     if verbose:
                         print("Removed %s" % fn)
@@ -194,10 +196,11 @@ def find_pkgs():
     return pkgs_dirs, warnings, totalsize, pkgsizes
 
 
-def rm_pkgs(args, pkgs_dirs, warnings, totalsize, pkgsizes, verbose=True):
-    from .common import confirm_yn
+def rm_pkgs(args, pkgs_dirs, warnings, totalsize, pkgsizes,
+            verbose=True):
     from ..gateways.disk.delete import rm_rf
     from ..utils import human_bytes
+
     if verbose:
         for pkgs_dir in pkgs_dirs:
             print('Cache location: %s' % pkgs_dir)
@@ -223,7 +226,7 @@ def rm_pkgs(args, pkgs_dirs, warnings, totalsize, pkgsizes, verbose=True):
         print(fmt % ('Total:', human_bytes(totalsize)))
         print()
 
-    if not context.json or not context.yes:
+    if not context.json or not context.always_yes:
         confirm_yn(args)
     if context.json and args.dry_run:
         return
@@ -270,11 +273,10 @@ def find_source_cache():
 
 
 def rm_source_cache(args, cache_dirs, warnings, cache_sizes, total_size):
-    from .common import confirm_yn
     from ..gateways.disk.delete import rm_rf
     from ..utils import human_bytes
 
-    verbose = not (context.json or context.quiet)
+    verbose = not context.json
     if warnings:
         if verbose:
             for warning in warnings:
@@ -289,7 +291,7 @@ def rm_source_cache(args, cache_dirs, warnings, cache_sizes, total_size):
 
         print("%-40s %10s" % ("Total:", human_bytes(total_size)))
 
-    if not context.json or not context.yes:
+    if not context.json or not context.always_yes:
         confirm_yn(args)
     if context.json and args.dry_run:
         return

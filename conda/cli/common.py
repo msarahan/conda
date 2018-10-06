@@ -6,16 +6,10 @@ from os.path import basename
 import re
 import sys
 
-from ..base.constants import ROOT_ENV_NAME
+from ..base.constants import CONDA_TARBALL_EXTENSION, ROOT_ENV_NAME
 from ..base.context import context, get_prefix as context_get_prefix
 from ..common.compat import iteritems
 from ..common.constants import NULL
-from ..common.path import is_private_env, prefix_to_env_name
-from ..core.linked_data import linked_data
-from ..exceptions import CondaFileIOError, CondaSystemExit, CondaValueError, DryRunExit
-from ..resolve import MatchSpec
-from ..utils import memoize
-
 
 get_prefix = partial(context_get_prefix, context)
 
@@ -54,7 +48,6 @@ class Completer(object):
     line flags (e.g., the list of completed packages to install changes if -c
     flags are used).
     """
-    @memoize
     def get_items(self):
         return self._get_items()
 
@@ -99,7 +92,6 @@ class InstalledPackages(Completer):
         self.prefix = prefix
         self.parsed_args = parsed_args
 
-    @memoize
     def _get_items(self):
         from ..core.linked_data import linked
         packages = linked(context.prefix_w_legacy_search)
@@ -460,7 +452,7 @@ def confirm_yn(args, message="Proceed", default='yes'):
     try:
         choice = confirm(args, message=message, choices=('yes', 'no'),
                          default=default)
-    except KeyboardInterrupt as e:  # pragma: no cover
+    except KeyboardInterrupt as e:
         from ..exceptions import CondaSystemExit
         raise CondaSystemExit("\nOperation aborted.  Exiting.", e)
     if choice == 'no':
@@ -478,13 +470,23 @@ def ensure_name_or_prefix(args, command):
 
 def arg2spec(arg, json=False, update=False):
     try:
-        spec = MatchSpec(arg)
+        # spec_from_line can return None, especially for the case of a .tar.bz2 extension and
+        #   a space in the path
+        _arg = spec_from_line(arg)
+        if _arg is None and arg.endswith(CONDA_TARBALL_EXTENSION):
+            _arg = arg
+        from ..resolve import MatchSpec
+        spec = MatchSpec(_arg, normalize=True)
     except:
         from ..exceptions import CondaValueError
         raise CondaValueError('invalid package specification: %s' % arg)
 
     name = spec.name
-    if not spec._is_simple() and update:
+    if name in context.disallow:
+        from ..exceptions import CondaValueError
+        raise CondaValueError("specification '%s' is disallowed" % name)
+
+    if not spec.is_simple() and update:
         from ..exceptions import CondaValueError
         raise CondaValueError("""version specifications not allowed with 'update'; use
     conda update  %s%s  or
@@ -575,8 +577,8 @@ def stdout_json(d):
 @contextmanager
 def json_progress_bars(json=False):
     if json:
-        from ..console import json_progress_bars
-        with json_progress_bars():
+        from .. import console
+        with console.json_progress_bars():
             yield
     else:
         yield
@@ -626,3 +628,52 @@ def handle_envs_list(acc, output=True):
 
     if output:
         print()
+
+
+def get_private_envs_json():
+    path_to_private_envs = join(context.root_prefix, "conda-meta", "private_envs")
+    if not isfile(path_to_private_envs):
+        return None
+    try:
+        with open(path_to_private_envs, "r") as f:
+            private_envs_json = json.load(f)
+    except json.decoder.JSONDecodeError:
+        private_envs_json = {}
+    return private_envs_json
+
+
+def prefix_if_in_private_env(spec):
+    private_envs_json = get_private_envs_json()
+    if not private_envs_json:
+        return None
+    prefixes = tuple(prefix for pkg, prefix in iteritems(private_envs_json) if
+                     pkg.startswith(spec))
+    prefix = prefixes[0] if len(prefixes) > 0 else None
+    return prefix
+
+
+def pkg_if_in_private_env(spec):
+    private_envs_json = get_private_envs_json()
+    pkgs = tuple(pkg for pkg, prefix in iteritems(private_envs_json) if pkg.startswith(spec))
+    pkg = pkgs[0] if len(pkgs) > 0 else None
+    return pkg
+
+
+def create_prefix_spec_map_with_deps(r, specs, default_prefix):
+    from ..common.path import is_private_env, prefix_to_env_name
+    from ..core.linked_data import linked_data
+    prefix_spec_map = {}
+    for spec in specs:
+        spec_prefix = prefix_if_in_private_env(spec)
+        spec_prefix = spec_prefix if spec_prefix is not None else default_prefix
+        if spec_prefix in prefix_spec_map.keys():
+            prefix_spec_map[spec_prefix].add(spec)
+        else:
+            prefix_spec_map[spec_prefix] = {spec}
+
+        if is_private_env(prefix_to_env_name(spec_prefix, context.root_prefix)):
+            linked = linked_data(spec_prefix)
+            for linked_spec in linked:
+                if not linked_spec.name.startswith(spec) and r.depends_on(spec, linked_spec):
+                    prefix_spec_map[spec_prefix].add(linked_spec.name)
+    return prefix_spec_map
