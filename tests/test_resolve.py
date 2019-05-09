@@ -1134,7 +1134,6 @@ def test_channel_priority_1():
         assert record_2 not in installed2
         assert record_1 not in installed2
 
-
     with env_var("CONDA_CHANNEL_PRIORITY", "False", stack_callback=conda_tests_ctxt_mgmt_def_pol):
         # Should also select the newer package because we have
         # turned off channel priority altogether
@@ -1882,3 +1881,15 @@ def test_get_reduced_index_broadening_preferred_solution():
             assert d.version == '2.0', "top version should be 2.0, but is {}".format(d.version)
         elif d.name == 'bottom':
             assert d.version == '2.5', "bottom version should be 2.5, but is {}".format(d.version)
+
+
+def test_reduced_timeframe_fallback_to_archive():
+    pass
+
+
+def test_reduced_timeframe_epoch_specified():
+    pass
+
+
+def test_reduced_timeframe_epoch_specified_fallback_to_archive():
+    pass
