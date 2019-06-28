@@ -3,12 +3,14 @@
 # SPDX-License-Identifier: BSD-3-Clause
 from __future__ import absolute_import, division, print_function, unicode_literals
 
+#import json
+# import ujson as json
 import json
+from rapidjson import loads, dumps, Encoder
 from logging import getLogger
 
 from .compat import PY2, odict, ensure_text_type
 from .._vendor.auxlib.decorators import memoize
-from .._vendor.auxlib.entity import EntityEncoder
 
 log = getLogger(__name__)
 
@@ -84,9 +86,31 @@ def yaml_dump(object):
 
 
 def json_load(string):
-    return json.loads(string)
+    return loads(string)
 
 
 def json_dump(object):
-    return ensure_text_type(json.dumps(object, indent=2, sort_keys=True,
-                                       separators=(',', ': '), cls=EntityEncoder))
+    class EntityEncoder(Encoder):
+        def __call__(self, obj, stream=None, chunk_size=65535):
+            res = super().__call__(obj, stream=stream, chunk_size=chunk_size)
+            if res is not None:
+                res += '\n'
+            else:
+                stream.write('\n')
+            return res
+
+        def default(self, obj):
+            if hasattr(obj, 'dump'):
+                return obj.dump()
+            elif hasattr(obj, '__json__'):
+                return obj.__json__()
+            elif hasattr(obj, 'to_json'):
+                return obj.to_json()
+            elif hasattr(obj, 'as_json'):
+                return obj.as_json()
+            elif isinstance(obj, Enum):
+                return obj.value
+            return json.JSONEncoder.default(self, obj)
+
+    encode = EntityEncoder(indent=2, sort_keys=True)
+    return ensure_text_type(encode(object)).replace(":'", ": '")

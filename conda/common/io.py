@@ -15,7 +15,6 @@ if sys.version_info[0] > 2:
     # Not used at present.
     from io import BytesIO
 from itertools import cycle
-import json
 import logging  # lgtm [py/import-and-import-from]
 from logging import CRITICAL, Formatter, NOTSET, StreamHandler, WARN, getLogger
 import os
@@ -27,6 +26,7 @@ from time import sleep, time
 from .compat import StringIO, iteritems, on_win, encode_environment
 from .constants import NULL
 from .path import expand
+from .serialize import json_dump
 from .._vendor.auxlib.decorators import memoizemethod
 from .._vendor.auxlib.logz import NullHandler
 from .._vendor.auxlib.type_coercion import boolify
@@ -660,7 +660,7 @@ def print_instrumentation_data():  # pragma: no cover
             'average_time': average_time,
         }
 
-    print(json.dumps(final_data, sort_keys=True, indent=2, separators=(',', ': ')))
+    print(json_dump(final_data, sort_keys=True, indent=2).replace(":'", ": '"))
 
 
 if __name__ == "__main__":

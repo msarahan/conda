@@ -10,7 +10,6 @@ from errno import EACCES, ENODEV, EPERM, EROFS
 from genericpath import getmtime, isfile
 import hashlib
 from io import open as io_open
-import json
 from logging import DEBUG, getLogger
 from mmap import ACCESS_READ, mmap
 from os.path import dirname, isdir, join, splitext
@@ -28,6 +27,7 @@ from ..common.compat import (ensure_binary, ensure_text_type, ensure_unicode, it
                              string_types, text_type, with_metaclass)
 from ..common.io import ThreadLimitedThreadPoolExecutor, as_completed
 from ..common.url import join_url, maybe_unquote
+from ..common.serialize import json_load, json_dump
 from ..core.package_cache_data import PackageCacheData
 from ..exceptions import (CondaDependencyError, CondaHTTPError, CondaUpgradeError,
                           NotWritableError, UnavailableInvalidChannel, ProxyError)
@@ -330,7 +330,7 @@ class SubdirData(object):
         return _pickled_state
 
     def _process_raw_repodata_str(self, raw_repodata_str):
-        json_obj = json.loads(raw_repodata_str or '{}')
+        json_obj = json_load(raw_repodata_str or '{}')
 
         subdir = json_obj.get('info', {}).get('subdir') or self.channel.subdir
         assert subdir == self.channel.subdir
@@ -596,11 +596,11 @@ def fetch_repodata_remote_request(url, etag, mod_stamp, repodata_fn=REPODATA_FN)
     # add extra values to the raw repodata json
     if json_str and json_str != "{}":
         raw_repodata_str = u"%s, %s" % (
-            json.dumps(saved_fields)[:-1],  # remove trailing '}'
+            json_dump(saved_fields).strip()[:-1],  # remove trailing '}'
             json_str[1:]  # remove first '{'
         )
     else:
-        raw_repodata_str = ensure_text_type(json.dumps(saved_fields))
+        raw_repodata_str = ensure_text_type(json_dump(saved_fields))
     return raw_repodata_str
 
 
