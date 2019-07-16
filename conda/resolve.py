@@ -314,11 +314,12 @@ class Resolve(object):
                         match = True
 
                 if not match:
-                    classes['direct'].add((tuple(chain), chain[0]))
+                    classes['direct'].add((tuple(chain), str(MatchSpec(chain[0], target=None))))
             else:
                 if len(chain) > 1 or not any(len(c) > 1 and c[0] == chain[0] for c in bad_deps):
                     classes['direct'].add((tuple(chain),
                                            str(MatchSpec(chain[0], target=None))))
+
         if classes['python']:
             # filter out plain single-entry python conflicts.  The python section explains these.
             classes['direct'] = [_ for _ in classes['direct']
