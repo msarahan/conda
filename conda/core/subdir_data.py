@@ -87,9 +87,14 @@ class SubdirData(object):
             package_ref_or_match_spec))
 
         # TODO test timing with ProcessPoolExecutor
-        with ThreadLimitedThreadPoolExecutor() as executor:
-            result = tuple(concat(executor.map(subdir_query, channel_urls)))
-        return result
+        if any('s3://' in url for url in channel_urls):
+            result=[]
+            for url in channel_urls:
+                result.append(subdir_query(url))
+        else:
+            with ThreadLimitedThreadPoolExecutor() as executor:
+                result = executor.map(subdir_query, channel_urls)
+        return tuple(concat(result))
 
     def query(self, package_ref_or_match_spec):
         if not self._loaded:

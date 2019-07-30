@@ -532,19 +532,9 @@ class Solver(object):
         pkg_name = target_prec.name
         no_conflict = (pkg_name not in conflict_specs and
                        (pkg_name not in explicit_pool or
-                        target_prec in explicit_pool[pkg_name]) and
-                       self._compare_pools(ssc, explicit_pool, target_prec.to_match_spec()))
+                        target_prec in explicit_pool[pkg_name]))
 
         return no_conflict
-
-    def _compare_pools(self, ssc, explicit_pool, ms):
-        other_pool = ssc.r._get_package_pool((ms, ))
-        match = True
-        for k in set(other_pool.keys()) & set(explicit_pool.keys()):
-            if not bool(other_pool[k] & explicit_pool[k]):
-                match = False
-                break
-        return match
 
     def _add_specs(self, ssc):
         # For the remaining specs in specs_map, add target to each spec. `target` is a reference
@@ -609,20 +599,13 @@ class Solver(object):
                              "Overriding pinned spec.", s)
 
         if ssc.update_modifier == UpdateModifier.FREEZE_INSTALLED:
-            for prec in ssc.prefix_data.iter_records():
-                if prec.name not in ssc.specs_map:
-                    if (prec.name not in conflict_specs and
-                            (prec.name not in explicit_pool or
-                             prec in explicit_pool[prec.name]) and
-                            # because it's not just immediate deps, but also
-                            # upstream things that matter, we must ensure
-                            # overlap for dependencies of things that have
-                            # otherwise passed our tests
-                            self._compare_pools(ssc, explicit_pool, prec.to_match_spec())):
-                        ssc.specs_map[prec.name] = prec.to_match_spec()
-                    else:
-                        ssc.specs_map[prec.name] = MatchSpec(
-                            prec.name, target=prec.to_match_spec(), optional=True)
+            precs = [_ for _ in ssc.prefix_data.iter_records() if prec not in ssc.specs_map]
+            for prec in precs:
+                if prec.name not in conflict_specs:
+                    ssc.specs_map[prec.name] = prec.to_match_spec()
+                else:
+                    ssc.specs_map[prec.name] = MatchSpec(
+                        prec.name, target=prec.to_match_spec(), optional=True)
         log.debug("specs_map with targets: %s", ssc.specs_map)
 
         # If we're in UPDATE_ALL mode, we need to drop all the constraints attached to specs,
@@ -654,21 +637,16 @@ class Solver(object):
                                       )
 
         elif ssc.update_modifier == UpdateModifier.UPDATE_SPECS:
-            for spec in self.specs_to_add:
-                spec = MatchSpec(spec)
-                if (spec.name in pin_overrides and not ssc.ignore_pinned
-                        or spec.name in ssc.specs_from_history_map):
-                    # skip this spec, because it is constrained by pins
-                    continue
-                ssc.specs_map[spec.name] = spec
-                # the index is sorted, so the first record here gives us what we want.
-                latest_pkg = ssc.r.find_matches(spec)[0]
-                for ms in list(ssc.specs_map.values()):
-                    ms = MatchSpec(ms)
-                    spec_pool = ssc.r._get_package_pool([ms])
-                    if spec_pool.get(spec.name) and latest_pkg not in spec_pool[spec.name]:
-                        # neuter the spec due to a conflict
-                        ssc.specs_map[ms.name] = MatchSpec(ms.name)
+            skip = lambda x: (x.name in pin_overrides and not ssc.ignore_pinned
+                              or x.name in ssc.specs_from_history_map)
+            specs_to_add = [_ for _ in self.specs_to_add if not skip(_)]
+            # the index is sorted, so the first record here gives us what we want.
+            conflicts = ssc.r.get_conflicting_specs(specs_to_add +
+                                                    [MatchSpec(_) for _ in ssc.specs_map.values()])
+            for conflict in conflicts:
+                # neuter the spec due to a conflict
+                if conflict.name in ssc.specs_map:
+                    ssc.specs_map[conflict.name] = MatchSpec(conflict.name)
 
         # As a business rule, we never want to update python beyond the current minor version,
         # unless that's requested explicitly by the user (which we actively discourage).
