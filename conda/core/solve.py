@@ -518,7 +518,8 @@ class Solver(object):
                     has_update = True
                     break
         # let conda determine the latest version by just adding a name spec
-        return MatchSpec(spec.name) if has_update else None
+        return (MatchSpec(spec.name, version=prec.version, build_number=prec.build_number)
+                if has_update else spec)
 
     def _should_freeze(self, ssc, target_prec, conflict_specs, explicit_pool, installed_pool):
         # never, ever freeze anything if we have no history.
@@ -598,8 +599,10 @@ class Solver(object):
                     log.warn("pinned spec %s conflicts with explicit specs.  "
                              "Overriding pinned spec.", s)
 
+        # we want to freeze any packages in the env that are not conflicts, so that the
+        #     solve goes faster.  This is kind of like an iterative solve.
         if ssc.update_modifier == UpdateModifier.FREEZE_INSTALLED:
-            precs = [_ for _ in ssc.prefix_data.iter_records() if prec not in ssc.specs_map]
+            precs = [_ for _ in ssc.prefix_data.iter_records() if _.name not in ssc.specs_map]
             for prec in precs:
                 if prec.name not in conflict_specs:
                     ssc.specs_map[prec.name] = prec.to_match_spec()
@@ -636,10 +639,14 @@ class Solver(object):
                                       for prec in ssc.prefix_data.iter_records()
                                       )
 
+        # ensure that our self.specs_to_add are not being held back by packages in the env.
+        #    This factors in pins and also ignores specs from the history.  It is unfreezing only
+        #    for the indirect specs that otherwise conflict with update of the immediate request
         elif ssc.update_modifier == UpdateModifier.UPDATE_SPECS:
             skip = lambda x: (x.name in pin_overrides and not ssc.ignore_pinned
                               or x.name in ssc.specs_from_history_map)
-            specs_to_add = [_ for _ in self.specs_to_add if not skip(_)]
+            specs_to_add = [self._package_has_updates(ssc, _, installed_pool)
+                            for _ in self.specs_to_add if not skip(_)]
             # the index is sorted, so the first record here gives us what we want.
             conflicts = ssc.r.get_conflicting_specs(specs_to_add +
                                                     [MatchSpec(_) for _ in ssc.specs_map.values()])
