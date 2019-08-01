@@ -6,6 +6,7 @@ from logging import getLogger
 import operator as op
 import re
 
+from .._vendor.auxlib.decorators import memoizedproperty
 from .._vendor.toolz import excepts
 from ..common.compat import string_types, zip, zip_longest, text_type, with_metaclass
 from ..exceptions import InvalidVersionSpec
@@ -574,6 +575,65 @@ class VersionSpec(BaseSpec):  # lgtm [py/missing-equals]
             matcher = self.exact_match
             is_exact = True
         return vspec_str, matcher, is_exact
+
+    def operator_match(self, spec_str):
+        match_str = re.match("([><!]=?)(.*)", spec_str)
+        if match_str:
+            operator = match_str.group(1)
+            version = VersionOrder(match_str.group(2))
+            # these are sorted by likelihood, for whatever small optimization that is
+            if operator == '>=':
+                # if the other thing is saying >= a version (typical lower bound),
+                #    we must have our upper bound be higher than the other thing
+                match = self.upper_bound >= version
+            elif operator == '<':
+                # if the other thing is saying < a version (typical upper bound),
+                #    we must have our lower bound be lower than the other thing
+                match = self.lower_bound < version
+            elif operator == '>':
+                match = self.upper_bound > version
+            elif operator == '<=':
+                match = self.lower_bound <= version
+            elif operator == "!=":
+                match = self.upper_bound != version and self.lower_bound != version
+            else:
+                raise AssertionError("Tried to match operators, but conda doesn't understand "
+                                     "this operator (yet?): '{}'".format(operator))
+        else:
+            match = super(VersionSpec, self).operator_match(spec_str)
+        return match
+
+    @memoizedproperty
+    def lower_bound(self):
+        version = self.spec_str.replace("=", "")
+        match_str = re.match("([><!]=?)(.*)", self.spec_str)
+        if match_str:
+            operator = match_str.group(1)
+            # it's a lower bound
+            if ">" in operator:
+                version = match_str.group(2)
+            # it's an upper bound.  There is no lower bound for this VersionSpec.
+            elif "<" in operator:
+                version = "0"
+            elif "*" in version:
+                version = version.replace('*', 0)
+        return VersionOrder(version)
+
+    @memoizedproperty
+    def upper_bound(self):
+        version = self.spec_str.replace("=", "")
+        match_str = re.match("([><!]=?)(.*)", self.spec_str)
+        if match_str:
+            operator = match_str.group(1)
+            # it's an upper bound
+            if "<" in operator:
+                version = match_str.group(2)
+            # it's a lower bound.  There is no upper bound for this VersionSpec.
+            elif ">" in operator:
+                version = "99999999"
+            elif "*" in version:
+                version = version.replace('*', "99999999")
+        return VersionOrder(version)
 
     def merge(self, other):
         assert isinstance(other, self.__class__)

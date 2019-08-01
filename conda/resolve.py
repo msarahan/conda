@@ -355,33 +355,46 @@ class Resolve(object):
                 bad_deps.extend(group)
         return bad_deps
 
-    def breadth_first_search_by_spec(self, root_spec, target_spec, allowed_specs):
+    def breadth_first_search_by_spec(self, root_spec, target_spec, allowed_records):
         """Return shorted path from root_spec to spec_name"""
-        queue = []
+        queue = deque()
         queue.append([root_spec])
-        visited = []
+        visited = set()
         while queue:
-            path = queue.pop(0)
+            path = queue.popleft()
             node = path[-1]
             if node in visited:
                 continue
-            visited.append(node)
+            visited.add(node)
+
             if node == target_spec:
                 return path
             children = []
-            specs = [_.depends for _ in allowed_specs.get(node.name)] \
-                if node.name in allowed_specs.keys() else None
+            specs = set(concat(_.depends for _ in allowed_records.get(node.name))) \
+                if node.name in allowed_records.keys() else None
             if specs is None:
                 continue
+            specs = groupby(lambda x: x.name, map(MatchSpec, specs))
+
             for deps in specs:
                 children.extend([MatchSpec(d) for d in deps])
-            for adj in children:
-                if adj.name == target_spec.name and adj.version != target_spec.version:
-                    pass
-                else:
-                    new_path = list(path)
-                    new_path.append(adj)
-                    queue.append(new_path)
+            for spec_name, matchspecs in specs.items():
+                # prioritize specs that are less exact.  Exact specs will evaluate to 3,
+                #    constrained specs will evaluate to 2, and name only will be 1
+                # The thought here is to find the first spec in this group that does not
+                #   overlap with the target_spec.
+                matchspecs = sorted(list(matchspecs), key=lambda x: (
+                    exactness_and_number_of_deps(self, x), x.dist_str()))
+                for adj in matchspecs:
+                    if adj.interval_overlaps(target_spec):
+                        # this spec has no issue.  Skip over it.
+                        pass
+                    else:
+                        new_path = list(path)
+                        new_path.append(adj)
+                        queue.append(new_path)
+                        # break out after first match is found - this will be the shortest path
+                        break
 
     def build_conflict_map(self, specs, specs_to_add=None, history_specs=None):
         """Perform a deeper analysis on conflicting specifications, by attempting

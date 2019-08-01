@@ -376,7 +376,8 @@ class MatchSpec(object):
 
     @memoizedproperty
     def _hash_key(self):
-        return self._match_components, self.optional, self.target
+        # return self._match_components, self.optional, self.target
+        return self._match_components, self.target
 
     def __contains__(self, field):
         return field in self._match_components
@@ -498,6 +499,16 @@ class MatchSpec(object):
                     final = this_component.merge(that_component)
                 final_components[component_name] = final
         return self.__class__(optional=self.optional, target=self.target, **final_components)
+
+    def interval_overlaps(self, other):
+        overlap = True
+        # normal bounds
+        overlap &= self.lower_bound <= other.lower_bound
+        overlap &= self.upper_bound >= other.upper_bound
+        # exact specs
+        # "not equal to" specs
+        # compatible specs?
+        return overlap
 
 
 def _parse_version_plus_build(v_plus_b):
